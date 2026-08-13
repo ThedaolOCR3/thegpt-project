@@ -21,6 +21,7 @@ def to_user_response(user: Users) -> UserResponse:
         is_email_verified=bool(user.is_email_verified),
         # DB에 관리자 컬럼이 없는 환경에서는 일반 사용자로 처리합니다.
         is_admin=bool(getattr(user, "is_admin", False)),
+        created_at=user.created_at,
     )
 
 

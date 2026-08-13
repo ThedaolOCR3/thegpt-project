@@ -27,6 +27,7 @@
 .profile-panel p { color: var(--mypage-muted); }
 .profile-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 28px 0; }
 .profile-form label { display: grid; gap: 7px; color: var(--mypage-muted); font-size: 14px; }
+.password-change-field { display: grid; align-content: start; gap: 7px; color: var(--mypage-muted); font-size: 14px; }
 .email-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .verification-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
 .verification-status.verified { color: #16a34a; }
@@ -34,7 +35,23 @@
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent); }
 .profile-form input { min-height: 44px; padding: 0 12px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-field-bg); font: inherit; }
 .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.logout-button, .password-change-button { padding: 11px 18px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-button-bg); cursor: pointer; }
-.password-change-button { color: white; background: #1d7a72; border-color: #1d7a72; }
+.logout-button, .password-change-button { min-height: 44px; padding: 0 18px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-button-bg); cursor: pointer; }
+.password-change-button { width: 100%; color: white; background: #1d7a72; border-color: #1d7a72; }
 .logout-button:hover { border-color: #737373; }
+.mypage-section { margin-top: 36px; padding-top: 26px; border-top: 1px solid var(--mypage-border); }
+.mypage-section h2 { margin: 0 0 18px; color: var(--mypage-text); font-size: 18px; }
+.summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.summary-grid article { display: grid; gap: 9px; padding: 18px; background: var(--mypage-field-bg); border: 1px solid var(--mypage-border); border-radius: 12px; }
+.summary-grid span { color: var(--mypage-muted); font-size: 13px; }
+.summary-grid strong { color: var(--mypage-text); font-size: 18px; }
+.setting-field { display: grid; gap: 8px; color: var(--mypage-muted); font-size: 14px; }
+.setting-field select { min-height: 44px; padding: 0 12px; color: var(--mypage-text); background: var(--mypage-field-bg); border: 1px solid var(--mypage-border); border-radius: 9px; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-actions h2 { width: 100%; }
+.delete-account-button, .consultation-delete-button, .delete-confirm-button { min-height: 44px; padding: 0 18px; color: #dc2626; background: transparent; border: 1px solid #dc2626; border-radius: 9px; font-weight: 700; cursor: pointer; }
+.consultation-delete-button { color: #b45309; border-color: #b45309; }
+.delete-confirm-button { color: white; background: #dc2626; }
+.delete-warning { margin: 20px 0 0; color: #dc2626; font-size: 14px; line-height: 1.6; }
+.consultation-delete-actions { margin-top: 24px; }
 @media (max-width: 640px) { .profile-form { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .summary-grid { grid-template-columns: 1fr; } }
