@@ -69,10 +69,14 @@ export function CursorFxProvider({ children }: { children: ReactNode }) {
       const altOnly = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
       if (!altOnly) return;
 
-      if (event.key.toLowerCase() === 'd') {
+      // event.key가 아니라 event.code로 판정한다. macOS는 Option(=Alt)을 누른 채
+      // D/S를 치면 event.key가 "d"/"s"가 아니라 "∂"/"ß" 같은 특수문자로 나온다
+      // (Option이 죽은키/유니코드 입력을 겸하기 때문). event.code는 물리적 키 위치를
+      // 그대로 보고하므로 Windows/Mac 어느 키보드/레이아웃에서도 동일하게 동작한다.
+      if (event.code === 'KeyD') {
         event.preventDefault();
         setDropdownOpen((open) => !open);
-      } else if (event.key.toLowerCase() === 's') {
+      } else if (event.code === 'KeyS') {
         event.preventDefault();
         toggleEnabled();
       }
