@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   SquarePen,
   User,
+  LogOut,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -19,7 +20,7 @@ type FilterMode = 'all' | 'category';
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const isLoggedIn = Boolean(user);
   const navigate = useNavigate();
   const { conversationId } = useParams();
@@ -56,7 +57,14 @@ export function Sidebar() {
 
   function goToProfile() {
     if (isLoading) return;
+    // 비로그인 사용자가 로그인 버튼을 누른 경우에만 사이드바를 접습니다.
+    if (!isLoggedIn && !collapsed) toggle();
     navigate(isLoggedIn ? '/mypage' : '/login');
+  }
+
+  function handleLogout() {
+    logout();
+    navigate('/');
   }
 
   if (collapsed) {
@@ -92,7 +100,9 @@ export function Sidebar() {
             onClick={goToProfile}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
           >
-            <User size={16} />
+            {user?.profile_image_url
+              ? <img src={user.profile_image_url} alt="" className="h-full w-full rounded-full object-cover" />
+              : <User size={16} />}
           </button>
         </div>
       </aside>
@@ -198,20 +208,35 @@ export function Sidebar() {
         })}
       </div>
 
-      <button
-        type="button"
-        title={isLoggedIn ? '마이페이지로 이동' : '로그인하러 가기'}
-        onClick={goToProfile}
-        disabled={isLoading}
-        className="flex items-center gap-2 border-t border-neutral-200 px-4 py-3 text-left hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300">
-          <User size={16} />
-        </span>
-        <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
-          {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
-        </span>
-      </button>
+      <div className="flex items-center border-t border-neutral-200 dark:border-neutral-800">
+        <button
+          type="button"
+          title={isLoggedIn ? '마이페이지로 이동' : '로그인하러 가기'}
+          onClick={goToProfile}
+          disabled={isLoading}
+          className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300">
+            {user?.profile_image_url
+              ? <img src={user.profile_image_url} alt="" className="h-full w-full rounded-full object-cover" />
+              : <User size={16} />}
+          </span>
+          <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
+            {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
+          </span>
+        </button>
+        {user && (
+          <button
+            type="button"
+            title="로그아웃"
+            aria-label="로그아웃"
+            onClick={handleLogout}
+            className="mr-3 rounded-lg p-2 text-neutral-400 hover:bg-neutral-200 hover:text-red-500 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-red-400"
+          >
+            <LogOut size={17} />
+          </button>
+        )}
+      </div>
     </aside>
   );
 }

@@ -4,8 +4,7 @@ import { ThemeToggle } from '../Theme/ThemeToggle';
 import { DocumentPreviewProvider, useDocumentPreview } from '../Chat/DocumentPreviewContext';
 import { DocumentPreviewPanel } from '../Chat/DocumentPreviewPanel';
 
-// 메인 화면(/)과 채팅 화면(/chat/:id), 마이페이지(/mypage)가 공유하는 레이아웃.
-// 기존 상단 nav 기반 AppLayout(로그인/문서/OCR/검색/평가/관리자용)은 그대로 두고 건드리지 않음.
+// 메인, 인증, 채팅, 마이페이지가 공유하는 단일 사이드바 레이아웃입니다.
 //
 // Sidebar / 본문(main) / 문서 미리보기 패널을 같은 레벨의 형제로 둔다.
 // 패널을 main 안쪽에 중첩시키면 우측 상단 다크모드 토글처럼 top-right에
