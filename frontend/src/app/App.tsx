@@ -1,4 +1,5 @@
 import { RouterProvider } from 'react-router-dom';
+import { AuthProvider } from '../features/auth/AuthProvider';
 import { router } from './router';
 import { ThemeProvider } from '../components/Theme/ThemeContext';
 import { AuthProvider } from '../components/Auth/AuthContext';
