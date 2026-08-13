@@ -2,7 +2,7 @@ substitutions:
   _REGION: asia-northeast3
   _REPOSITORY: cloud-run-source-deploy
   _IMAGE: backend
-  _SERVICE: backend
+  _SERVICE: the-gpt-dev
 
 steps:
   # 1. Docker 이미지 빌드
