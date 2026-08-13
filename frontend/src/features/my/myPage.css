@@ -1,12 +1,33 @@
-.my-page { width: min(900px, 100%); margin: 0 auto; }
-.my-page header p { margin: 0; color: #9c9486; font-size: 13px; font-weight: 800; }
-.my-page header h1 { margin: 8px 0 32px; }
-.profile-panel { display: flex; gap: 18px; align-items: center; padding: 28px 0; border-bottom: 1px solid #ddd8ce; }
-.profile-image { width: 72px; height: 72px; display: grid; place-items: center; border: 1px dashed #bdb5a8; border-radius: 14px; font-size: 34px; }
+.my-page {
+  --mypage-text: #292722;
+  --mypage-muted: #777166;
+  --mypage-border: #ddd8ce;
+  --mypage-field-bg: #faf9f6;
+  --mypage-button-bg: #fff;
+  width: min(900px, 100%);
+  margin: 0 auto;
+  color: var(--mypage-text);
+}
+
+/* ThemeProvider가 <html>에 붙이는 dark 클래스를 기준으로 색상을 전환합니다. */
+.dark .my-page {
+  --mypage-text: #f5f5f5;
+  --mypage-muted: #b7b7b7;
+  --mypage-border: #404040;
+  --mypage-field-bg: #262626;
+  --mypage-button-bg: #262626;
+}
+
+.my-page header p { margin: 0; color: var(--mypage-muted); font-size: 13px; font-weight: 800; }
+.my-page header h1 { margin: 8px 0 32px; color: var(--mypage-text); }
+.profile-panel { display: flex; gap: 18px; align-items: center; padding: 28px 0; border-bottom: 1px solid var(--mypage-border); }
+.profile-image { width: 72px; height: 72px; display: grid; place-items: center; border: 1px dashed var(--mypage-border); border-radius: 14px; font-size: 34px; }
 .profile-panel h2, .profile-panel p { margin: 3px 0; }
-.profile-panel p { color: #777166; }
+.profile-panel h2 { color: var(--mypage-text); }
+.profile-panel p { color: var(--mypage-muted); }
 .profile-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 28px 0; }
-.profile-form label { display: grid; gap: 7px; color: #686258; font-size: 14px; }
-.profile-form input { min-height: 44px; padding: 0 12px; border: 1px solid #d8d3c9; border-radius: 9px; background: #faf9f6; font: inherit; }
-.logout-button { padding: 11px 18px; border: 1px solid #d8d3c9; border-radius: 9px; background: white; cursor: pointer; }
+.profile-form label { display: grid; gap: 7px; color: var(--mypage-muted); font-size: 14px; }
+.profile-form input { min-height: 44px; padding: 0 12px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-field-bg); font: inherit; }
+.logout-button { padding: 11px 18px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-button-bg); cursor: pointer; }
+.logout-button:hover { border-color: #737373; }
 @media (max-width: 640px) { .profile-form { grid-template-columns: 1fr; } }

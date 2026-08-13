@@ -56,6 +56,8 @@ export function Sidebar() {
 
   function goToProfile() {
     if (isLoading) return;
+    // 비로그인 사용자가 로그인 버튼을 누른 경우에만 사이드바를 접습니다.
+    if (!isLoggedIn && !collapsed) toggle();
     navigate(isLoggedIn ? '/mypage' : '/login');
   }
 
