@@ -10,7 +10,7 @@ steps:
     args:
       - build
       - -f
-      - backend/Dockerfile
+      - backend/dockerfile
       - -t
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$COMMIT_SHA'
       - backend
