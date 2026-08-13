@@ -1,3 +1,3 @@
-from app.core.database import Base
+from app.models.generated import Base
 
 __all__ = ["Base"]

@@ -22,3 +22,13 @@ uvicorn app.main:app --reload
 alembic revision --autogenerate -m "create tables"
 alembic upgrade head
 ```
+
+## 기존 Neon 스키마에서 모델 생성
+
+```bash
+pip install -r requirements-dev.txt
+python scripts/generate_models.py
+```
+
+생성 결과는 `app/models/generated.py`에 저장됩니다. 생성된 모델을 검토한 후
+`app/models/__init__.py`에서 import하면 Alembic이 해당 모델을 인식합니다.

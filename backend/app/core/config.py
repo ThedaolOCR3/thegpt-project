@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173"]
     database_url: str = "sqlite:///./local.db"
+    model_schemas: str = "app_db,vector_db"
 
     @property
     def sqlalchemy_database_url(self) -> str:
