@@ -1,6 +1,6 @@
 substitutions:
   _REGION: asia-northeast3
-  _REPOSITORY: backend
+  _REPOSITORY: cloud-run-source-deploy
   _IMAGE: backend
   _SERVICE: backend
 
