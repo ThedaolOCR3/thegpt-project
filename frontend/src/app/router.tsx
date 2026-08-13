@@ -3,12 +3,14 @@ import { AppLayout } from '../components/AppLayout';
 import { LoginPage } from '../features/auth/login';
 import { SignupPage } from '../features/auth/signup';
 import { VerifyEmailPage } from '../features/auth/verify';
+import { RequireAuth } from '../features/auth/RequireAuth';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
 import { DocumentPage } from '../features/document';
 import { EvaluationPage } from '../features/evaluation';
 import { OcrPage } from '../features/ocr';
 import { SearchPage } from '../features/search';
+import { MyPage } from '../features/my';
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,10 @@ export const router = createBrowserRouter([
       { path: '/search', element: <SearchPage /> },
       { path: '/evaluation', element: <EvaluationPage /> },
       { path: '/admin', element: <AdminPage /> },
+      {
+        element: <RequireAuth />,
+        children: [{ path: '/my', element: <MyPage /> }],
+      },
     ],
   },
 ]);
