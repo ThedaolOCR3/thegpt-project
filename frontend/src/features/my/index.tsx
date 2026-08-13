@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { PasswordChangeModal } from './password-change/PasswordChangeModal';
+import { ProfileImageUploader } from './profile-image/ProfileImageUploader';
 import './myPage.css';
 
 export function MyPage() {
@@ -18,7 +19,7 @@ export function MyPage() {
     <section className="my-page overflow-y-auto p-8">
       <header><p>MY PAGE</p><h1>마이 페이지</h1></header>
       <div className="profile-panel">
-        <div className="profile-image" aria-hidden="true">👤</div>
+        <ProfileImageUploader />
         <div><h2>프로필</h2><p>회원가입 시 입력한 계정 정보입니다.</p></div>
       </div>
       <div className="profile-form">

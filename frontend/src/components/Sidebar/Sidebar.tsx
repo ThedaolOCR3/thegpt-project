@@ -100,7 +100,9 @@ export function Sidebar() {
             onClick={goToProfile}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
           >
-            <User size={16} />
+            {user?.profile_image_url
+              ? <img src={user.profile_image_url} alt="" className="h-full w-full rounded-full object-cover" />
+              : <User size={16} />}
           </button>
         </div>
       </aside>
@@ -215,7 +217,9 @@ export function Sidebar() {
           className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300">
-            <User size={16} />
+            {user?.profile_image_url
+              ? <img src={user.profile_image_url} alt="" className="h-full w-full rounded-full object-cover" />
+              : <User size={16} />}
           </span>
           <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
             {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
