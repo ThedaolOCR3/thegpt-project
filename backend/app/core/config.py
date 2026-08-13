@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     database_url: str = "sqlite:///./local.db"
     model_schemas: str = "app_db,vector_db"
+    jwt_secret_key: str = "change-this-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
 
     @property
     def sqlalchemy_database_url(self) -> str:
