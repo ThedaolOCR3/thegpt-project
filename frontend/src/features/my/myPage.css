@@ -27,7 +27,14 @@
 .profile-panel p { color: var(--mypage-muted); }
 .profile-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 28px 0; }
 .profile-form label { display: grid; gap: 7px; color: var(--mypage-muted); font-size: 14px; }
+.email-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.verification-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+.verification-status.verified { color: #16a34a; }
+.verification-status.unverified { color: #dc2626; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent); }
 .profile-form input { min-height: 44px; padding: 0 12px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-field-bg); font: inherit; }
-.logout-button { padding: 11px 18px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-button-bg); cursor: pointer; }
+.profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.logout-button, .password-change-button { padding: 11px 18px; color: var(--mypage-text); border: 1px solid var(--mypage-border); border-radius: 9px; background: var(--mypage-button-bg); cursor: pointer; }
+.password-change-button { color: white; background: #1d7a72; border-color: #1d7a72; }
 .logout-button:hover { border-color: #737373; }
 @media (max-width: 640px) { .profile-form { grid-template-columns: 1fr; } }

@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { PasswordChangeModal } from './password-change/PasswordChangeModal';
 import './myPage.css';
 
 export function MyPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -19,11 +22,22 @@ export function MyPage() {
         <div><h2>프로필</h2><p>회원가입 시 입력한 계정 정보입니다.</p></div>
       </div>
       <div className="profile-form">
-        <label>이메일<input value={user?.email ?? ''} readOnly /></label>
-        <label>이메일 인증<input value={user?.is_email_verified ? '인증 완료' : '미인증'} readOnly /></label>
-        <label>사용자 ID<input value={user?.id ?? ''} readOnly /></label>
+        <label>
+          <span className="email-label">
+            이메일
+            <span className={user?.is_email_verified ? 'verification-status verified' : 'verification-status unverified'}>
+              <span className="status-dot" aria-hidden="true" />
+              {user?.is_email_verified ? '( 인증된 유저 )' : '( 인증이 안된 유저 )'}
+            </span>
+          </span>
+          <input value={user?.email ?? ''} readOnly />
+        </label>
       </div>
-      <button className="logout-button" onClick={handleLogout}>로그아웃</button>
+      <div className="profile-actions">
+        <button className="password-change-button" onClick={() => setIsPasswordModalOpen(true)}>비밀번호 변경</button>
+        <button className="logout-button" onClick={handleLogout}>로그아웃</button>
+      </div>
+      {isPasswordModalOpen && <PasswordChangeModal onClose={() => setIsPasswordModalOpen(false)} />}
     </section>
   );
 }
