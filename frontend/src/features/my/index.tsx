@@ -12,7 +12,7 @@ export function MyPage() {
   };
 
   return (
-    <section className="my-page">
+    <section className="my-page overflow-y-auto p-8">
       <header><p>MY PAGE</p><h1>마이 페이지</h1></header>
       <div className="profile-panel">
         <div className="profile-image" aria-hidden="true">👤</div>
@@ -21,8 +21,7 @@ export function MyPage() {
       <div className="profile-form">
         <label>이메일<input value={user?.email ?? ''} readOnly /></label>
         <label>이메일 인증<input value={user?.is_email_verified ? '인증 완료' : '미인증'} readOnly /></label>
-        <label>구독 등급<input value="free" readOnly /></label>
-        <label>계정 권한<input value={user?.is_admin ? '관리자' : '일반 사용자'} readOnly /></label>
+        <label>사용자 ID<input value={user?.id ?? ''} readOnly /></label>
       </div>
       <button className="logout-button" onClick={handleLogout}>로그아웃</button>
     </section>

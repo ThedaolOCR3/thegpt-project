@@ -10,7 +10,7 @@ import {
   User,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
-import { useAuth } from '../Auth/AuthContext';
+import { useAuth } from '../../features/auth/AuthContext';
 import { HistoryItem } from './HistoryItem';
 import { getConversations, renameConversation, deleteConversation } from '../../api/conversations';
 import type { Conversation } from '../../api/types';
@@ -19,7 +19,8 @@ type FilterMode = 'all' | 'category';
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
-  const { isLoggedIn, userId } = useAuth();
+  const { user, isLoading } = useAuth();
+  const isLoggedIn = Boolean(user);
   const navigate = useNavigate();
   const { conversationId } = useParams();
 
@@ -54,6 +55,7 @@ export function Sidebar() {
   }
 
   function goToProfile() {
+    if (isLoading) return;
     navigate(isLoggedIn ? '/mypage' : '/login');
   }
 
@@ -86,6 +88,7 @@ export function Sidebar() {
             type="button"
             title={isLoggedIn ? '마이페이지' : '로그인'}
             aria-label={isLoggedIn ? '마이페이지' : '로그인'}
+            disabled={isLoading}
             onClick={goToProfile}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
           >
@@ -199,12 +202,15 @@ export function Sidebar() {
         type="button"
         title={isLoggedIn ? '마이페이지로 이동' : '로그인하러 가기'}
         onClick={goToProfile}
+        disabled={isLoading}
         className="flex items-center gap-2 border-t border-neutral-200 px-4 py-3 text-left hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-800"
       >
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300">
           <User size={16} />
         </span>
-        <span className="text-sm text-neutral-700 dark:text-neutral-200">아이디: {userId}</span>
+        <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
+          {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
+        </span>
       </button>
     </aside>
   );

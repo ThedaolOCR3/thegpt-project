@@ -10,7 +10,6 @@ import { RequireAuth } from '../features/auth/RequireAuth';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
 import { ChatPage } from '../features/chat';
-import { MyPage } from '../features/mypage';
 import { DocumentPage } from '../features/document';
 import { EvaluationPage } from '../features/evaluation';
 import { OcrPage } from '../features/ocr';
@@ -24,7 +23,11 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <ConsultationPage /> },
       { path: '/chat/:conversationId', element: <ChatPage /> },
-      { path: '/mypage', element: <MyPage /> },
+      {
+        // 로그인한 사용자만 사이드바 마이페이지에 접근할 수 있습니다.
+        element: <RequireAuth />,
+        children: [{ path: '/mypage', element: <MyPage /> }],
+      },
     ],
   },
   {
@@ -41,10 +44,7 @@ export const router = createBrowserRouter([
       { path: '/search', element: <SearchPage /> },
       { path: '/evaluation', element: <EvaluationPage /> },
       { path: '/admin', element: <AdminPage /> },
-      {
-        element: <RequireAuth />,
-        children: [{ path: '/my', element: <MyPage /> }],
-      },
+      { path: '/my', element: <RequireAuth />, children: [{ index: true, element: <MyPage /> }] },
     ],
   },
 ]);
