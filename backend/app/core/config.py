@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     app_env: str = "local"
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173"]
+    database_url: str = "sqlite:///./local.db"
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return self.database_url
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -18,4 +25,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-
