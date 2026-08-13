@@ -10,3 +10,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Claude Code project instructions (로컬 전용, 공유 저장소에는 올리지 않음)
+/CLAUDE.md
