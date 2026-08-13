@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { LoginPage } from '../features/auth/login';
 import { SignupPage } from '../features/auth/signup';
+import { VerifyEmailPage } from '../features/auth/verify';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
 import { DocumentPage } from '../features/document';
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <ConsultationPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/document', element: <DocumentPage /> },
       { path: '/consultation', element: <ConsultationPage /> },
       { path: '/ocr', element: <OcrPage /> },
@@ -25,4 +27,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

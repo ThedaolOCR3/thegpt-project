@@ -32,3 +32,7 @@ python scripts/generate_models.py
 
 생성 결과는 `app/models/generated.py`에 저장됩니다. 생성된 모델을 검토한 후
 `app/models/__init__.py`에서 import하면 Alembic이 해당 모델을 인식합니다.
+
+## 로그인과 이메일 인증
+
+SMTP 및 이메일 인증의 자세한 흐름은 `docs/email-verification.md`를 참고하세요.
