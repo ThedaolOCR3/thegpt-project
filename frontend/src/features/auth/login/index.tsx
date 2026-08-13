@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { AuthCard } from '../components/AuthCard';
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,9 +17,8 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      // 보호 페이지에서 로그인 화면으로 왔다면 원래 위치로 돌아갑니다.
-      const next = (location.state as { from?: string } | null)?.from ?? '/my';
-      navigate(next, { replace: true });
+      // 로그인에 성공하면 항상 메인 페이지로 이동합니다.
+      navigate('/', { replace: true });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '로그인에 실패했습니다.');
     } finally {

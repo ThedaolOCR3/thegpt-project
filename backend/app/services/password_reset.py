@@ -51,7 +51,20 @@ class PasswordResetService:
             dev_reset_url=None if sent or email_settings.app_env == "production" else reset_url,
         )
 
+    def validate_token(self, token: str) -> PasswordResetMessage:
+        """페이지 진입 시 토큰의 만료 및 사용 여부를 미리 확인합니다."""
+        self._get_user_from_token(token)
+        return PasswordResetMessage(message="사용 가능한 재설정 링크입니다.")
+
     def reset_password(self, token: str, new_password: str) -> PasswordResetMessage:
+        user = self._get_user_from_token(token)
+        user.password_hash = password_hash.hash(new_password)
+        user.updated_at = datetime.now(UTC)
+        self.repository.save()
+        return PasswordResetMessage(message="비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.")
+
+    def _get_user_from_token(self, token: str):
+        """토큰 검증을 진입 확인과 실제 변경에서 동일하게 사용합니다."""
         try:
             payload = jwt.decode(
                 token,
@@ -64,11 +77,11 @@ class PasswordResetService:
         if payload.get("purpose") != "password_reset":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "잘못된 재설정 링크입니다.")
 
-        user = self.repository.find_by_id(payload.get("sub", ""))
+        try:
+            user = self.repository.find_by_id(payload.get("sub", ""))
+        except (TypeError, ValueError):
+            user = None
         if not user or payload.get("pwd") != _password_fingerprint(user.password_hash):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "이미 사용했거나 유효하지 않은 링크입니다.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "재설정 링크가 만료되었거나 이미 사용됐습니다.")
 
-        user.password_hash = password_hash.hash(new_password)
-        user.updated_at = datetime.now(UTC)
-        self.repository.save()
-        return PasswordResetMessage(message="비밀번호가 변경됐습니다. 새 비밀번호로 로그인해주세요.")
+        return user

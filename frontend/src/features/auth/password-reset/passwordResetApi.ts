@@ -12,4 +12,7 @@ export const passwordResetApi = {
   reset: (token: string, newPassword: string) => apiClient<PasswordResetMessage>('/auth/reset-password', {
     method: 'POST', body: JSON.stringify({ token, new_password: newPassword }),
   }),
+  validate: (token: string) => apiClient<PasswordResetMessage>('/auth/validate-reset-token', {
+    method: 'POST', body: JSON.stringify({ token }),
+  }),
 };
