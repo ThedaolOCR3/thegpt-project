@@ -4,14 +4,25 @@ body {
 }
 
 main {
-  padding: 24px;
+  padding: 40px 24px;
 }
 
-nav {
+.app-header {
+  min-height: 72px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 0 24px;
   border-bottom: 1px solid #ddd;
 }
 
+.app-logo { margin-right: 20px; color: #181713; font-size: 20px; font-weight: 800; text-decoration: none; }
+.app-header nav { flex: 1; display: flex; flex-wrap: wrap; gap: 16px; }
+.app-header nav a { color: #6d675e; text-decoration: none; }
+.app-header nav a.active { color: #176c64; font-weight: 700; }
+.route-loading { padding: 48px; text-align: center; }
+
+@media (max-width: 720px) {
+  .app-header nav { display: none; }
+  .app-logo { flex: 1; }
+}

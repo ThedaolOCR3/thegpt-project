@@ -2,12 +2,17 @@ import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { LoginPage } from '../features/auth/login';
 import { SignupPage } from '../features/auth/signup';
+import { VerifyEmailPage } from '../features/auth/verify';
+import { ForgotPasswordPage } from '../features/auth/password-reset/ForgotPasswordPage';
+import { ResetPasswordPage } from '../features/auth/password-reset/ResetPasswordPage';
+import { RequireAuth } from '../features/auth/RequireAuth';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
 import { DocumentPage } from '../features/document';
 import { EvaluationPage } from '../features/evaluation';
 import { OcrPage } from '../features/ocr';
 import { SearchPage } from '../features/search';
+import { MyPage } from '../features/my';
 
 export const router = createBrowserRouter([
   {
@@ -16,13 +21,19 @@ export const router = createBrowserRouter([
       { path: '/', element: <ConsultationPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '/document', element: <DocumentPage /> },
       { path: '/consultation', element: <ConsultationPage /> },
       { path: '/ocr', element: <OcrPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/evaluation', element: <EvaluationPage /> },
       { path: '/admin', element: <AdminPage /> },
+      {
+        element: <RequireAuth />,
+        children: [{ path: '/my', element: <MyPage /> }],
+      },
     ],
   },
 ]);
-

@@ -39,9 +39,7 @@ class Users(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(String(255))
     profile_image_url: Mapped[Optional[str]] = mapped_column(String(500))
     auth_provider: Mapped[Optional[str]] = mapped_column(String(30), server_default=text("'local'::character varying"))
-    subscription_level: Mapped[Optional[str]] = mapped_column(String(30), server_default=text("'free'::character varying"))
     is_email_verified: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text('false'))
-    is_admin: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text('false'))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
 
