@@ -36,3 +36,5 @@ python scripts/generate_models.py
 ## 로그인과 이메일 인증
 
 SMTP 및 이메일 인증의 자세한 흐름은 `docs/email-verification.md`를 참고하세요.
+
+비밀번호 재설정 링크 발송과 토큰 처리 흐름은 `docs/password-reset.md`를 참고하세요.

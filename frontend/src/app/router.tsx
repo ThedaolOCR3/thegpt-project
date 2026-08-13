@@ -3,6 +3,8 @@ import { AppLayout } from '../components/AppLayout';
 import { LoginPage } from '../features/auth/login';
 import { SignupPage } from '../features/auth/signup';
 import { VerifyEmailPage } from '../features/auth/verify';
+import { ForgotPasswordPage } from '../features/auth/password-reset/ForgotPasswordPage';
+import { ResetPasswordPage } from '../features/auth/password-reset/ResetPasswordPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/signup', element: <SignupPage /> },
       { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '/document', element: <DocumentPage /> },
       { path: '/consultation', element: <ConsultationPage /> },
       { path: '/ocr', element: <OcrPage /> },

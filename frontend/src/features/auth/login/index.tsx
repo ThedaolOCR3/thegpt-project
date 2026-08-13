@@ -33,6 +33,7 @@ export function LoginPage() {
       <form className="auth-form" onSubmit={submit}>
         <div className="auth-field"><label htmlFor="login-email">이메일</label><input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
         <div className="auth-field"><label htmlFor="login-password">비밀번호</label><input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+        <div className="password-help"><Link to="/forgot-password">비밀번호를 잊으셨나요?</Link></div>
         {error && <p className="form-error">{error}</p>}
         <button className="auth-button" disabled={isSubmitting}>{isSubmitting ? '로그인 중...' : '로그인'}</button>
       </form>
