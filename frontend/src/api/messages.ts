@@ -1,5 +1,5 @@
 import { apiClient } from '../services/apiClient';
-import { getChatToken } from '../features/auth/guestSession';
+import { withChatToken } from '../features/auth/guestSession';
 import type { Message } from './types';
 
 interface MessageDto {
@@ -14,8 +14,9 @@ function toMessage(dto: MessageDto): Message {
 }
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  const token = await getChatToken();
-  const list = await apiClient<MessageDto[]>(`/conversations/${conversationId}/messages`, { token });
+  const list = await withChatToken((token) =>
+    apiClient<MessageDto[]>(`/conversations/${conversationId}/messages`, { token }),
+  );
   return list.map(toMessage);
 }
 
@@ -31,11 +32,12 @@ export async function sendMessage(
   content: string,
   files?: File[],
 ): Promise<Message> {
-  const token = await getChatToken();
-  const dto = await apiClient<MessageDto>(`/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    token,
-    body: JSON.stringify({ content }),
-  });
+  const dto = await withChatToken((token) =>
+    apiClient<MessageDto>(`/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ content }),
+    }),
+  );
   return toMessage(dto);
 }

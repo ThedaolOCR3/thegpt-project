@@ -1,5 +1,5 @@
 import { apiClient } from '../services/apiClient';
-import { getChatToken } from '../features/auth/guestSession';
+import { withChatToken } from '../features/auth/guestSession';
 import type { Conversation } from './types';
 
 // 백엔드 응답은 DB 컬럼명 그대로 snake_case로 온다 (app/schemas/conversation.py 참고).
@@ -23,27 +23,27 @@ function toConversation(dto: ConversationDto): Conversation {
 }
 
 export async function getConversations(): Promise<Conversation[]> {
-  const token = await getChatToken();
-  const list = await apiClient<ConversationDto[]>('/conversations', { token });
+  const list = await withChatToken((token) => apiClient<ConversationDto[]>('/conversations', { token }));
   return list.map(toConversation);
 }
 
 export async function createConversation(): Promise<Conversation> {
-  const token = await getChatToken();
-  const dto = await apiClient<ConversationDto>('/conversations', { method: 'POST', token });
+  const dto = await withChatToken((token) =>
+    apiClient<ConversationDto>('/conversations', { method: 'POST', token }),
+  );
   return toConversation(dto);
 }
 
 export async function renameConversation(id: string, title: string): Promise<void> {
-  const token = await getChatToken();
-  await apiClient(`/conversations/${id}`, {
-    method: 'PATCH',
-    token,
-    body: JSON.stringify({ title }),
-  });
+  await withChatToken((token) =>
+    apiClient(`/conversations/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify({ title }),
+    }),
+  );
 }
 
 export async function deleteConversation(id: string): Promise<void> {
-  const token = await getChatToken();
-  await apiClient(`/conversations/${id}`, { method: 'DELETE', token });
+  await withChatToken((token) => apiClient(`/conversations/${id}`, { method: 'DELETE', token }));
 }

@@ -1,10 +1,24 @@
-import { apiClient } from '../../services/apiClient';
+import { ApiError, apiClient } from '../../services/apiClient';
 import { authStorage } from './authStorage';
 import type { LoginResponse } from './types';
 
 const GUEST_TOKEN_KEY = 'thegpt_guest_token';
 
 let inFlight: Promise<string> | null = null;
+
+function requestGuestToken(): Promise<string> {
+  if (!inFlight) {
+    inFlight = apiClient<LoginResponse>('/auth/guest', { method: 'POST' })
+      .then((response) => {
+        localStorage.setItem(GUEST_TOKEN_KEY, response.access_token);
+        return response.access_token;
+      })
+      .finally(() => {
+        inFlight = null;
+      });
+  }
+  return inFlight;
+}
 
 /**
  * 채팅 API 호출에 쓸 토큰을 가져온다.
@@ -19,15 +33,26 @@ export async function getChatToken(): Promise<string> {
   const cachedGuestToken = localStorage.getItem(GUEST_TOKEN_KEY);
   if (cachedGuestToken) return cachedGuestToken;
 
-  if (!inFlight) {
-    inFlight = apiClient<LoginResponse>('/auth/guest', { method: 'POST' })
-      .then((response) => {
-        localStorage.setItem(GUEST_TOKEN_KEY, response.access_token);
-        return response.access_token;
-      })
-      .finally(() => {
-        inFlight = null;
-      });
+  return requestGuestToken();
+}
+
+/**
+ * 채팅 API 호출을 감싸서, 캐시해둔 게스트 토큰이 더 이상 유효하지 않을 때
+ * (게스트 계정 만료/서버측 정리 등으로 401이 나는 경우) 자동으로 새 게스트
+ * 세션을 발급받아 한 번 재시도한다. 로그인한 사용자의 토큰이 만료된 경우는
+ * 여기서 조용히 게스트로 전환시키지 않고 그대로 에러를 올린다 (재로그인 유도).
+ */
+export async function withChatToken<T>(call: (token: string) => Promise<T>): Promise<T> {
+  const token = await getChatToken();
+  try {
+    return await call(token);
+  } catch (error) {
+    const isGuestToken = !authStorage.getToken();
+    if (isGuestToken && error instanceof ApiError && error.status === 401) {
+      localStorage.removeItem(GUEST_TOKEN_KEY);
+      const freshToken = await requestGuestToken();
+      return call(freshToken);
+    }
+    throw error;
   }
-  return inFlight;
 }

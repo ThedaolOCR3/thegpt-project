@@ -30,7 +30,13 @@ export function Sidebar() {
   useEffect(() => {
     // conversationId가 바뀔 때마다 다시 불러온다 — 메인 화면에서 새 대화를 만들어
     // 이동해온 경우처럼, 사이드바 바깥에서 목록이 바뀐 경우를 반영하기 위함.
-    getConversations().then(setConversations);
+    getConversations()
+      .then(setConversations)
+      .catch((error) => {
+        // 여기서 실패해도 사이드바 자체가 죽으면 안 되니 목록을 비워둔 채로 넘어간다.
+        console.error('대화 목록을 불러오지 못했습니다.', error);
+        setConversations([]);
+      });
   }, [conversationId]);
 
   async function handleRename(id: string, title: string) {
