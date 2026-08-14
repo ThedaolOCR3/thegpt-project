@@ -85,9 +85,15 @@ export function Sidebar() {
         >
           <PanelLeftOpen size={18} />
         </button>
-        <div>
+        <button
+          type="button"
+          title="메인으로 이동"
+          aria-label="메인으로 이동"
+          onClick={() => navigate('/')}
+          className="rounded-lg p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+        >
           <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
-        </div>
+        </button>
         <button
           type="button"
           title="새 채팅"
@@ -121,10 +127,16 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          title="메인으로 이동"
+          aria-label="메인으로 이동"
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 rounded-lg py-0.5 pl-0.5 pr-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+        >
           <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
           <span className="font-semibold text-neutral-800 dark:text-neutral-100">MediSense</span>
-        </div>
+        </button>
         <button
           type="button"
           title="사이드바 접기"
