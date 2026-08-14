@@ -12,8 +12,10 @@
 차원 변경) — 가볍게 교체하지 말 것.
 
 ## 모듈
-- `chunking.py` — 문장 경계 기준으로 자르고(`max_chars` 기본 400), 앞 청크 끝부분을
-  다음 청크 앞에 겹쳐(`overlap_chars` 기본 80) 문맥 단절을 줄인다.
+- `chunking.py` — 문장 경계 기준으로, 글자 수가 아니라 임베딩 모델과 같은 토크나이저로 잰
+  **토큰 수**로 자른다(`max_tokens` 기본 300). 앞 청크 끝부분을 다음 청크 앞에 토큰
+  단위로 겹치고(`overlap_tokens` 기본 60), 문장부호 없이 예산을 넘는 덩어리는 토큰
+  단위로 강제 분할한다. 공백/기호뿐인 의미 없는 청크는 `is_garbage()`로 걸러서 버린다.
 - `embedding.py` — `embed_texts`/`embed_query`. 모델은 `_get_model()`에서 지연 로딩+캐싱.
   `normalize_embeddings=True`로 뽑기 때문에 코사인 유사도가 내적(dot product)과 같다.
 - `keyword_search.py` — `search(chunks, query, top_k)`. 호출마다 임시 Tantivy 인덱스를
