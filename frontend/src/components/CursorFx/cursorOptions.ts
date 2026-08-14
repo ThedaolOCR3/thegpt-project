@@ -12,11 +12,27 @@ function dotCursorSvg(color: string) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 10 10, auto`;
 }
 
+// public/cursors/<theme>/cursor-32.png(32x32, 핫스팟 0,0)를 CSS cursor 이미지로 사용한다.
+// CSS의 cursor: url(...)는 브라우저가 직접 렌더링하는 표준 기능이라 OS/플랫폼과 무관하게
+// 동작한다 — Windows 전용 포맷인 .cur/.ani 원본은 쓰지 않고 PNG로 미리 변환해뒀기 때문에
+// macOS Safari/Chrome에서도 동일하게 보인다.
+function themeCursor(theme: string) {
+  return `url('/cursors/${theme}/cursor-32.png') 0 0, auto`;
+}
+
 export const CURSOR_OPTIONS: CursorOption[] = [
   { id: 'off', label: '기본 커서 (끄기)', cssCursor: 'auto', trailGlyph: null, trailColor: '' },
   { id: 'dot', label: '파란 도트', cssCursor: dotCursorSvg('%233b82f6'), trailGlyph: '●', trailColor: '#3b82f6' },
   { id: 'sparkle', label: '반짝이', cssCursor: 'auto', trailGlyph: '✨', trailColor: '#f59e0b' },
   { id: 'paw', label: '고양이 발자국', cssCursor: 'auto', trailGlyph: '🐾', trailColor: '#a16207' },
+  { id: 'heart', label: '하트', cssCursor: 'auto', trailGlyph: '💗', trailColor: '#ec4899' },
+  { id: 'clover', label: '네잎클로버', cssCursor: 'auto', trailGlyph: '🍀', trailColor: '#16a34a' },
+  { id: 'rainbow', label: '무지개', cssCursor: 'auto', trailGlyph: '🌈', trailColor: '#8b5cf6' },
+  { id: 'pokemon', label: '포켓몬 (루카리오)', cssCursor: themeCursor('pokemon'), trailGlyph: null, trailColor: '' },
+  { id: 'miku', label: '하츠네 미쿠', cssCursor: themeCursor('miku'), trailGlyph: null, trailColor: '' },
+  { id: 'dove', label: '비둘기', cssCursor: themeCursor('dove'), trailGlyph: null, trailColor: '' },
+  { id: 'hellokitty', label: '헬로키티', cssCursor: themeCursor('hellokitty'), trailGlyph: null, trailColor: '' },
+  { id: 'pusheen', label: 'Pusheen 고양이', cssCursor: themeCursor('cat'), trailGlyph: null, trailColor: '' },
 ];
 
 export function getCursorOption(id: string): CursorOption {
