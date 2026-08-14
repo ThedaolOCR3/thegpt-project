@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { Conversation } from '../../api/types';
 
 type HistoryItemProps = {
@@ -12,16 +12,28 @@ type HistoryItemProps = {
 
 export function HistoryItem({ conversation, active, onSelect, onRename, onDelete }: HistoryItemProps) {
   const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState(conversation.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
   }, [editing]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
   function startEditing() {
     setDraftTitle(conversation.title);
     setEditing(true);
+    setMenuOpen(false);
   }
 
   function commit() {
@@ -36,6 +48,7 @@ export function HistoryItem({ conversation, active, onSelect, onRename, onDelete
   }
 
   function handleDelete() {
+    setMenuOpen(false);
     if (window.confirm(`'${conversation.title}' 대화를 삭제할까요?`)) onDelete();
   }
 
@@ -65,31 +78,46 @@ export function HistoryItem({ conversation, active, onSelect, onRename, onDelete
           <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
             {conversation.title}
           </span>
-          <div className="hidden shrink-0 items-center gap-1 group-hover:flex">
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
-              title="제목 수정"
-              aria-label="제목 수정"
+              title="더보기"
+              aria-label="더보기"
               onClick={(e) => {
                 e.stopPropagation();
-                startEditing();
+                setMenuOpen((open) => !open);
               }}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+              className={`rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-neutral-200 ${
+                menuOpen ? 'flex' : 'hidden group-hover:flex'
+              }`}
             >
-              <Pencil size={13} />
+              <MoreVertical size={14} />
             </button>
-            <button
-              type="button"
-              title="대화 삭제"
-              aria-label="대화 삭제"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              className="rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-red-500 dark:hover:bg-neutral-700 dark:hover:text-red-400"
-            >
-              <Trash2 size={13} />
-            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={startEditing}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                >
+                  <Pencil size={13} /> 이름 변경
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleDelete}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                >
+                  <Trash2 size={13} /> 삭제
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -16,10 +16,13 @@ export class ApiError extends Error {
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...requestOptions } = options;
+  // FormData(파일 업로드)일 땐 Content-Type을 강제로 붙이면 안 된다 — 브라우저가
+  // multipart 경계(boundary)까지 포함해서 자동으로 설정해야 서버가 파싱할 수 있다.
+  const isFormData = requestOptions.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...requestOptions,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },

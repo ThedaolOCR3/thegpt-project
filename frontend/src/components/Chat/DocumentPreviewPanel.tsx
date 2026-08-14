@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, FileText, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Loader2, X } from 'lucide-react';
+import { extractTextFromImage } from '../../api/documents';
 import type { MessageAttachment } from '../../api/types';
 
 type DocumentPreviewPanelProps = {
@@ -14,6 +15,9 @@ const MIN_WIDTH = 300;
 const MAX_WIDTH = 760;
 const DEFAULT_WIDTH = 384;
 
+// blob: URL 하나당 OCR을 한 번만 돌리면 되니, 패널을 닫았다 다시 열어도 재사용한다.
+const ocrCache = new Map<string, string>();
+
 function isImage(attachment: MessageAttachment) {
   return attachment.type?.startsWith('image/') ?? /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.name);
 }
@@ -26,12 +30,15 @@ function isPdf(attachment: MessageAttachment) {
 // - 원본: 방금 이 세션에서 첨부한 파일(blob: URL 있음)만 실제로 보여줄 수 있다.
 //   서버는 아직 첨부파일 메타데이터만 저장하고 실제 바이트는 저장하지 않아서
 //   (Object Storage 연동 전), 새로고침/이전 대화에서 불러온 첨부는 안내만 표시한다.
-// - 파싱된 텍스트: OCR 연동 전까지는 mock. 연동되면 props로 실제 결과를 주입하면 된다.
+// - 파싱된 텍스트: blob: URL이 있는 이미지 첨부는 /api/documents/ocr을 호출해 실제
+//   추출 결과를 보여준다. 그 외(PDF, 저장 안 된 첨부)는 안내 문구만 표시.
 // - 좌측 가장자리를 드래그해 폭을 조절할 수 있고(로컬에 기억), 첨부가 여러 개면
 //   하단 썸네일 스트립 + 이전/다음 버튼으로 넘겨볼 수 있다.
 export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClose }: DocumentPreviewPanelProps) {
   const attachment = attachments[index];
   const [parsedText, setParsedText] = useState('');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
   const [width, setWidth] = useState(() => {
     const stored = Number(localStorage.getItem(WIDTH_STORAGE_KEY));
     return stored >= MIN_WIDTH && stored <= MAX_WIDTH ? stored : DEFAULT_WIDTH;
@@ -39,10 +46,50 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
   const resizingRef = useRef(false);
 
   useEffect(() => {
-    setParsedText(
-      `[Mock] "${attachment?.name}"에서 추출된 텍스트입니다.\n\n실제 OCR/문서 파싱이 연동되면 이 영역에 진짜 추출 결과가 표시되고,\n아래에서 직접 수정할 수 있습니다.`,
-    );
-  }, [attachment?.name]);
+    if (!attachment) return;
+    setOcrError(null);
+
+    if (!attachment.url) {
+      setOcrLoading(false);
+      setParsedText(`"${attachment.name}"은 원본이 저장되지 않아 텍스트를 추출할 수 없어요 (스토리지 연동 전).`);
+      return;
+    }
+    if (!isImage(attachment)) {
+      setOcrLoading(false);
+      setParsedText(`"${attachment.name}"은 아직 텍스트 추출을 지원하지 않는 형식이에요 (이미지만 지원).`);
+      return;
+    }
+
+    const cached = ocrCache.get(attachment.url);
+    if (cached !== undefined) {
+      setOcrLoading(false);
+      setParsedText(cached);
+      return;
+    }
+
+    let cancelled = false;
+    setOcrLoading(true);
+    setParsedText('');
+
+    (async () => {
+      try {
+        const blob = await fetch(attachment.url!).then((res) => res.blob());
+        const file = new File([blob], attachment.name, { type: attachment.type });
+        const result = await extractTextFromImage(file);
+        const text = result.text || '(텍스트를 찾지 못했어요)';
+        ocrCache.set(attachment.url!, text);
+        if (!cancelled) setParsedText(text);
+      } catch (error) {
+        if (!cancelled) setOcrError(error instanceof Error ? error.message : '텍스트 추출에 실패했어요.');
+      } finally {
+        if (!cancelled) setOcrLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment]);
 
   function startResize(event: React.MouseEvent) {
     event.preventDefault();
@@ -106,13 +153,24 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
         <p className="mb-1.5 text-xs font-semibold text-neutral-400">원본 문서</p>
         <OriginalPreview attachment={attachment} />
 
-        <p className="mb-1.5 mt-4 text-xs font-semibold text-neutral-400">파싱된 텍스트 (수정 가능)</p>
-        <textarea
-          value={parsedText}
-          onChange={(e) => setParsedText(e.target.value)}
-          rows={10}
-          className="w-full resize-none rounded-lg border border-neutral-200 p-2.5 text-sm text-neutral-800 focus:border-blue-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-        />
+        <p className="mb-1.5 mt-4 text-xs font-semibold text-neutral-400">추출된 텍스트 (수정 가능)</p>
+        {ocrLoading ? (
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-200 p-3 text-sm text-neutral-400 dark:border-neutral-700">
+            <Loader2 size={14} className="animate-spin" />
+            텍스트를 추출하고 있어요...
+          </div>
+        ) : ocrError ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+            {ocrError}
+          </p>
+        ) : (
+          <textarea
+            value={parsedText}
+            onChange={(e) => setParsedText(e.target.value)}
+            rows={10}
+            className="w-full resize-none rounded-lg border border-neutral-200 p-2.5 text-sm text-neutral-800 focus:border-blue-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+          />
+        )}
       </div>
 
       {attachments.length > 1 && (

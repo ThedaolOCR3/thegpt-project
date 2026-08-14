@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { MessageInput } from '../../components/Chat/MessageInput';
 import { MessageBubble } from '../../components/Chat/MessageBubble';
 import { useDocumentPreview } from '../../components/Chat/DocumentPreviewContext';
@@ -127,7 +128,8 @@ export function ChatPage() {
             ))}
             {sending && (
               <div className="flex justify-start">
-                <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500">
+                <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500">
+                  <Loader2 size={14} className="animate-spin" />
                   답변을 작성하고 있어요...
                 </div>
               </div>

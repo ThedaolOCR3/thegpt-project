@@ -33,6 +33,11 @@ export function ConsultationPage({ greeting = '무엇을 도와드릴까요?' }:
         <div className="w-full">
           <MessageInput onSend={handleSend} disabled={starting} placeholder="메시지를 입력하세요" />
         </div>
+        {/* 게스트 세션 발급 + 대화 생성이 겹치는 첫 전송은 네트워크 왕복이 두 번이라
+            눈에 띄게 오래 걸릴 수 있다 — 아무 표시가 없으면 멈춘 것처럼 보이니 명시. */}
+        {starting && (
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">대화를 준비하고 있어요...</p>
+        )}
       </div>
     </div>
   );

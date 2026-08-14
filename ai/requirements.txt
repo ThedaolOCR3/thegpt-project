@@ -1,10 +1,5 @@
-# ai/ocr, ai/rag가 쓰는 의존성. 무겁기 때문에(torch, paddleocr 등) backend/requirements.txt에는
-# 자동으로 안 끌어온다 — 실제 documents API에 OCR/RAG를 붙일 때 backend/requirements.txt에서
-# `-r ../ai/requirements.txt`로 명시적으로 참조하면 된다.
-paddlepaddle>=2.6,<3.0
-paddleocr>=2.9,<3.0
-opencv-python-headless>=4.9,<5.0
-sentence-transformers>=3.0,<4.0
-kiwipiepy>=0.18,<1.0
-tantivy>=0.22,<1.0
-numpy>=1.26,<3.0
+# 편의용 — ai/ocr, ai/rag를 둘 다 쓰는 로컬 랩 등에서 한 번에 설치할 때 사용.
+# 실제 서비스(backend)는 필요한 쪽만 골라서 ai/ocr/requirements.txt 또는
+# ai/rag/requirements.txt를 참조하는 걸 권장 (RAG 쪽은 torch 등으로 훨씬 무거움).
+-r ocr/requirements.txt
+-r rag/requirements.txt

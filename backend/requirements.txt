@@ -8,3 +8,8 @@ pgvector>=0.4,<1.0
 email-validator>=2.2,<3.0
 pwdlib[argon2]>=0.3,<1.0
 PyJWT>=2.10,<3.0
+python-multipart>=0.0.9,<1.0
+
+# ai/ocr 사용 (documents API의 OCR 미리보기) — 무거움(paddlepaddle 포함, 수백MB).
+# 리소스 제약 배포 환경에서는 OCR을 별도 워커/서비스로 분리하는 것도 고려할 것.
+-r ../ai/ocr/requirements.txt
