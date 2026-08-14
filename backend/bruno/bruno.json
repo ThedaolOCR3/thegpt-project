@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "TheGPT Backend API",
+  "name": "MediSense Backend API",
   "type": "collection",
   "ignore": ["node_modules", ".git"]
 }

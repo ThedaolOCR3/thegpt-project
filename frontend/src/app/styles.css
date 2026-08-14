@@ -22,7 +22,8 @@ main {
   border-bottom: 1px solid #ddd;
 }
 
-.app-logo { margin-right: 20px; color: #181713; font-size: 20px; font-weight: 800; text-decoration: none; }
+.app-logo { display: flex; align-items: center; gap: 8px; margin-right: 20px; color: #181713; font-size: 20px; font-weight: 800; text-decoration: none; }
+.app-logo img { height: 24px; width: 24px; }
 .app-header nav { flex: 1; display: flex; flex-wrap: wrap; gap: 16px; }
 .app-header nav a { color: #6d675e; text-decoration: none; }
 .app-header nav a.active { color: #176c64; font-weight: 700; }

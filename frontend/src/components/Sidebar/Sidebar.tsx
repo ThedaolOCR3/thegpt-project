@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   SquarePen,
@@ -71,8 +70,8 @@ export function Sidebar() {
         >
           <PanelLeftOpen size={18} />
         </button>
-        <div className="text-blue-600 dark:text-blue-400">
-          <MessageSquare size={20} />
+        <div>
+          <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
         </div>
         <button
           type="button"
@@ -108,10 +107,8 @@ export function Sidebar() {
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-1.5">
-          <span className="text-blue-600 dark:text-blue-400">
-            <MessageSquare size={20} />
-          </span>
-          <span className="font-semibold text-neutral-800 dark:text-neutral-100">TheGPT</span>
+          <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
+          <span className="font-semibold text-neutral-800 dark:text-neutral-100">MediSense</span>
         </div>
         <button
           type="button"

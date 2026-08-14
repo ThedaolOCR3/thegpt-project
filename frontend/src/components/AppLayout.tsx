@@ -14,7 +14,10 @@ export function AppLayout() {
   return (
     <>
       <header className="app-header">
-        <NavLink className="app-logo" to="/">TheGPT</NavLink>
+        <NavLink className="app-logo" to="/">
+          <img src="/logo-mark.png" alt="" aria-hidden />
+          MediSense
+        </NavLink>
         <nav>
           {links.map(([path, label]) => <NavLink key={path} to={path}>{label}</NavLink>)}
         </nav>
