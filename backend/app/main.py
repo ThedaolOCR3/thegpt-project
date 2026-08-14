@@ -40,6 +40,18 @@ def create_app() -> FastAPI:
         db.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
 
+    # 로컬 전용 OCR/RAG 실험 페이지 (backend/local_lab/, git에 안 올라감).
+    # 팀원 로컬엔 이 폴더 자체가 없으니 없으면 조용히 건너뛴다 — 실수로 커밋되거나
+    # 다른 사람 환경에서 import 에러로 서버가 죽는 일이 없게 하기 위함.
+    if settings.app_env == "local":
+        try:
+            from local_lab.router import router as local_lab_router
+
+            app.include_router(local_lab_router, prefix="/local-lab", tags=["local-lab"])
+            logger.info("로컬 AI 랩 라우터 마운트됨: /local-lab")
+        except ImportError:
+            pass
+
     return app
 
 

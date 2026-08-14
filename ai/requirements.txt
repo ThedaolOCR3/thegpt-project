@@ -1,0 +1,10 @@
+# ai/ocr, ai/rag가 쓰는 의존성. 무겁기 때문에(torch, paddleocr 등) backend/requirements.txt에는
+# 자동으로 안 끌어온다 — 실제 documents API에 OCR/RAG를 붙일 때 backend/requirements.txt에서
+# `-r ../ai/requirements.txt`로 명시적으로 참조하면 된다.
+paddlepaddle>=2.6,<3.0
+paddleocr>=2.9,<3.0
+opencv-python-headless>=4.9,<5.0
+sentence-transformers>=3.0,<4.0
+kiwipiepy>=0.18,<1.0
+tantivy>=0.22,<1.0
+numpy>=1.26,<3.0

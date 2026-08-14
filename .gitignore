@@ -10,8 +10,14 @@ __pycache__/
 backend/logs/
 *.log
 
+# 로컬 전용 AI 파이프라인 실험 (OCR/임베딩/RAG 성능테스트) — 개인 로컬에서만
+backend/local_lab/
+
+# ai/ 를 editable 설치(pip install -e ..)할 때 생기는 빌드 메타데이터
+*.egg-info/
+
 # OS
 .DS_Store
 
 # Claude Code project instructions (로컬 전용, 공유 저장소에는 올리지 않음)
-/CLAUDE.md
+/CLAUDE.md/claude.md
