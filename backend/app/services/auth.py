@@ -24,6 +24,15 @@ def to_user_response(user: Users) -> UserResponse:
     )
 
 
+def create_access_token(user_id: str, expire_minutes: int) -> str:
+    expires_at = datetime.now(UTC) + timedelta(minutes=expire_minutes)
+    return jwt.encode(
+        {"sub": user_id, "exp": expires_at},
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
 class AuthService:
     """회원가입, 인증, 로그인 규칙을 한곳에서 관리합니다."""
 
@@ -37,10 +46,15 @@ class AuthService:
         if not user.is_email_verified:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "이메일 인증을 먼저 완료해주세요.")
 
-        expires_at = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
-        token = jwt.encode(
-            {"sub": str(user.id), "exp": expires_at},
-            settings.jwt_secret_key,
-            algorithm=settings.jwt_algorithm,
-        )
+        token = create_access_token(str(user.id), settings.access_token_expire_minutes)
+        return LoginResponse(access_token=token, user=to_user_response(user))
+
+    def create_guest_session(self) -> LoginResponse:
+        """비로그인 사용자가 채팅을 쓸 수 있도록 임시 계정을 발급합니다.
+
+        기존 users/conversations/messages 테이블을 그대로 재사용하고
+        auth_provider='guest'로만 구분하므로 스키마 변경이 필요 없다.
+        """
+        user = self.repository.create_guest_user()
+        token = create_access_token(str(user.id), settings.guest_token_expire_minutes)
         return LoginResponse(access_token=token, user=to_user_response(user))
