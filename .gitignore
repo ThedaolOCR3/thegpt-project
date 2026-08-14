@@ -7,6 +7,8 @@ backend/.venv/
 __pycache__/
 *.py[cod]
 .env
+backend/logs/
+*.log
 
 # OS
 .DS_Store

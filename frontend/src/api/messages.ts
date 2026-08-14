@@ -1,16 +1,34 @@
 import { apiClient } from '../services/apiClient';
 import { withChatToken } from '../features/auth/guestSession';
-import type { Message } from './types';
+import type { Message, MessageAttachment } from './types';
+
+interface MessageAttachmentDto {
+  id: string;
+  file_name: string;
+  file_type: string | null;
+  file_size_bytes: number | null;
+}
 
 interface MessageDto {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  attachments: MessageAttachmentDto[];
+}
+
+function toAttachment(dto: MessageAttachmentDto): MessageAttachment {
+  return { name: dto.file_name, type: dto.file_type ?? undefined, size: dto.file_size_bytes ?? undefined };
 }
 
 function toMessage(dto: MessageDto): Message {
-  return { id: dto.id, role: dto.role, content: dto.content, createdAt: dto.created_at };
+  return {
+    id: dto.id,
+    role: dto.role,
+    content: dto.content,
+    createdAt: dto.created_at,
+    attachments: dto.attachments?.length ? dto.attachments.map(toAttachment) : undefined,
+  };
 }
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
@@ -24,8 +42,9 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
  * 사용자 메시지를 저장하고 assistant 응답을 받아온다.
  * 반환값은 assistant 응답 메시지 하나다 (사용자 메시지는 화면에서 낙관적으로 먼저 렌더링됨).
  *
- * TODO: files는 아직 서버로 전송하지 않는다 — Object Storage(R2 등) 연동 전까지는
- * 첨부파일 없이 텍스트만 저장된다. 스토리지가 붙으면 FormData 기반 업로드로 교체.
+ * 첨부파일은 이름/크기/타입 메타데이터만 서버에 저장된다 — 실제 파일 바이트는 아직
+ * Object Storage(R2 등) 연동 전이라 전송하지 않는다. 원본 미리보기는 프론트에서
+ * blob: URL로 그 세션 안에서만 보여준다 (ChatPage 참고).
  */
 export async function sendMessage(
   conversationId: string,
@@ -36,7 +55,10 @@ export async function sendMessage(
     apiClient<MessageDto>(`/conversations/${conversationId}/messages`, {
       method: 'POST',
       token,
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        attachments: files?.map((f) => ({ name: f.name, size: f.size, type: f.type })) ?? [],
+      }),
     }),
   );
   return toMessage(dto);

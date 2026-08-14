@@ -6,11 +6,13 @@ from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
 from app.core.email_config import email_settings
+from app.core.logging import get_logger
 from app.repositories.signup import SignupRepository
 from app.schemas.signup import MessageResponse
 from app.services.email import email_service
 
 password_hash = PasswordHash.recommended()
+logger = get_logger("services.signup")
 
 
 class SignupService:
@@ -20,6 +22,7 @@ class SignupService:
     def signup(self, email: str, password: str) -> MessageResponse:
         normalized_email = email.lower().strip()
         if self.repository.find_user_by_email(normalized_email):
+            logger.warning("회원가입 실패 (이메일 중복): email=%s", normalized_email)
             raise HTTPException(status.HTTP_409_CONFLICT, "이미 가입된 이메일입니다.")
         self.repository.create_user(normalized_email, password_hash.hash(password))
         code = self._issue_code(normalized_email)

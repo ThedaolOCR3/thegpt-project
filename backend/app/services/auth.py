@@ -6,11 +6,13 @@ from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.models.generated import Users
 from app.repositories.auth import AuthRepository
 from app.schemas.auth import LoginResponse, UserResponse
 
 password_hash = PasswordHash.recommended()
+logger = get_logger("services.auth")
 
 
 def to_user_response(user: Users) -> UserResponse:
@@ -42,8 +44,10 @@ class AuthService:
     def login(self, email: str, password: str) -> LoginResponse:
         user = self.repository.find_user_by_email(email.lower().strip())
         if not user or not user.password_hash or not password_hash.verify(password, user.password_hash):
+            logger.warning("로그인 실패 (이메일/비밀번호 불일치): email=%s", email)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다.")
         if not user.is_email_verified:
+            logger.warning("로그인 실패 (이메일 미인증): email=%s", email)
             raise HTTPException(status.HTTP_403_FORBIDDEN, "이메일 인증을 먼저 완료해주세요.")
 
         token = create_access_token(str(user.id), settings.access_token_expire_minutes)

@@ -4,6 +4,8 @@ import { MessageInput } from '../../components/Chat/MessageInput';
 import { MessageBubble } from '../../components/Chat/MessageBubble';
 import { useDocumentPreview } from '../../components/Chat/DocumentPreviewContext';
 import { getMessages, sendMessage } from '../../api/messages';
+import { notifyConversationsChanged } from '../../api/conversationsEvents';
+import { ApiError } from '../../services/apiClient';
 import { generateId } from '../../utils/id';
 import type { Message } from '../../api/types';
 
@@ -82,7 +84,11 @@ export function ChatPage() {
       role: 'user',
       content,
       createdAt: new Date().toISOString(),
-      attachments: files.length ? files.map((f) => ({ name: f.name })) : undefined,
+      // 원본 파일은 서버에 안 올라가므로(메타데이터만 저장) blob: URL로 이 세션
+      // 안에서만 원본 미리보기를 보여준다 — DocumentPreviewPanel 참고.
+      attachments: files.length
+        ? files.map((f) => ({ name: f.name, type: f.type, size: f.size, url: URL.createObjectURL(f) }))
+        : undefined,
     };
     setMessages((current) => [...current, optimisticUserMessage]);
 
@@ -90,8 +96,15 @@ export function ChatPage() {
     try {
       const assistantMessage = await sendMessage(conversationId, content, files);
       setMessages((current) => [...current, assistantMessage]);
+      // 첫 메시지였다면 서버가 대화 제목을 자동으로 채웠을 수 있으니 사이드바에 알려준다.
+      notifyConversationsChanged();
     } catch (error) {
-      // 게스트 메시지 한도 초과(429) 등 서버가 준 에러 메시지를 그대로 보여준다.
+      // 게스트 한도 초과(429)는 채팅 버블 대신 알림 후 로그인 페이지로 보낸다.
+      if (error instanceof ApiError && error.status === 429) {
+        window.alert(error.message);
+        navigate('/login');
+        return;
+      }
       const errorMessage: Message = {
         id: generateId('msg'),
         role: 'assistant',

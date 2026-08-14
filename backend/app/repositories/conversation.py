@@ -49,3 +49,14 @@ class ConversationRepository:
         # updated_at에 DB 트리거가 없으므로(생성 시 server_default만 있음) 여기서 직접 갱신한다.
         conversation.updated_at = datetime.now(UTC)
         self.db.commit()
+
+    def set_auto_title(self, conversation: Conversations, content: str) -> None:
+        """첫 메시지로 제목을 자동으로 채운다. 사용자가 직접 이름을 바꾼 적 있으면
+        건드리지 않는다 (is_title_custom는 유지 — 이건 '자동' 제목이라서)."""
+        title = content.strip().replace("\n", " ")
+        if len(title) > 40:
+            title = title[:40].rstrip() + "…"
+        if not title:
+            return
+        conversation.title = title
+        self.db.commit()

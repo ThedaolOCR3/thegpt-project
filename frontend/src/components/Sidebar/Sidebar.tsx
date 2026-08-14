@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../features/auth/AuthContext';
+import { getGuestDisplayName } from '../../features/auth/guestSession';
 import { HistoryItem } from './HistoryItem';
 import { getConversations, renameConversation, deleteConversation } from '../../api/conversations';
+import { onConversationsChanged } from '../../api/conversationsEvents';
 import type { Conversation } from '../../api/types';
 
 type FilterMode = 'all' | 'category';
@@ -28,15 +30,22 @@ export function Sidebar() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    function refresh() {
+      getConversations()
+        .then(setConversations)
+        .catch((error) => {
+          // 여기서 실패해도 사이드바 자체가 죽으면 안 되니 목록을 비워둔 채로 넘어간다.
+          console.error('대화 목록을 불러오지 못했습니다.', error);
+          setConversations([]);
+        });
+    }
+
     // conversationId가 바뀔 때마다 다시 불러온다 — 메인 화면에서 새 대화를 만들어
     // 이동해온 경우처럼, 사이드바 바깥에서 목록이 바뀐 경우를 반영하기 위함.
-    getConversations()
-      .then(setConversations)
-      .catch((error) => {
-        // 여기서 실패해도 사이드바 자체가 죽으면 안 되니 목록을 비워둔 채로 넘어간다.
-        console.error('대화 목록을 불러오지 못했습니다.', error);
-        setConversations([]);
-      });
+    refresh();
+    // 첫 메시지로 제목이 자동으로 바뀌는 경우처럼, conversationId는 안 바뀌어도
+    // 목록이 갱신돼야 하는 경우를 위한 별도 알림 채널 (ChatPage 참고).
+    return onConversationsChanged(refresh);
   }, [conversationId]);
 
   async function handleRename(id: string, title: string) {
@@ -212,7 +221,7 @@ export function Sidebar() {
           <User size={16} />
         </span>
         <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
-          {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
+          {isLoading ? '로그인 확인 중...' : user ? user.email : getGuestDisplayName()}
         </span>
       </button>
     </aside>

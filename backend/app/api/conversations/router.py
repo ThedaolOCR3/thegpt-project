@@ -66,4 +66,6 @@ def send_message(
     current_user: Annotated[Users, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> MessageResponse:
-    return MessageService(db).send_message(conversation_id, current_user, payload.content)
+    return MessageService(db).send_message(
+        conversation_id, current_user, payload.content, payload.attachments
+    )

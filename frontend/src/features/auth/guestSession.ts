@@ -3,8 +3,23 @@ import { authStorage } from './authStorage';
 import type { LoginResponse } from './types';
 
 const GUEST_TOKEN_KEY = 'thegpt_guest_token';
+const GUEST_DISPLAY_ID_KEY = 'thegpt_guest_display_id';
 
 let inFlight: Promise<string> | null = null;
+
+/**
+ * 사이드바 하단에 보여줄 "게스트 / user_123456" 같은 표시용 이름.
+ * 실제 유저 id와는 무관한 순전히 화면 표시용 랜덤 숫자 — 한 번 만들면 이 브라우저에서는
+ * 계속 같은 값을 쓴다 (게스트 토큰 로딩을 기다릴 필요 없이 동기적으로 바로 쓸 수 있음).
+ */
+export function getGuestDisplayName(): string {
+  let displayId = localStorage.getItem(GUEST_DISPLAY_ID_KEY);
+  if (!displayId) {
+    displayId = String(Math.floor(100000 + Math.random() * 900000));
+    localStorage.setItem(GUEST_DISPLAY_ID_KEY, displayId);
+  }
+  return `게스트 / user_${displayId}`;
+}
 
 function requestGuestToken(): Promise<string> {
   if (!inFlight) {
