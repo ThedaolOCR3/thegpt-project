@@ -95,7 +95,8 @@ private repo로 올린다. 이 repo 이름을 기록해두면, 이후 `ai/llm`(�
 |---|---|
 | `401 / gated repo` | medgemma 접근 승인 전이거나, `HF_TOKEN`이 Secrets에 등록/활성화 안 됨. `from_pretrained(..., token=HF_TOKEN)`처럼 토큰을 명시적으로 넘기고 있는지도 확인 |
 | `403` (push_to_hub) | 토큰이 Read 권한으로 발급됨 — Write 토큰으로 재발급 |
-| `numpy.dtype size changed, may indicate binary incompatibility` | numpy 버전을 임의로 낮췄을 때 Colab 기본 이미지(numpy>=2를 요구하는 패키지 다수)와 충돌해서 남. **numpy 버전을 따로 지정/고정하지 말 것** — 지금 노트북 1번 셀은 numpy를 안 건드림. 그래도 나면 설치 **직후 런타임 재시작**을 안 했을 가능성이 큼 — 재시작 후 "3/4번" 확인 셀로 검증 |
+| `numpy.dtype size changed, may indicate binary incompatibility` | numpy 버전을 임의로 낮췄을 때 Colab 기본 이미지(numpy>=2를 요구하는 패키지 다수)와 충돌해서 남. **numpy 버전을 따로 지정/고정하지 말 것** — 지금 노트북 1번 셀은 numpy를 안 건드림. 한번 잘못된 numpy가 실제로 디스크에 깔린 상태라면 **"런타임 다시 시작"으론 안 고쳐지고 "런타임 연결 해제 및 삭제"로 VM 자체를 새로 받아야 함** |
+| `RuntimeError: operator torchvision::nms does not exist` → `ModuleNotFoundError: ... 'Gemma3ForConditionalGeneration'` | Colab 기본 이미지에 torch/torchvision 버전이 서로 안 맞게 깔려있는 경우가 있음(우리가 만든 문제 아님). MedGemma는 멀티모달 모델 클래스라 로드 시 torchvision을 건드리다가 막힘 — 텍스트 전용 파인튜닝엔 torchvision이 필요 없어서 1번 셀에서 아예 제거함(`pip uninstall -y torchvision`) |
 | `SFTConfig.__init__() got an unexpected keyword argument 'max_seq_length'` / `SFTTrainer.__init__() got an unexpected keyword argument 'max_seq_length'` | trl 버전에 따라 이 인자 이름이 자주 바뀐다. 지금 노트북은 최신 trl 기준 `max_length`로 맞춰뒀음 — trl을 오래된 버전으로 따로 고정하지 말 것(아래 항목과 충돌 생김) |
 | `Trainer.__init__() got an unexpected keyword argument 'tokenizer'` | trl과 transformers 버전이 서로 안 맞을 때(예: trl만 옛날 버전으로 고정) 발생. 1번 셀처럼 `transformers`와 `trl`을 **같은 시점에 같이 설치**해야 함(버전 고정 안 함) |
 | `OutOfMemoryError` | `per_device_train_batch_size`를 이미 1로 최소화한 상태라면, `max_length`를 줄이거나 `gradient_accumulation_steps`를 늘려서 실효 배치는 유지하며 메모리만 줄이기. `gradient_checkpointing=True`와 `model.config.use_cache = False`가 같이 켜져 있는지도 확인(20번 셀) |
