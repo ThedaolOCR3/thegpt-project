@@ -34,7 +34,7 @@ async def save_document_test(request: VectorSaveTestRequest) -> VectorSaveTestRe
 
     logger.info("[AdminOCR] Vector save mock completed for %s", request.document_name)
     return VectorSaveTestResponse(
-        message="저장 테스트가 완료되었습니다. 실제 VectorDB에는 저장되지 않았습니다."
+        message="(backend)저장 테스트가 완료되었습니다. 실제 VectorDB에는 저장되지 않았습니다."
     )
 
 
@@ -61,6 +61,7 @@ def create_mock_ocr_result(request: OcrAnalyzeRequest) -> dict[str, object]:
         "estimated_chunks": 11 if is_pdf else 4,
         "confidence": 94.8 if is_pdf else 97.2,
         "extracted_text": (
+            "(backend)"
             "환자의 현재 증상과 과거 병력을 함께 검토해야 합니다. "
             "문서에 포함된 검사 결과는 임상적 판단을 보조하기 위한 참고 자료이며, "
             "최종 진단은 의료 전문가의 확인이 필요합니다."

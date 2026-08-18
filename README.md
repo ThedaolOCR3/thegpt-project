@@ -31,7 +31,7 @@
 **향후 연동 예정**
 
 - OCR Engine
-- Ollama / LLM
+- Ollama / LLMru
 - Embedding Model
 - RAG
 - VectorDB

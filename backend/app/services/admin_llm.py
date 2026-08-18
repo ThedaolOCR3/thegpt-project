@@ -9,10 +9,10 @@ from app.schemas.admin import LlmCompareRequest, LlmModelResponse
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS = {"medgemma", "gemma", "qwen", "llama"}
 MOCK_ANSWERS = {
-    "medgemma": "의료 정보의 한계를 밝히고 위험 신호가 있다면 전문가 평가를 안내합니다.",
-    "gemma": "문서의 핵심 근거를 증상, 검사 결과, 주의사항 순서로 정리합니다.",
-    "qwen": "관련 문서 근거를 선별하고 충돌하는 내용은 확인 항목으로 구분합니다.",
-    "llama": "질문의 의도를 요약하고 문서 근거와 다음 확인 사항을 제시합니다.",
+    "medgemma": "(backend_mock)의료 정보의 한계를 밝히고 위험 신호가 있다면 전문가 평가를 안내합니다.",
+    "gemma": "(backend_mock)문서의 핵심 근거를 증상, 검사 결과, 주의사항 순서로 정리합니다.",
+    "qwen": "(backend_mock)관련 문서 근거를 선별하고 충돌하는 내용은 확인 항목으로 구분합니다.",
+    "llama": "(backend_mock)질문의 의도를 요약하고 문서 근거와 다음 확인 사항을 제시합니다.",
 }
 RESPONSE_TIMES = (6.42, 9.18, 13.52)
 OUTPUT_TOKENS = (186, 154, 203)
@@ -52,7 +52,7 @@ def create_mock_model_results(request: LlmCompareRequest) -> list[dict[str, obje
         if model_id == "llama":
             results.append({
                 "model_id": model_id, "status": "error",
-                "error": "Mock provider가 일시적으로 응답하지 않았습니다.",
+                "error": "[backend_mock]provider가 일시적으로 응답하지 않았습니다.",
                 "response_time_seconds": 8.74, "input_tokens": 0, "output_tokens": 0,
                 "chunk_size": request.chunk_size, "overlap": request.overlap,
             })
