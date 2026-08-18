@@ -72,6 +72,10 @@ Colab 왼쪽 사이드바의 **열쇠 아이콘(🔑, Secrets)** 클릭 →
 - **T4라서 fp16**: T4는 Turing 아키텍처라 bf16 텐서코어 가속이 없어서(Ampere 이상부터 지원),
   4bit 양자화 compute dtype과 학습 정밀도 모두 `float16`을 쓴다(`bf16=False`). 나중에 A100 등
   다른 GPU로 옮기면 `bfloat16`이 더 안정적일 수 있다.
+- **numpy는 건드리지 않는다**: 한때 `numpy==1.26.4`로 강제 고정했었는데, 지금 Colab 기본
+  이미지는 `opencv`/`jax`/`cupy`/`shap`/`cudf` 등 수십 개 패키지가 전부 `numpy>=2`를 요구하도록
+  이미 맞춰져 있어서, numpy를 2.0 밑으로 내리면 오히려 그 패키지들과 충돌해서 같은 종류의
+  ABI 에러가 재발한다. 그래서 지금은 numpy 버전을 아예 지정하지 않고 Colab 기본값을 그대로 쓴다.
 
 ### 6. 세션이 끊겼을 때
 
@@ -91,7 +95,7 @@ private repo로 올린다. 이 repo 이름을 기록해두면, 이후 `ai/llm`(�
 |---|---|
 | `401 / gated repo` | medgemma 접근 승인 전이거나, `HF_TOKEN`이 Secrets에 등록/활성화 안 됨. `from_pretrained(..., token=HF_TOKEN)`처럼 토큰을 명시적으로 넘기고 있는지도 확인 |
 | `403` (push_to_hub) | 토큰이 Read 권한으로 발급됨 — Write 토큰으로 재발급 |
-| `numpy.dtype size changed, may indicate binary incompatibility` | numpy 1.x/2.x 바이너리 충돌. 1번 셀(패키지 설치)에서 `numpy==1.26.4`로 강제 재설치(`--force-reinstall`)해뒀지만, 설치 **직후 런타임을 재시작 안 하면** 메모리에 남은 옛날 numpy 때문에 그대로 남음 — 재시작 후 "3/4번" 확인 셀로 실제 버전 검증 후 이어서 실행 |
+| `numpy.dtype size changed, may indicate binary incompatibility` | numpy 버전을 임의로 낮췄을 때 Colab 기본 이미지(numpy>=2를 요구하는 패키지 다수)와 충돌해서 남. **numpy 버전을 따로 지정/고정하지 말 것** — 지금 노트북 1번 셀은 numpy를 안 건드림. 그래도 나면 설치 **직후 런타임 재시작**을 안 했을 가능성이 큼 — 재시작 후 "3/4번" 확인 셀로 검증 |
 | `SFTConfig.__init__() got an unexpected keyword argument 'max_seq_length'` / `SFTTrainer.__init__() got an unexpected keyword argument 'max_seq_length'` | trl 버전에 따라 이 인자 이름이 자주 바뀐다. 지금 노트북은 최신 trl 기준 `max_length`로 맞춰뒀음 — trl을 오래된 버전으로 따로 고정하지 말 것(아래 항목과 충돌 생김) |
 | `Trainer.__init__() got an unexpected keyword argument 'tokenizer'` | trl과 transformers 버전이 서로 안 맞을 때(예: trl만 옛날 버전으로 고정) 발생. 1번 셀처럼 `transformers`와 `trl`을 **같은 시점에 같이 설치**해야 함(버전 고정 안 함) |
 | `OutOfMemoryError` | `per_device_train_batch_size`를 이미 1로 최소화한 상태라면, `max_length`를 줄이거나 `gradient_accumulation_steps`를 늘려서 실효 배치는 유지하며 메모리만 줄이기. `gradient_checkpointing=True`와 `model.config.use_cache = False`가 같이 켜져 있는지도 확인(20번 셀) |
