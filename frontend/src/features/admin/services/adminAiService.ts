@@ -1,6 +1,6 @@
 import type { CompareModelsRequest, LlmComparisonResult } from '../types/llm';
 import type { AnalyzeDocumentRequest, MockSaveResult, OcrDocumentResult, SaveDocumentRequest } from '../types/ocr';
-import { mockAdminAiService } from './mockAdminAiService';
+import { apiAdminAiService } from './apiAdminAiService';
 
 export interface AdminAiService {
   analyzeDocument(request: AnalyzeDocumentRequest): Promise<OcrDocumentResult>;
@@ -8,5 +8,5 @@ export interface AdminAiService {
   compareModels(request: CompareModelsRequest): Promise<LlmComparisonResult[]>;
 }
 
-// 실제 API 연동 시 UI와 hook 대신 이 binding의 구현만 교체한다.
-export const adminAiService: AdminAiService = mockAdminAiService;
+// UI와 hook은 HTTP 세부사항을 알지 않고 이 Service 계약만 사용합니다.
+export const adminAiService: AdminAiService = apiAdminAiService;
