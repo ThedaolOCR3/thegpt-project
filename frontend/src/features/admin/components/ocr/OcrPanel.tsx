@@ -1,6 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useOcrTest } from "../../hooks/useOcrTest";
 import { OcrDropzone } from "./OcrDropzone";
+import { OcrFilePreview } from "./OcrFilePreview";
 import { OcrResultSummary } from "./OcrResultSummary";
 import { SelectedFile } from "./SelectedFile";
 
@@ -26,11 +27,14 @@ export function OcrPanel() {
             onSelect={ocr.selectFile}
           />
           {ocr.file ? (
-            <SelectedFile
-              file={ocr.file}
-              disabled={ocr.status === "loading"}
-              onRemove={ocr.removeFile}
-            />
+            <>
+              <SelectedFile
+                file={ocr.file}
+                disabled={ocr.status === "loading"}
+                onRemove={ocr.removeFile}
+              />
+              <OcrFilePreview file={ocr.file} />
+            </>
           ) : (
             <div className="admin-empty-inline">
               아직 선택한 문서가 없습니다.

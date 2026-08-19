@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from app.schemas.admin import LlmCompareRequest, LlmModelResponse
 
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS = {"medgemma", "gemma", "qwen", "llama"}
+SUPPORTED_MODELS = {"medgemma", "gemma", "qwen"}
 MOCK_ANSWERS = {
     "medgemma": "(backend_mock)의료 정보의 한계를 밝히고 위험 신호가 있다면 전문가 평가를 안내합니다.",
     "gemma": "(backend_mock)문서의 핵심 근거를 증상, 검사 결과, 주의사항 순서로 정리합니다.",
