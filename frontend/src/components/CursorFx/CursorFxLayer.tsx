@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useCursorFx } from './CursorFxContext';
 import { CURSOR_OPTIONS, getCursorOption } from './cursorOptions';
 
-type Particle = { id: number; x: number; y: number };
+type Particle = { id: number; x: number; y: number; glyph: string; color: string; big: boolean; rotation: number };
+
+// chaos 옵션 전용 — 매 스폰마다 이 중 하나를 무작위로 뽑아 큰 사이즈/무지개색으로 뿌린다.
+const CHAOS_GLYPHS = ['💥', '⚡', '🌈', '🔥', '✨', '🎉', '💫', '😵‍💫'];
+const CHAOS_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
 /** body에 커서 스타일 적용 + 마우스 이동 잔상 효과 + Alt+D 드롭다운 메뉴. */
 export function CursorFxLayer() {
@@ -24,19 +28,38 @@ export function CursorFxLayer() {
 
     function handleMouseMove(event: MouseEvent) {
       const now = performance.now();
-      if (now - lastSpawnRef.current < 45) return;
+      const throttleMs = option.chaos ? 16 : 45;
+      if (now - lastSpawnRef.current < throttleMs) return;
       lastSpawnRef.current = now;
 
-      const id = idRef.current++;
-      setParticles((current) => [...current.slice(-30), { id, x: event.clientX, y: event.clientY }]);
-      window.setTimeout(() => {
-        setParticles((current) => current.filter((p) => p.id !== id));
-      }, 600);
+      // chaos는 한 번에 여러 개를 커서 주변에 흩뿌려서 "정신없음"을 낸다.
+      const spawnCount = option.chaos ? 5 : 1;
+      const spawned: Particle[] = [];
+      for (let i = 0; i < spawnCount; i++) {
+        const id = idRef.current++;
+        spawned.push({
+          id,
+          x: event.clientX + (option.chaos ? (Math.random() - 0.5) * 70 : 0),
+          y: event.clientY + (option.chaos ? (Math.random() - 0.5) * 70 : 0),
+          glyph: option.chaos ? CHAOS_GLYPHS[Math.floor(Math.random() * CHAOS_GLYPHS.length)] : option.trailGlyph!,
+          color: option.chaos ? CHAOS_COLORS[Math.floor(Math.random() * CHAOS_COLORS.length)] : option.trailColor,
+          big: Boolean(option.chaos),
+          rotation: option.chaos ? Math.random() * 360 - 180 : 0,
+        });
+      }
+
+      setParticles((current) => [...current.slice(-(option.chaos ? 100 : 30)), ...spawned]);
+      const lifespanMs = option.chaos ? 500 : 600;
+      spawned.forEach((p) => {
+        window.setTimeout(() => {
+          setParticles((current) => current.filter((x) => x.id !== p.id));
+        }, lifespanMs);
+      });
     }
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [enabled, option.trailGlyph]);
+  }, [enabled, option.trailGlyph, option.chaos, option.trailColor]);
 
   return (
     <>
@@ -46,10 +69,12 @@ export function CursorFxLayer() {
           <span
             key={p.id}
             aria-hidden
-            className="pointer-events-none fixed z-[9999] select-none animate-[cursorfx-fade_0.6s_ease-out_forwards] text-sm"
-            style={{ left: p.x, top: p.y, color: option.trailColor }}
+            className={`pointer-events-none fixed z-[9999] select-none animate-[cursorfx-fade_0.6s_ease-out_forwards] ${
+              p.big ? 'text-4xl' : 'text-sm'
+            }`}
+            style={{ left: p.x, top: p.y, color: p.color, transform: `rotate(${p.rotation}deg)` }}
           >
-            {option.trailGlyph}
+            {p.glyph}
           </span>
         ))}
 

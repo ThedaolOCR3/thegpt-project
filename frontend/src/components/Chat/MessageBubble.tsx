@@ -1,9 +1,9 @@
 import { FileText } from 'lucide-react';
-import type { Message } from '../../api/types';
+import type { Message, MessageAttachment } from '../../api/types';
 
 type MessageBubbleProps = {
   message: Message;
-  onPreviewAttachment?: (fileName: string) => void;
+  onPreviewAttachment?: (attachments: MessageAttachment[], index: number) => void;
 };
 
 export function MessageBubble({ message, onPreviewAttachment }: MessageBubbleProps) {
@@ -26,11 +26,11 @@ export function MessageBubble({ message, onPreviewAttachment }: MessageBubblePro
 
         {message.attachments && message.attachments.length > 0 && (
           <div className={`mt-1.5 flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
-            {message.attachments.map((file) => (
+            {message.attachments.map((file, index) => (
               <button
                 key={file.name}
                 type="button"
-                onClick={() => onPreviewAttachment?.(file.name)}
+                onClick={() => onPreviewAttachment?.(message.attachments!, index)}
                 title="원본/파싱 결과 미리보기"
                 className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
               >

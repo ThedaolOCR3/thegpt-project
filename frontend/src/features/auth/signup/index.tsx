@@ -32,7 +32,7 @@ export function SignupPage() {
   };
 
   return (
-    <AuthCard title="회원가입" description="이메일 인증 후 TheGPT를 이용할 수 있습니다.">
+    <AuthCard title="회원가입" description="이메일 인증 후 MediSense를 이용할 수 있습니다.">
       <form className="auth-form" onSubmit={submit}>
         <div className="auth-field"><label htmlFor="signup-email">이메일</label><input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
         <div className="auth-field"><label htmlFor="signup-password">비밀번호</label><input id="signup-password" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></div>

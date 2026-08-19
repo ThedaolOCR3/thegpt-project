@@ -1,3 +1,4 @@
+import uuid
 from uuid import UUID
 
 from sqlalchemy import select
@@ -17,3 +18,20 @@ class AuthRepository:
 
     def find_user_by_id(self, user_id: str) -> Users | None:
         return self.db.get(Users, UUID(user_id))
+
+    def create_guest_user(self) -> Users:
+        # 로그인 수단이 없는 임시 계정. email UNIQUE 제약을 만족시키려고 플레이스홀더
+        # 도메인 + uuid를 쓴다 (실제로 발송/수신되지 않는 주소).
+        # 주의: .local/.invalid/.test 등은 email-validator가 예약 도메인으로 막아버려서
+        # (EmailStr 검증 실패) 못 쓴다 — .internal은 통과한다.
+        placeholder_email = f"guest-{uuid.uuid4()}@guest.thegpt.internal"
+        user = Users(
+            email=placeholder_email,
+            password_hash=None,
+            auth_provider="guest",
+            is_email_verified=True,
+        )
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user

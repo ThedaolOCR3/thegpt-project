@@ -20,7 +20,7 @@ export function MainLayout() {
 }
 
 function MainLayoutBody() {
-  const { previewFile, closePreview } = useDocumentPreview();
+  const { preview, setPreviewIndex, closePreview } = useDocumentPreview();
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white dark:bg-neutral-950">
@@ -31,7 +31,14 @@ function MainLayoutBody() {
         </div>
         <Outlet />
       </main>
-      {previewFile && <DocumentPreviewPanel fileName={previewFile} onClose={closePreview} />}
+      {preview && (
+        <DocumentPreviewPanel
+          attachments={preview.attachments}
+          index={preview.index}
+          onIndexChange={setPreviewIndex}
+          onClose={closePreview}
+        />
+      )}
     </div>
   );
 }

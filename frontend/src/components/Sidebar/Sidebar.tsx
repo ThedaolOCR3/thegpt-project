@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   SquarePen,
@@ -12,8 +11,10 @@ import {
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../features/auth/AuthContext';
+import { getGuestDisplayName } from '../../features/auth/guestSession';
 import { HistoryItem } from './HistoryItem';
 import { getConversations, renameConversation, deleteConversation } from '../../api/conversations';
+import { onConversationsChanged } from '../../api/conversationsEvents';
 import type { Conversation } from '../../api/types';
 
 type FilterMode = 'all' | 'category';
@@ -30,9 +31,22 @@ export function Sidebar() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    function refresh() {
+      getConversations()
+        .then(setConversations)
+        .catch((error) => {
+          // 여기서 실패해도 사이드바 자체가 죽으면 안 되니 목록을 비워둔 채로 넘어간다.
+          console.error('대화 목록을 불러오지 못했습니다.', error);
+          setConversations([]);
+        });
+    }
+
     // conversationId가 바뀔 때마다 다시 불러온다 — 메인 화면에서 새 대화를 만들어
     // 이동해온 경우처럼, 사이드바 바깥에서 목록이 바뀐 경우를 반영하기 위함.
-    getConversations().then(setConversations);
+    refresh();
+    // 첫 메시지로 제목이 자동으로 바뀌는 경우처럼, conversationId는 안 바뀌어도
+    // 목록이 갱신돼야 하는 경우를 위한 별도 알림 채널 (ChatPage 참고).
+    return onConversationsChanged(refresh);
   }, [conversationId]);
 
   async function handleRename(id: string, title: string) {
@@ -79,9 +93,15 @@ export function Sidebar() {
         >
           <PanelLeftOpen size={18} />
         </button>
-        <div className="text-blue-600 dark:text-blue-400">
-          <MessageSquare size={20} />
-        </div>
+        <button
+          type="button"
+          title="메인으로 이동"
+          aria-label="메인으로 이동"
+          onClick={() => navigate('/')}
+          className="rounded-lg p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+        >
+          <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
+        </button>
         <button
           type="button"
           title="새 채팅"
@@ -117,12 +137,16 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-1.5">
-          <span className="text-blue-600 dark:text-blue-400">
-            <MessageSquare size={20} />
-          </span>
-          <span className="font-semibold text-neutral-800 dark:text-neutral-100">TheGPT</span>
-        </div>
+        <button
+          type="button"
+          title="메인으로 이동"
+          aria-label="메인으로 이동"
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 rounded-lg py-0.5 pl-0.5 pr-1.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+        >
+          <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
+          <span className="font-semibold text-neutral-800 dark:text-neutral-100">MediSense</span>
+        </button>
         <button
           type="button"
           title="사이드바 접기"

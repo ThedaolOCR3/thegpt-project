@@ -11,7 +11,10 @@ export function AuthCard({ title, description, children }: AuthCardProps) {
   return (
     <section className="auth-page">
       <div className="auth-card">
-        <p className="auth-brand">TheGPT</p>
+        <p className="auth-brand">
+          <img src="/logo-mark.png" alt="" aria-hidden />
+          MediSense
+        </p>
         <h1>{title}</h1>
         <p className="auth-description">{description}</p>
         {children}

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Plus, Send, X } from 'lucide-react';
+import { Loader2, Plus, Send, X } from 'lucide-react';
 import { ModelSelect } from './ModelSelect';
 
 // .dcm/.dicom(DICOM)은 확장자만으로도 의료 영상임을 신뢰성 있게 판별할 수 있어 업로드 자체를 막는다.
@@ -112,7 +112,7 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
               handleSubmit(e);
             }
           }}
-          placeholder={placeholder}
+          placeholder={disabled ? '전송 중이에요...' : placeholder}
           rows={1}
           className="max-h-32 w-full resize-none bg-transparent text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
@@ -144,7 +144,7 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
               aria-label="메시지 보내기"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white disabled:bg-neutral-200 disabled:text-neutral-400 dark:disabled:bg-neutral-800 dark:disabled:text-neutral-600"
             >
-              <Send size={15} />
+              {disabled ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             </button>
           </div>
         </div>
