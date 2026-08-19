@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { OCR_CHUNK_SIZE, OCR_OVERLAP } from '../constants/adminOptions';
+import {
+  getOcrOverlap,
+  OCR_CHUNK_SIZE,
+  OCR_OVERLAP_PERCENT,
+  type OcrChunkSize,
+  type OcrOverlapPercent,
+} from '../constants/adminOptions';
 import { adminAiService } from '../services/adminAiService';
 import type { AsyncStatus } from '../types/common';
 import type { OcrDocumentResult, OcrProgressUpdate } from '../types/ocr';
@@ -16,7 +22,10 @@ export function useOcrTest() {
   const [saveStatus, setSaveStatus] = useState<AsyncStatus>('idle');
   const [saveMessage, setSaveMessage] = useState('');
   const [progress, setProgress] = useState<OcrProgressUpdate>(INITIAL_PROGRESS);
+  const [chunkSize, setChunkSize] = useState<OcrChunkSize>(OCR_CHUNK_SIZE);
+  const [overlapPercent, setOverlapPercent] = useState<OcrOverlapPercent>(OCR_OVERLAP_PERCENT);
   const analyzeController = useRef<AbortController | null>(null);
+  const overlap = getOcrOverlap(chunkSize, overlapPercent);
 
   useEffect(() => () => analyzeController.current?.abort(), []);
 
@@ -40,7 +49,7 @@ export function useOcrTest() {
     setProgress({ stage: 'uploading', progress: 0, message: '문서를 업로드하고 있습니다.' });
     try {
       setResult(await adminAiService.analyzeDocument(
-        { file, chunkSize: OCR_CHUNK_SIZE, overlap: OCR_OVERLAP, signal: controller.signal },
+        { file, chunkSize, overlap, signal: controller.signal },
         setProgress,
       ));
       setProgress({ stage: 'completed', progress: 100, message: 'OCR 문서 분석이 완료되었습니다.' });
@@ -64,5 +73,23 @@ export function useOcrTest() {
     }
   }
 
-  return { file, status, result, error, progress, saveStatus, saveMessage, canAnalyze: Boolean(file) && status !== 'loading', selectFile, removeFile, analyze, save };
+  return {
+    file,
+    status,
+    result,
+    error,
+    progress,
+    saveStatus,
+    saveMessage,
+    chunkSize,
+    overlap,
+    overlapPercent,
+    canAnalyze: Boolean(file) && status !== 'loading',
+    selectFile,
+    removeFile,
+    setChunkSize,
+    setOverlapPercent,
+    analyze,
+    save,
+  };
 }

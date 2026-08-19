@@ -238,6 +238,37 @@
   width: 100%;
   margin-top: 15px;
 }
+.ocr-chunk-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--admin-field);
+  border: 1px solid var(--admin-border);
+  border-radius: 11px;
+}
+.ocr-chunk-heading {
+  display: grid;
+  gap: 3px;
+}
+.ocr-chunk-heading strong {
+  color: var(--admin-text);
+  font-size: 13px;
+}
+.ocr-chunk-heading span,
+.ocr-chunk-summary {
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ocr-chunk-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ocr-chunk-summary {
+  margin: 0;
+}
 .selected-file {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -575,7 +606,8 @@
   font-weight: 750;
 }
 .admin-field textarea,
-.admin-field input {
+.admin-field input,
+.admin-field select {
   width: 100%;
   color: var(--admin-text);
   background: var(--admin-field);
@@ -590,7 +622,8 @@
   resize: vertical;
   line-height: 1.65;
 }
-.admin-field input {
+.admin-field input,
+.admin-field select {
   min-height: 42px;
   padding: 0 11px;
 }
@@ -859,7 +892,8 @@
   }
   .model-choice-grid,
   .llm-results,
-  .llm-options {
+  .llm-options,
+  .ocr-chunk-options {
     grid-template-columns: 1fr;
   }
   .admin-form-actions {
