@@ -15,7 +15,7 @@ export function LlmPanel() {
             비교합니다.
           </p>
         </div>
-        <span className="mock-badge">프론트엔드 Mock</span>
+        {/* <span className="mock-badge">프론트엔드 Mock</span> */}
       </div>
       <LlmTestForm
         prompt={llm.prompt}

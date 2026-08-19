@@ -61,20 +61,20 @@ def create_mock_ocr_result(request: OcrAnalyzeRequest) -> dict[str, object]:
         "estimated_chunks": 11 if is_pdf else 4,
         "confidence": 94.8 if is_pdf else 97.2,
         "extracted_text": (
-            "(backend)"
+            "(backend_mock)"
             "환자의 현재 증상과 과거 병력을 함께 검토해야 합니다. "
             "문서에 포함된 검사 결과는 임상적 판단을 보조하기 위한 참고 자료이며, "
             "최종 진단은 의료 전문가의 확인이 필요합니다."
         ),
         "chunks": [
-            "[Chunk 01] 환자의 현재 증상과 과거 병력을 함께 검토해야 합니다.",
-            "[Chunk 02] 최종 진단은 의료 전문가의 확인이 필요합니다.",
+            "(backend_mock)[Chunk 01] 환자의 현재 증상과 과거 병력을 함께 검토해야 합니다.",
+            "(backend_mock)[Chunk 02] 최종 진단은 의료 전문가의 확인이 필요합니다.",
         ],
         "readiness": "review" if is_pdf else "ready",
         "notes": (
             ["표가 포함된 페이지는 열 순서를 확인해 주세요.", "개인정보 포함 여부를 검토해 주세요."]
             if is_pdf
-            else ["이미지 대비가 양호합니다.", "등록 전 추출 문장의 오탈자를 확인해 주세요."]
+            else ["(backend_mock)","이미지 대비가 양호합니다.", "등록 전 추출 문장의 오탈자를 확인해 주세요."]
         ),
     }
 

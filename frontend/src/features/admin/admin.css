@@ -1,6 +1,11 @@
 .admin-page {
-  --admin-accent: #0f766e;
-  --admin-accent-soft: #ecf8f6;
+  --admin-accent: #2563eb;
+  --admin-accent-soft: #dbeafe;
+  --admin-accent-border: #93c5fd;
+  --admin-accent-focus: rgb(37 99 235 / 30%);
+  --admin-primary: #2563eb;
+  --admin-primary-hover: #1d4ed8;
+  --admin-primary-text: #fff;
   --admin-bg: #f5f7f6;
   --admin-panel: #fff;
   --admin-text: #182321;
@@ -16,14 +21,20 @@
     var(--admin-bg);
 }
 .dark .admin-page {
-  --admin-accent: #5eead4;
-  --admin-accent-soft: rgb(20 184 166 / 12%);
-  --admin-bg: #0a0f0e;
-  --admin-panel: #121a18;
-  --admin-text: #edf7f4;
-  --admin-muted: #98aaa5;
-  --admin-border: #293a36;
-  --admin-field: #17211f;
+  --admin-accent: #eff6ff;
+  --admin-accent-soft: #1e3a8a;
+  --admin-accent-border: #1d4ed8;
+  --admin-accent-focus: rgb(96 165 250 / 35%);
+  --admin-primary: #1e3a8a;
+  --admin-primary-hover: #1e40af;
+  --admin-primary-text: #eff6ff;
+  --admin-bg: #0a0a0a;
+  --admin-panel: #171717;
+  --admin-text: #f5f5f5;
+  --admin-muted: #a3a3a3;
+  --admin-border: #404040;
+  --admin-field: #262626;
+  background: var(--admin-bg);
 }
 .admin-hero {
   display: flex;
@@ -40,7 +51,7 @@
   flex: none;
   color: var(--admin-accent);
   background: var(--admin-accent-soft);
-  border: 1px solid rgb(15 118 110 / 18%);
+  border: 1px solid var(--admin-accent-border);
   border-radius: 17px;
 }
 .admin-eyebrow {
@@ -99,7 +110,7 @@
 .admin-page button:focus-visible,
 .admin-page input:focus-visible,
 .admin-page textarea:focus-visible {
-  outline: 3px solid rgb(20 184 166 / 30%);
+  outline: 3px solid var(--admin-accent-focus);
   outline-offset: 2px;
 }
 .admin-tabpanel,
@@ -126,7 +137,7 @@
   padding: 7px 10px;
   color: var(--admin-accent);
   background: var(--admin-accent-soft);
-  border: 1px solid rgb(15 118 110 / 18%);
+  border: 1px solid var(--admin-accent-border);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
@@ -135,7 +146,7 @@
   background: var(--admin-panel);
   border: 1px solid var(--admin-border);
   border-radius: 18px;
-  box-shadow: 0 15px 45px rgb(16 44 38 / 5%);
+  box-shadow: 0 15px 45px rgb(30 64 175 / 5%);
 }
 .dark .admin-card {
   box-shadow: none;
@@ -201,12 +212,13 @@
   transition: 0.15s ease;
 }
 .admin-primary-button {
-  color: #fff;
-  background: #0f766e;
-  border: 1px solid #0f766e;
+  color: var(--admin-primary-text);
+  background: var(--admin-primary);
+  border: 1px solid var(--admin-primary);
 }
 .admin-primary-button:hover:not(:disabled) {
-  background: #0b5f59;
+  background: var(--admin-primary-hover);
+  border-color: var(--admin-primary-hover);
   transform: translateY(-1px);
 }
 .admin-secondary-button {
@@ -571,7 +583,7 @@
 .model-choice input {
   grid-row: 1 / 3;
   align-self: center;
-  accent-color: #0f766e;
+  accent-color: var(--admin-primary);
 }
 .model-choice span {
   font-size: 13px;

@@ -20,7 +20,7 @@ OUTPUT_TOKENS = (186, 154, 203)
 
 async def compare_models(request: LlmCompareRequest) -> list[LlmModelResponse]:
     """Request → 검증 → 모델별 Mock → Response의 전체 실행 순서를 관리합니다."""
-
+    
     validated_request = validate_llm_request(request)
 
     # 실제 모델이 준비되면 아래 Mock 생성 호출만 Ollama/LLM 호출로 교체합니다.
@@ -58,7 +58,9 @@ def create_mock_model_results(request: LlmCompareRequest) -> list[dict[str, obje
             })
             continue
         results.append({
-            "model_id": model_id, "status": "success", "answer": MOCK_ANSWERS[model_id],
+            "model_id": model_id,
+            "status": "success",
+            "answer": request.prompt+"의 답변 : " + MOCK_ANSWERS[model_id],
             "response_time_seconds": RESPONSE_TIMES[index % len(RESPONSE_TIMES)],
             "input_tokens": input_tokens,
             "output_tokens": OUTPUT_TOKENS[index % len(OUTPUT_TOKENS)],

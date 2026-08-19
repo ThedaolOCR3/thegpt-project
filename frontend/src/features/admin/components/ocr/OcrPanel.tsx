@@ -17,7 +17,7 @@ export function OcrPanel() {
             확인합니다.
           </p>
         </div>
-        <span className="mock-badge">프론트엔드 Mock</span>
+        {/* <span className="mock-badge">프론트엔드 Mock</span> */}
       </div>
       <div className="ocr-layout">
         <div className="admin-card ocr-input-card">
