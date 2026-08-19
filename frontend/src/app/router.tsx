@@ -1,43 +1,43 @@
-import { createBrowserRouter } from 'react-router-dom';
-import { MainLayout } from '../components/Layout/MainLayout';
-import { LoginPage } from '../features/auth/login';
-import { SignupPage } from '../features/auth/signup';
-import { VerifyEmailPage } from '../features/auth/verify';
-import { ForgotPasswordPage } from '../features/auth/password-reset/ForgotPasswordPage';
-import { ResetPasswordPage } from '../features/auth/password-reset/ResetPasswordPage';
-import { RequireAuth } from '../features/auth/RequireAuth';
-import { AdminPage } from '../features/admin';
-import { ConsultationPage } from '../features/consultation';
-import { ChatPage } from '../features/chat';
-import { DocumentPage } from '../features/document';
-import { EvaluationPage } from '../features/evaluation';
-import { OcrPage } from '../features/ocr';
-import { SearchPage } from '../features/search';
-import { MyPage } from '../features/my';
+import { createBrowserRouter } from "react-router-dom";
+import { MainLayout } from "../components/Layout/MainLayout";
+import { LoginPage } from "../features/auth/login";
+import { SignupPage } from "../features/auth/signup";
+import { VerifyEmailPage } from "../features/auth/verify";
+import { ForgotPasswordPage } from "../features/auth/password-reset/ForgotPasswordPage";
+import { ResetPasswordPage } from "../features/auth/password-reset/ResetPasswordPage";
+import { RequireAuth } from "../features/auth/RequireAuth";
+import { AdminPage } from "../features/admin";
+import { ConsultationPage } from "../features/consultation";
+import { ChatPage } from "../features/chat";
+import { DocumentPage } from "../features/document";
+import { EvaluationPage } from "../features/evaluation";
+import { OcrPage } from "../features/ocr";
+import { SearchPage } from "../features/search";
+import { MyPage } from "../features/my";
 
 export const router = createBrowserRouter([
   {
     // 모든 화면을 하나의 사이드바 레이아웃 안에서 보여줍니다.
     element: <MainLayout />,
     children: [
-      { path: '/', element: <ConsultationPage /> },
-      { path: '/chat/:conversationId', element: <ChatPage /> },
-      { path: '/login', element: <LoginPage /> },
-      { path: '/signup', element: <SignupPage /> },
-      { path: '/verify-email', element: <VerifyEmailPage /> },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password', element: <ResetPasswordPage /> },
-      { path: '/document', element: <DocumentPage /> },
-      { path: '/ocr', element: <OcrPage /> },
-      { path: '/search', element: <SearchPage /> },
-      { path: '/evaluation', element: <EvaluationPage /> },
-      { path: '/admin', element: <AdminPage /> },
+      { path: "/", element: <ConsultationPage /> },
+      { path: "/chat/:conversationId", element: <ChatPage /> },
+      { path: "/login", element: <LoginPage /> },
+      { path: "/signup", element: <SignupPage /> },
+      { path: "/verify-email", element: <VerifyEmailPage /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/document", element: <DocumentPage /> },
+      { path: "/ocr", element: <OcrPage /> },
+      { path: "/search", element: <SearchPage /> },
+      { path: "/evaluation", element: <EvaluationPage /> },
+      { path: "/admin", element: <AdminPage /> },
       {
         // 로그인한 사용자만 사이드바 마이페이지에 접근할 수 있습니다.
         element: <RequireAuth />,
         children: [
-          { path: '/mypage', element: <MyPage /> },
-          { path: '/my', element: <MyPage /> },
+          { path: "/mypage", element: <MyPage /> },
+          { path: "/my", element: <MyPage /> },
         ],
       },
     ],
