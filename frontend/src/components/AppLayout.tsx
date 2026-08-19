@@ -1,5 +1,4 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { ProfileButton } from './profile/ProfileButton';
 
 const links = [
   ['/', '상담'],
@@ -21,7 +20,6 @@ export function AppLayout() {
         <nav>
           {links.map(([path, label]) => <NavLink key={path} to={path}>{label}</NavLink>)}
         </nav>
-        <ProfileButton />
       </header>
       <main><Outlet /></main>
     </>
