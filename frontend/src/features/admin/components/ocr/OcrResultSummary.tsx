@@ -1,15 +1,17 @@
 import { Check, FileText } from "lucide-react";
 import type { AsyncStatus } from "../../types/common";
-import type { OcrDocumentResult } from "../../types/ocr";
+import type { OcrDocumentResult, OcrProgressUpdate } from "../../types/ocr";
 
 export function OcrResultSummary({
   status,
+  progress,
   result,
   saveStatus,
   saveMessage,
   onSave,
 }: {
   status: AsyncStatus;
+  progress: OcrProgressUpdate;
   result: OcrDocumentResult | null;
   saveStatus: AsyncStatus;
   saveMessage: string;
@@ -18,9 +20,24 @@ export function OcrResultSummary({
   if (status === "loading")
     return (
       <div className="admin-loading-state">
-          <span className="loading-orbit" />
-          <strong>OCR 결과를 준비하고 있습니다</strong>
-          <p>문서 구조를 분석하고 필요한 영역의 텍스트를 추출합니다.</p>
+        <span className="loading-orbit" />
+        <div className="ocr-progress-shell">
+          <div className="ocr-progress-heading">
+            <strong>{progress.message}</strong>
+            <span>{progress.progress}%</span>
+          </div>
+          <div
+            className="ocr-progress-track"
+            role="progressbar"
+            aria-label="OCR 분석 진행률"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.progress}
+          >
+            <span className="ocr-progress-bar" style={{ width: `${progress.progress}%` }} />
+          </div>
+          <p>문서 구조 분석부터 텍스트 정제와 Chunk 생성까지 진행합니다.</p>
+        </div>
       </div>
     );
   if (!result)

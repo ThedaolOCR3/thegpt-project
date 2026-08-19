@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     ocr_max_image_pixels: int = 40_000_000
     ocr_paddle_device: str = "cpu"
     ocr_paddle_language: str = "korean"
+    ocr_job_ttl_minutes: int = 60
+    ocr_max_pending_jobs: int = 5
 
     @property
     def sqlalchemy_database_url(self) -> str:

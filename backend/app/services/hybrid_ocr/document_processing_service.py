@@ -18,6 +18,7 @@ from app.services.hybrid_ocr.models import (
     ExtractedDocument,
     OcrEngine,
     OcrProcessingConfig,
+    ProgressCallback,
     ValidatedDocument,
 )
 from app.services.hybrid_ocr.paddle_ocr_service import get_paddle_ocr_service
@@ -50,14 +51,17 @@ class DocumentProcessingService:
         file: UploadFile,
         chunk_size: int,
         overlap: int,
+        progress_callback: ProgressCallback | None = None,
     ) -> OcrDocumentResponse:
         """검증 → 형식별 추출 → 정제 → Chunking → 응답의 순서를 관리합니다."""
 
         logger.info("Hybrid OCR 시작: filename=%s", file.filename)
 
         # 1. 업로드 파일과 Chunk 설정을 검증해 안전한 문서 데이터를 반환받습니다.
+        _report_progress(progress_callback, "validating", 8, "업로드 파일을 검증하고 있습니다.")
         validate_chunk_options(chunk_size, overlap)
         validated_document = await validate_document(file, self.config)
+        _report_progress(progress_callback, "validating", 15, "파일 검증이 완료되었습니다.")
         logger.info(
             "파일 검증 완료: filename=%s, type=%s, bytes=%d",
             validated_document.file_name,
@@ -66,10 +70,13 @@ class DocumentProcessingService:
         )
 
         # 2. 이미지/PDF 형식에 맞는 처리 함수에 위임하고 공통 결과로 복귀합니다.
+        _report_progress(progress_callback, "analyzing", 20, "문서 구조를 분석하고 있습니다.")
         extracted_document = await asyncio.to_thread(
             self._extract_document,
             validated_document,
+            progress_callback,
         )
+        _report_progress(progress_callback, "merging", 82, "문서 추출 결과를 통합했습니다.")
         logger.info(
             "문서 추출 완료: type=%s, pages=%d, ocr_images=%d",
             extracted_document.document_type,
@@ -78,10 +85,14 @@ class DocumentProcessingService:
         )
 
         # 3. 원문 의미는 유지하면서 RAG 입력에 불필요한 공백과 제어문자를 정리합니다.
+        _report_progress(progress_callback, "cleaning", 86, "추출 텍스트를 정제하고 있습니다.")
         cleaned_text = clean_document_text(extracted_document.text)
+        _report_progress(progress_callback, "cleaning", 90, "텍스트 정제가 완료되었습니다.")
 
         # 4. 관리자가 실제 분할 결과를 확인할 수 있도록 Chunk를 생성합니다.
+        _report_progress(progress_callback, "chunking", 93, "RAG 검토용 Chunk를 생성하고 있습니다.")
         chunks = create_chunks(cleaned_text, chunk_size, overlap)
+        _report_progress(progress_callback, "chunking", 97, f"Chunk {len(chunks)}개를 생성했습니다.")
         logger.info("Chunk 생성 완료: count=%d", len(chunks))
 
         # 5. 기존 Frontend 계약에 맞춘 응답을 조립해 Router로 반환합니다.
@@ -91,28 +102,33 @@ class DocumentProcessingService:
             cleaned_text,
             chunks,
         )
+        _report_progress(progress_callback, "finalizing", 99, "분석 결과를 구성했습니다.")
         logger.info("Hybrid OCR 완료: filename=%s", validated_document.file_name)
         return response
 
     def _extract_document(
         self,
         document: ValidatedDocument,
+        progress_callback: ProgressCallback | None,
     ) -> ExtractedDocument:
         if document.file_type == "image":
-            return self._process_image_document(document)
+            return self._process_image_document(document, progress_callback)
         return process_pdf_document(
             document.content,
             self.config,
             self.ocr_service_factory,
+            progress_callback,
         )
 
     def _process_image_document(
         self,
         document: ValidatedDocument,
+        progress_callback: ProgressCallback | None,
     ) -> ExtractedDocument:
         """일반 이미지를 로드·전처리한 뒤 PaddleOCR 결과를 반환받습니다."""
 
         # 1. EXIF 방향과 투명 배경, 최대 크기를 OCR에 적합하게 정리합니다.
+        _report_progress(progress_callback, "preprocessing", 28, "OCR용 이미지를 전처리하고 있습니다.")
         processed_image = preprocess_image(
             document.content,
             self.config.max_image_side,
@@ -120,7 +136,14 @@ class DocumentProcessingService:
         )
 
         # 2. PaddleOCR에 이미지를 전달하고 단순화된 텍스트/신뢰도를 반환받습니다.
+        _report_progress(
+            progress_callback,
+            "loading_model",
+            35,
+            "PaddleOCR 모델을 준비하고 있습니다.",
+        )
         ocr_result = self.ocr_service_factory().extract_text(processed_image)
+        _report_progress(progress_callback, "extracting", 80, "이미지 OCR이 완료되었습니다.")
         warnings = []
         if not ocr_result.text:
             warnings.append("이미지에서 인식 가능한 텍스트를 찾지 못했습니다.")
@@ -194,6 +217,7 @@ async def process_document(
     file: UploadFile,
     chunk_size: int,
     overlap: int,
+    progress_callback: ProgressCallback | None = None,
 ) -> OcrDocumentResponse:
     """Router가 호출하는 기본 Hybrid OCR 중심 함수입니다."""
 
@@ -201,4 +225,15 @@ async def process_document(
         file=file,
         chunk_size=chunk_size,
         overlap=overlap,
+        progress_callback=progress_callback,
     )
+
+
+def _report_progress(
+    callback: ProgressCallback | None,
+    stage: str,
+    progress: int,
+    message: str,
+) -> None:
+    if callback is not None:
+        callback(stage, max(0, min(progress, 99)), message)

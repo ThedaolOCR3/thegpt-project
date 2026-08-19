@@ -1,10 +1,12 @@
 """Hybrid OCR 내부 단계 사이에서 전달하는 데이터 구조를 정의합니다."""
 
 from dataclasses import dataclass, field
-from typing import Protocol, TYPE_CHECKING
+from typing import Callable, Protocol, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PIL.Image import Image
+
+ProgressCallback = Callable[[str, int, str], None]
 
 
 @dataclass(frozen=True)

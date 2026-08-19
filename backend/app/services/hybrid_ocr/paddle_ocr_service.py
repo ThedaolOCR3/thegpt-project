@@ -26,13 +26,16 @@ class PaddleOcrService:
         self.language = language
         self._pipeline: Any | None = None
         self._initialization_lock = Lock()
+        self._inference_lock = Lock()
 
     def extract_text(self, image: Image.Image) -> OcrEngineResult:
         pipeline = self._get_pipeline()
         started_at = perf_counter()
 
         try:
-            predictions = pipeline.predict(np.asarray(image))
+            # Paddle Pipeline은 동시 predict 안전성을 보장하지 않으므로 한 번에 한 요청만 실행합니다.
+            with self._inference_lock:
+                predictions = pipeline.predict(np.asarray(image))
             text, confidence, line_count = _parse_predictions(predictions)
         except Exception as exc:
             logger.exception("PaddleOCR 실행 중 오류가 발생했습니다.")

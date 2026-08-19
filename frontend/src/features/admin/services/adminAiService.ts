@@ -1,9 +1,15 @@
 import type { CompareModelsRequest, LlmComparisonResult } from '../types/llm';
-import type { AnalyzeDocumentRequest, MockSaveResult, OcrDocumentResult, SaveDocumentRequest } from '../types/ocr';
+import type {
+  AnalyzeDocumentRequest,
+  MockSaveResult,
+  OcrDocumentResult,
+  OcrProgressListener,
+  SaveDocumentRequest,
+} from '../types/ocr';
 import { apiAdminAiService } from './apiAdminAiService';
 
 export interface AdminAiService {
-  analyzeDocument(request: AnalyzeDocumentRequest): Promise<OcrDocumentResult>;
+  analyzeDocument(request: AnalyzeDocumentRequest, onProgress?: OcrProgressListener): Promise<OcrDocumentResult>;
   saveDocument(request: SaveDocumentRequest): Promise<MockSaveResult>;
   compareModels(request: CompareModelsRequest): Promise<LlmComparisonResult[]>;
 }

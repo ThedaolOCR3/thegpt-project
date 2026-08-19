@@ -23,6 +23,21 @@ class OcrDocumentResponse(AdminSchema):
     notes: list[str]
 
 
+class OcrJobCreatedResponse(AdminSchema):
+    job_id: str = Field(alias="jobId")
+    status: Literal["queued"]
+
+
+class OcrJobStatusResponse(AdminSchema):
+    job_id: str = Field(alias="jobId")
+    status: Literal["queued", "processing", "completed", "failed"]
+    stage: str
+    progress: int = Field(ge=0, le=100)
+    message: str
+    result: OcrDocumentResponse | None = None
+    error: str | None = None
+
+
 class VectorSaveTestRequest(AdminSchema):
     document_name: str = Field(alias="documentName", min_length=1, max_length=255)
 

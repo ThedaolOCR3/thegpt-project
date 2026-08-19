@@ -67,6 +67,7 @@ export function OcrPanel() {
         >
           <OcrResultSummary
             status={ocr.status}
+            progress={ocr.progress}
             result={ocr.result}
             saveStatus={ocr.saveStatus}
             saveMessage={ocr.saveMessage}

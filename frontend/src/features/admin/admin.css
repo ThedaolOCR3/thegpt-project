@@ -380,6 +380,41 @@
   border-radius: 50%;
   animation: admin-spin 0.8s linear infinite;
 }
+.ocr-progress-shell {
+  display: grid;
+  width: min(100%, 440px);
+  gap: 10px;
+}
+.ocr-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+.ocr-progress-heading strong {
+  font-size: 14px;
+}
+.ocr-progress-heading span {
+  flex: 0 0 auto;
+  color: var(--admin-accent);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ocr-progress-track {
+  height: 10px;
+  overflow: hidden;
+  background: var(--admin-border);
+  border-radius: 999px;
+}
+.ocr-progress-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
 .spin {
   animation: admin-spin 0.8s linear infinite;
 }

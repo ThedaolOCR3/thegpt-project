@@ -19,3 +19,11 @@ class DocumentProcessingError(HybridOcrError):
 
 class OcrUnavailableError(HybridOcrError):
     """PaddleOCR 의존성이나 모델을 사용할 수 없을 때 발생합니다."""
+
+
+class OcrJobNotFoundError(HybridOcrError):
+    """요청한 OCR Job이 없거나 만료되었을 때 발생합니다."""
+
+
+class OcrJobCapacityError(HybridOcrError):
+    """동시에 보관할 수 있는 OCR Job 수를 초과했을 때 발생합니다."""

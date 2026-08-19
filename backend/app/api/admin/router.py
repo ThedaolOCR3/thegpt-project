@@ -8,6 +8,8 @@ from app.schemas.admin import (
     LlmCompareRequest,
     LlmModelResponse,
     OcrDocumentResponse,
+    OcrJobCreatedResponse,
+    OcrJobStatusResponse,
     VectorSaveTestRequest,
     VectorSaveTestResponse,
 )
@@ -18,8 +20,11 @@ from app.services.hybrid_ocr.errors import (
     DocumentProcessingError,
     DocumentTooLargeError,
     DocumentValidationError,
+    OcrJobCapacityError,
+    OcrJobNotFoundError,
     OcrUnavailableError,
 )
+from app.services.ocr_job_service import ocr_job_manager
 
 router = APIRouter()
 
@@ -58,6 +63,45 @@ async def analyze_ocr(
     except DocumentProcessingError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/ocr/jobs",
+    response_model=OcrJobCreatedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_ocr_job(
+    file: Annotated[UploadFile, File(description="분석할 PDF, PNG 또는 JPG 파일")],
+    chunk_size: Annotated[
+        int,
+        Form(alias="chunkSize", ge=100, le=4096),
+    ] = 512,
+    overlap: Annotated[int, Form(ge=0)] = 50,
+) -> OcrJobCreatedResponse:
+    # 긴 OCR 처리는 별도 Task에서 실행하고 Frontend에는 조회할 Job ID를 즉시 반환합니다.
+    try:
+        return await ocr_job_manager.create_job(file, chunk_size, overlap)
+    except DocumentTooLargeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
+    except OcrJobCapacityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/ocr/jobs/{job_id}", response_model=OcrJobStatusResponse)
+def get_ocr_job(job_id: str) -> OcrJobStatusResponse:
+    try:
+        return ocr_job_manager.get_job(job_id)
+    except OcrJobNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
 
