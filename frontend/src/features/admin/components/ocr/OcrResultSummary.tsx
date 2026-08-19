@@ -18,9 +18,9 @@ export function OcrResultSummary({
   if (status === "loading")
     return (
       <div className="admin-loading-state">
-        <span className="loading-orbit" />
-        <strong>OCR 결과를 준비하고 있습니다</strong>
-        <p>고정 fixture로 추출 품질과 chunk 결과를 생성합니다.</p>
+          <span className="loading-orbit" />
+          <strong>OCR 결과를 준비하고 있습니다</strong>
+          <p>문서 구조를 분석하고 필요한 영역의 텍스트를 추출합니다.</p>
       </div>
     );
   if (!result)

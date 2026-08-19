@@ -1,25 +1,65 @@
-"""Admin OCR·LLM Mock API의 HTTP 요청과 Service를 연결합니다."""
+"""Admin OCR·LLM API의 HTTP 요청과 Service를 연결합니다."""
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.schemas.admin import (
     LlmCompareRequest,
     LlmModelResponse,
-    OcrAnalyzeRequest,
     OcrDocumentResponse,
     VectorSaveTestRequest,
     VectorSaveTestResponse,
 )
 from app.services.admin_llm import compare_models
-from app.services.admin_ocr import analyze_document, save_document_test
+from app.services.admin_ocr import save_document_test
+from app.services.hybrid_ocr.document_processing_service import process_document
+from app.services.hybrid_ocr.errors import (
+    DocumentProcessingError,
+    DocumentTooLargeError,
+    DocumentValidationError,
+    OcrUnavailableError,
+)
 
 router = APIRouter()
 
 
 @router.post("/ocr/analyze", response_model=OcrDocumentResponse)
-async def analyze_ocr(payload: OcrAnalyzeRequest) -> OcrDocumentResponse:
-    # Router는 HTTP 연결만 담당하고 전체 실행 순서는 OCR 중심 함수에 위임합니다.
-    return await analyze_document(payload)
+async def analyze_ocr(
+    file: Annotated[UploadFile, File(description="분석할 PDF, PNG 또는 JPG 파일")],
+    chunk_size: Annotated[
+        int,
+        Form(alias="chunkSize", ge=100, le=4096),
+    ] = 512,
+    overlap: Annotated[int, Form(ge=0)] = 50,
+) -> OcrDocumentResponse:
+    # Router는 multipart 입력과 HTTP 오류 변환만 담당하고 전체 흐름은 중심 Service에 맡깁니다.
+    try:
+        return await process_document(
+            file=file,
+            chunk_size=chunk_size,
+            overlap=overlap,
+        )
+    except DocumentTooLargeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
+    except DocumentValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except OcrUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except DocumentProcessingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/ocr/vector-save-test", response_model=VectorSaveTestResponse)

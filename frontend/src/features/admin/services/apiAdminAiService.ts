@@ -8,21 +8,17 @@ import type {
 } from '../types/ocr';
 import type { AdminAiService } from './adminAiService';
 
-/**
- * Admin UI와 FastAPI 사이의 HTTP 변환 경계입니다.
- * 현재 단계에서는 파일 본문을 전송하지 않고 브라우저 File의 메타데이터만 전달합니다.
- */
+/** Admin UI와 FastAPI 사이의 HTTP 변환 경계입니다. */
 export const apiAdminAiService: AdminAiService = {
   analyzeDocument(request: AnalyzeDocumentRequest) {
+    const formData = new FormData();
+    formData.append('file', request.file);
+    formData.append('chunkSize', String(request.chunkSize));
+    formData.append('overlap', String(request.overlap));
+
     return apiClient<OcrDocumentResult>('/admin/ocr/analyze', {
       method: 'POST',
-      body: JSON.stringify({
-        documentName: request.file.name,
-        fileSize: request.file.size,
-        contentType: request.file.type || null,
-        chunkSize: request.chunkSize,
-        overlap: request.overlap,
-      }),
+      body: formData,
     });
   },
 

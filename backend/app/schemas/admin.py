@@ -11,20 +11,6 @@ class AdminSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class OcrAnalyzeRequest(AdminSchema):
-    document_name: str = Field(alias="documentName", min_length=1, max_length=255)
-    file_size: int = Field(alias="fileSize", ge=0)
-    content_type: str | None = Field(default=None, alias="contentType", max_length=100)
-    chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
-    overlap: int = Field(default=50, ge=0)
-
-    @model_validator(mode="after")
-    def validate_chunk_options(self) -> "OcrAnalyzeRequest":
-        if self.overlap >= self.chunk_size:
-            raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
-        return self
-
-
 class OcrDocumentResponse(AdminSchema):
     document_name: str = Field(alias="documentName")
     page_count: int = Field(alias="pageCount")

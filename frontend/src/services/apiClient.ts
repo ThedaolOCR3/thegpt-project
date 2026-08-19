@@ -6,10 +6,12 @@ interface RequestOptions extends RequestInit {
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...requestOptions } = options;
+  const sendsFormData = requestOptions.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...requestOptions,
     headers: {
-      'Content-Type': 'application/json',
+      // FormData의 multipart boundary는 브라우저가 생성해야 하므로 직접 지정하지 않습니다.
+      ...(sendsFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },

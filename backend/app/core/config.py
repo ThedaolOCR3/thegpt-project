@@ -15,6 +15,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     password_reset_expire_minutes: int = 30
     frontend_url: str = "http://localhost:5173"
+    ocr_max_file_size_mb: int = 20
+    ocr_max_pdf_pages: int = 50
+    ocr_native_text_min_chars: int = 20
+    ocr_significant_image_area_ratio: float = 0.03
+    ocr_pdf_render_dpi: int = 200
+    ocr_max_image_side: int = 2400
+    ocr_max_image_pixels: int = 40_000_000
+    ocr_paddle_device: str = "cpu"
+    ocr_paddle_language: str = "korean"
 
     @property
     def sqlalchemy_database_url(self) -> str:
