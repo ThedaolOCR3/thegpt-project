@@ -10,8 +10,11 @@ from app.schemas.document import OcrLineResponse, OcrResponse
 router = APIRouter()
 logger = get_logger("api.documents")
 
-ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/bmp", "image/tiff"}
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/bmp", "image/tiff", "application/pdf"}
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+# 테스트 단계라 이미지+PDF만 지원한다. 실제 서비스 반영 시엔 문서/스캔 파일 등
+# CLAUDE.md에서 말하는 "모든 파일" 지원 범위로 넓혀야 한다.
 
 
 @router.post("/ocr", response_model=OcrResponse)
@@ -45,5 +48,5 @@ async def extract_text(
 
     return OcrResponse(
         text=result.text,
-        lines=[OcrLineResponse(text=l.text, confidence=l.confidence) for l in result.lines],
+        lines=[OcrLineResponse(text=l.text, confidence=l.confidence, page=l.page) for l in result.lines],
     )

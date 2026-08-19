@@ -21,3 +21,6 @@ backend/local_lab/
 
 # Claude Code project instructions (로컬 전용, 공유 저장소에는 올리지 않음)
 /CLAUDE.md/claude.md
+
+# 로컬 GGUF 모델 파일 (수 GB, git에 안 올림)
+ai/llm/models/

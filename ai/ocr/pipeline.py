@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 
 from .postprocessing import OcrLine, postprocess
-from .preprocessing import preprocess
+from .preprocessing import is_pdf, pdf_to_images, preprocess, preprocess_image
 
 _ocr_engine = None
 
@@ -35,17 +35,23 @@ class OcrResult:
 
 
 def run_ocr(image_bytes: bytes, min_confidence: float = 0.5) -> OcrResult:
-    """이미지 바이트 -> (전처리 -> PaddleOCR -> 후처리)를 거친 최종 텍스트."""
-    image = preprocess(image_bytes)
-    engine = _get_engine()
-    pages = engine.predict(image)
+    """이미지 또는 PDF 바이트 -> (전처리 -> PaddleOCR -> 후처리)를 거친 최종 텍스트.
 
+    PDF는 페이지별로 렌더링해서 각각 OCR을 돌리고, 결과에 페이지 번호를 붙여 합친다.
+    """
+    if is_pdf(image_bytes):
+        page_images = [preprocess_image(page) for page in pdf_to_images(image_bytes)]
+    else:
+        page_images = [preprocess(image_bytes)]
+
+    engine = _get_engine()
     lines: list[OcrLine] = []
-    for page in pages or []:
-        texts = page.get("rec_texts", [])
-        scores = page.get("rec_scores", [])
-        for t, s in zip(texts, scores):
-            lines.append(OcrLine(text=t, confidence=float(s)))
+    for page_index, image in enumerate(page_images):
+        for result in engine.predict(image) or []:
+            texts = result.get("rec_texts", [])
+            scores = result.get("rec_scores", [])
+            for t, s in zip(texts, scores):
+                lines.append(OcrLine(text=t, confidence=float(s), page=page_index))
 
     text = postprocess(lines, min_confidence=min_confidence)
     return OcrResult(text=text, lines=lines, min_confidence=min_confidence)

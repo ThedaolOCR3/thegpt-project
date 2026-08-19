@@ -31,7 +31,9 @@ def search(chunks: list[str], query: str, top_k: int = 5) -> list[tuple[int, flo
     schema_builder.add_text_field("text", stored=False)
     schema = schema_builder.build()
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    # ignore_cleanup_errors: 윈도우에서 Tantivy가 인덱스 파일 핸들을 곧바로 안 놓아서
+    # 임시 디렉토리 삭제 시 "디렉토리가 비어있지 않음" 에러로 죽는 경우가 있어 무시한다.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         index = tantivy.Index(schema, path=tmp_dir)
         writer = index.writer()
         for i, chunk in enumerate(chunks):
