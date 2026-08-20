@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.paths import ROOT_ENV_FILE
+
 
 class StorageSettings(BaseSettings):
     r2_account_id: str | None = None
@@ -10,7 +12,11 @@ class StorageSettings(BaseSettings):
     r2_bucket_name: str | None = None
     r2_public_url: str | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     def validate_r2(self) -> None:
         values = (

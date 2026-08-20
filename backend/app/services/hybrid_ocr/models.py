@@ -22,6 +22,11 @@ class OcrProcessingConfig:
     max_image_pixels: int
     paddle_device: str
     paddle_language: str
+    max_office_uncompressed_bytes: int = 200 * 1024 * 1024
+    max_office_archive_entries: int = 5_000
+    max_converted_pdf_bytes: int = 50 * 1024 * 1024
+    office_conversion_timeout_seconds: int = 120
+    office_converter_command: str = "soffice"
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.paths import ROOT_ENV_FILE
+
 
 class Settings(BaseSettings):
     app_name: str = "Medical AI API"
@@ -24,6 +26,11 @@ class Settings(BaseSettings):
     ocr_max_image_pixels: int = 40_000_000
     ocr_paddle_device: str = "cpu"
     ocr_paddle_language: str = "korean"
+    ocr_max_office_uncompressed_size_mb: int = 200
+    ocr_max_office_archive_entries: int = 5_000
+    ocr_max_converted_pdf_size_mb: int = 50
+    ocr_office_conversion_timeout_seconds: int = 120
+    ocr_office_converter_command: str = "soffice"
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
 
@@ -33,7 +40,11 @@ class Settings(BaseSettings):
             return self.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
         return self.database_url
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 @lru_cache

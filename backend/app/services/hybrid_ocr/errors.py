@@ -17,6 +17,10 @@ class DocumentProcessingError(HybridOcrError):
     """검증을 마친 문서를 추출하는 중 실패할 때 발생합니다."""
 
 
+class OfficeConversionError(DocumentProcessingError):
+    """DOCX/PPTX를 PDF로 변환하지 못했을 때 발생합니다."""
+
+
 class OcrUnavailableError(HybridOcrError):
     """PaddleOCR 의존성이나 모델을 사용할 수 없을 때 발생합니다."""
 

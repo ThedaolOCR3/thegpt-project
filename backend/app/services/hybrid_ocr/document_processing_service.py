@@ -12,6 +12,7 @@ from app.services.hybrid_ocr.chunk_service import create_chunks
 from app.services.hybrid_ocr.document_validator import (
     validate_chunk_options,
     validate_document,
+    validate_pdf_content,
 )
 from app.services.hybrid_ocr.image_preprocessor import preprocess_image
 from app.services.hybrid_ocr.models import (
@@ -20,6 +21,10 @@ from app.services.hybrid_ocr.models import (
     OcrProcessingConfig,
     ProgressCallback,
     ValidatedDocument,
+)
+from app.services.hybrid_ocr.office_converter_service import (
+    LibreOfficeDocumentConverter,
+    OfficeDocumentConverter,
 )
 from app.services.hybrid_ocr.paddle_ocr_service import get_paddle_ocr_service
 from app.services.hybrid_ocr.pdf_parser_service import process_pdf_document
@@ -42,9 +47,15 @@ class DocumentProcessingService:
         self,
         config: OcrProcessingConfig,
         ocr_service_factory: Callable[[], OcrEngine],
+        office_converter: OfficeDocumentConverter | None = None,
     ) -> None:
         self.config = config
         self.ocr_service_factory = ocr_service_factory
+        self.office_converter = office_converter or LibreOfficeDocumentConverter(
+            executable=config.office_converter_command,
+            timeout_seconds=config.office_conversion_timeout_seconds,
+            max_output_bytes=config.max_converted_pdf_bytes,
+        )
 
     async def process_document(
         self,
@@ -69,7 +80,7 @@ class DocumentProcessingService:
             len(validated_document.content),
         )
 
-        # 2. 이미지/PDF 형식에 맞는 처리 함수에 위임하고 공통 결과로 복귀합니다.
+        # 2. 이미지/PDF/Office 형식에 맞는 처리 함수에 위임하고 공통 결과로 복귀합니다.
         _report_progress(progress_callback, "analyzing", 20, "문서 구조를 분석하고 있습니다.")
         extracted_document = await asyncio.to_thread(
             self._extract_document,
@@ -113,11 +124,53 @@ class DocumentProcessingService:
     ) -> ExtractedDocument:
         if document.file_type == "image":
             return self._process_image_document(document, progress_callback)
-        return process_pdf_document(
-            document.content,
+        if document.file_type == "pdf":
+            return process_pdf_document(
+                document.content,
+                self.config,
+                self.ocr_service_factory,
+                progress_callback,
+            )
+        return self._process_office_document(document, progress_callback)
+
+    def _process_office_document(
+        self,
+        document: ValidatedDocument,
+        progress_callback: ProgressCallback | None,
+    ) -> ExtractedDocument:
+        """DOCX/PPTX를 PDF로 정규화한 뒤 기존 PDF 처리 결과로 복귀합니다."""
+
+        _report_progress(
+            progress_callback,
+            "converting",
+            22,
+            f"{document.file_type.upper()} 문서를 PDF로 변환하고 있습니다.",
+        )
+        converted = self.office_converter.convert_to_pdf(document)
+        validate_pdf_content(
+            converted.content,
+            "application/pdf",
+            self.config.max_pdf_pages,
+        )
+        _report_progress(
+            progress_callback,
+            "converting",
+            25,
+            "Office 문서의 PDF 변환과 검증이 완료되었습니다.",
+        )
+        extracted = process_pdf_document(
+            converted.content,
             self.config,
             self.ocr_service_factory,
             progress_callback,
+        )
+        return ExtractedDocument(
+            text=extracted.text,
+            page_count=extracted.page_count,
+            document_type=extracted.document_type,
+            ocr_image_count=extracted.ocr_image_count,
+            average_confidence=extracted.average_confidence,
+            warnings=[*converted.warnings, *extracted.warnings],
         )
 
     def _process_image_document(
@@ -170,6 +223,8 @@ class DocumentProcessingService:
             f"PaddleOCR 처리 이미지: {extracted.ocr_image_count}개",
             *extracted.warnings,
         ]
+        if document.file_type in {"docx", "pptx"}:
+            notes.insert(0, f"원본 형식: {document.file_type.upper()}")
         needs_review = (
             not cleaned_text
             or confidence_percent < 80
@@ -200,6 +255,17 @@ def _build_default_config() -> OcrProcessingConfig:
         max_image_pixels=settings.ocr_max_image_pixels,
         paddle_device=settings.ocr_paddle_device,
         paddle_language=settings.ocr_paddle_language,
+        max_office_uncompressed_bytes=(
+            settings.ocr_max_office_uncompressed_size_mb * 1024 * 1024
+        ),
+        max_office_archive_entries=settings.ocr_max_office_archive_entries,
+        max_converted_pdf_bytes=(
+            settings.ocr_max_converted_pdf_size_mb * 1024 * 1024
+        ),
+        office_conversion_timeout_seconds=(
+            settings.ocr_office_conversion_timeout_seconds
+        ),
+        office_converter_command=settings.ocr_office_converter_command,
     )
 
 

@@ -12,7 +12,7 @@ export const mockAdminAiService = {
     await delay(800);
     const extension = extensionOf(request.file.name);
     if (!OCR_SUPPORTED_EXTENSIONS.has(extension)) {
-      throw new Error('PDF, PNG, JPG 형식만 문서 분석 테스트에 사용할 수 있습니다.');
+      throw new Error('PDF, PNG, JPG, DOCX, PPTX 형식만 문서 분석 테스트에 사용할 수 있습니다.');
     }
     return createOcrMockResult(request.file.name, extension === 'pdf');
   },

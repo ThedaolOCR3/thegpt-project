@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.paths import ROOT_ENV_FILE
+
 
 class EmailSettings(BaseSettings):
     email_verification_expire_minutes: int = 10
@@ -13,7 +15,11 @@ class EmailSettings(BaseSettings):
     smtp_use_tls: bool = True
     app_env: str = "local"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 @lru_cache

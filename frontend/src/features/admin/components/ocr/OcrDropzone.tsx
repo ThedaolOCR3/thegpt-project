@@ -30,7 +30,7 @@ export function OcrDropzone({
     >
       <UploadCloud aria-hidden="true" size={32} />
       <strong>문서를 끌어 놓거나 직접 선택하세요</strong>
-      <span>PDF, PNG, JPG </span>
+      <span>PDF, PNG, JPG, DOCX, PPTX</span>
       <button
         className="admin-secondary-button"
         type="button"

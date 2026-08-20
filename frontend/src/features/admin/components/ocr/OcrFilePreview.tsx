@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg"]);
+const OFFICE_EXTENSIONS = new Set(["docx", "pptx"]);
 
 const extensionOf = (fileName: string) =>
   fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -13,16 +14,35 @@ export function OcrFilePreview({ file }: { file: File }) {
   const isPdf = file.type === "application/pdf" || extension === "pdf";
   const isImage =
     file.type.startsWith("image/") || IMAGE_EXTENSIONS.has(extension);
+  const isOffice = OFFICE_EXTENSIONS.has(extension);
   const previewUrl = preview?.file === file ? preview.url : "";
 
   useEffect(() => {
+    if (isOffice) {
+      setPreview(null);
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setPreview({ file, url: objectUrl });
 
     return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+  }, [file, isOffice]);
 
-  if (!isPdf && !isImage) return null;
+  if (!isPdf && !isImage && !isOffice) return null;
+
+  if (isOffice) {
+    return (
+      <section className="ocr-file-preview" aria-label={`${file.name} 변환 안내`}>
+        <div className="ocr-preview-header">
+          <strong>파일 미리보기</strong>
+        </div>
+        <div className="ocr-preview-loading">
+          분석 시 {extension.toUpperCase()} 문서를 PDF로 변환해 처리합니다.
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

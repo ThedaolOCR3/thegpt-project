@@ -12,7 +12,7 @@
 
 ## SMTP 환경변수
 
-`backend/.env`에 사용하는 메일 서비스의 SMTP 정보를 입력합니다.
+프로젝트 최상위 `.env`에 사용하는 메일 서비스의 SMTP 정보를 입력합니다.
 
 ```env
 APP_ENV=production

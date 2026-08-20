@@ -31,7 +31,10 @@ router = APIRouter()
 
 @router.post("/ocr/analyze", response_model=OcrDocumentResponse)
 async def analyze_ocr(
-    file: Annotated[UploadFile, File(description="분석할 PDF, PNG 또는 JPG 파일")],
+    file: Annotated[
+        UploadFile,
+        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+    ],
     chunk_size: Annotated[
         int,
         Form(alias="chunkSize", ge=100, le=4096),
@@ -73,7 +76,10 @@ async def analyze_ocr(
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def create_ocr_job(
-    file: Annotated[UploadFile, File(description="분석할 PDF, PNG 또는 JPG 파일")],
+    file: Annotated[
+        UploadFile,
+        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+    ],
     chunk_size: Annotated[
         int,
         Form(alias="chunkSize", ge=100, le=4096),
