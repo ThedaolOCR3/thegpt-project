@@ -29,7 +29,7 @@ export type OcrProgressListener = (progress: OcrProgressUpdate) => void;
 
 export type OcrDocumentResult = {
   documentName: string;
-  pageCount: number;
+  pageCount: number | null;
   characterCount: number;
   estimatedChunks: number;
   confidence: number;

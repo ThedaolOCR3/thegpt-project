@@ -17,8 +17,8 @@ class DocumentProcessingError(HybridOcrError):
     """검증을 마친 문서를 추출하는 중 실패할 때 발생합니다."""
 
 
-class OfficeConversionError(DocumentProcessingError):
-    """DOCX/PPTX를 PDF로 변환하지 못했을 때 발생합니다."""
+class OfficeExtractionError(DocumentProcessingError):
+    """DOCX/PPTX의 OOXML 구조를 직접 추출하지 못했을 때 발생합니다."""
 
 
 class OcrUnavailableError(HybridOcrError):

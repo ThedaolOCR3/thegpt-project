@@ -1,15 +1,14 @@
 import asyncio
-import subprocess
-import sys
 import unittest
 from io import BytesIO
-from pathlib import Path
-from unittest.mock import patch
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pymupdf
+from docx import Document as WordDocument
 from fastapi import UploadFile
 from PIL import Image
+from pptx import Presentation
+from pptx.util import Inches
 from starlette.datastructures import Headers
 
 from app.services.hybrid_ocr.chunk_service import create_chunks
@@ -19,16 +18,11 @@ from app.services.hybrid_ocr.document_processing_service import (
 from app.services.hybrid_ocr.errors import (
     DocumentTooLargeError,
     DocumentValidationError,
-    OfficeConversionError,
+    OfficeExtractionError,
 )
 from app.services.hybrid_ocr.models import (
     OcrEngineResult,
     OcrProcessingConfig,
-    ValidatedDocument,
-)
-from app.services.hybrid_ocr.office_converter_service import (
-    ConvertedOfficeDocument,
-    LibreOfficeDocumentConverter,
 )
 
 
@@ -51,28 +45,9 @@ class FakeOcrEngine:
         )
 
 
-class FakeOfficeConverter:
-    """LibreOffice 설치 없이 Office → PDF 연결 흐름을 검증합니다."""
-
-    def __init__(self, converted_pdf: bytes | None = None) -> None:
-        self.converted_pdf = converted_pdf or _make_digital_pdf()
-        self.converted_file_names: list[str] = []
-
-    def convert_to_pdf(
-        self,
-        document: ValidatedDocument,
-    ) -> ConvertedOfficeDocument:
-        self.converted_file_names.append(document.file_name)
-        return ConvertedOfficeDocument(
-            content=self.converted_pdf,
-            warnings=[f"{document.file_type.upper()} 테스트 변환"],
-        )
-
-
 class HybridOcrServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.ocr_engine = FakeOcrEngine()
-        self.office_converter = FakeOfficeConverter()
         self.service = DocumentProcessingService(
             config=OcrProcessingConfig(
                 max_file_bytes=5 * 1024 * 1024,
@@ -86,7 +61,6 @@ class HybridOcrServiceTest(unittest.TestCase):
                 paddle_language="korean",
             ),
             ocr_service_factory=lambda: self.ocr_engine,
-            office_converter=self.office_converter,
         )
 
     def test_digital_pdf_uses_native_text_without_ocr(self) -> None:
@@ -141,29 +115,54 @@ class HybridOcrServiceTest(unittest.TestCase):
         self.assertEqual(self.ocr_engine.call_count, 1)
         self.assertIn("가짜 OCR 추출 텍스트", result.extracted_text)
 
-    def test_docx_is_converted_then_uses_existing_pdf_pipeline(self) -> None:
+    def test_docx_extracts_heading_paragraph_and_table_without_ocr(self) -> None:
         result = self._process(
             _make_office_package("docx"),
             "sample.docx",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
 
-        self.assertEqual(self.office_converter.converted_file_names, ["sample.docx"])
         self.assertEqual(self.ocr_engine.call_count, 0)
-        self.assertIn("Native digital PDF text", result.extracted_text)
-        self.assertEqual(result.page_count, 1)
+        self.assertIn("DOCX direct extraction heading", result.extracted_text)
+        self.assertIn("DOCX paragraph for RAG extraction", result.extracted_text)
+        self.assertIn("| Field | Value |", result.extracted_text)
+        self.assertIsNone(result.page_count)
         self.assertIn("원본 형식: DOCX", result.notes)
+        self.assertTrue(any("실제 페이지 수" in note for note in result.notes))
 
-    def test_pptx_is_converted_then_uses_existing_pdf_pipeline(self) -> None:
+    def test_pptx_extracts_slide_text_and_notes_without_ocr(self) -> None:
         result = self._process(
             _make_office_package("pptx"),
             "slides.pptx",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
 
-        self.assertEqual(self.office_converter.converted_file_names, ["slides.pptx"])
+        self.assertEqual(self.ocr_engine.call_count, 0)
         self.assertEqual(result.page_count, 1)
+        self.assertIn("PPTX direct extraction title", result.extracted_text)
+        self.assertIn("PPTX speaker notes", result.extracted_text)
         self.assertIn("원본 형식: PPTX", result.notes)
+
+    def test_docx_embedded_image_is_sent_to_ocr(self) -> None:
+        result = self._process(
+            _make_office_package("docx", include_image=True),
+            "image.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
+        self.assertEqual(self.ocr_engine.call_count, 1)
+        self.assertIn("### 이미지 OCR 1", result.extracted_text)
+        self.assertIn("가짜 OCR 추출 텍스트", result.extracted_text)
+
+    def test_pptx_embedded_image_is_sent_to_ocr(self) -> None:
+        result = self._process(
+            _make_office_package("pptx", include_image=True),
+            "image.pptx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+
+        self.assertEqual(self.ocr_engine.call_count, 1)
+        self.assertIn("가짜 OCR 추출 텍스트", result.extracted_text)
 
     def test_large_image_is_resized_before_ocr(self) -> None:
         image = _make_png(width=2000, height=1000)
@@ -263,6 +262,14 @@ class HybridOcrServiceTest(unittest.TestCase):
                 "text/plain",
             )
 
+    def test_valid_zip_with_unreadable_docx_structure_raises_domain_error(self) -> None:
+        with self.assertRaises(OfficeExtractionError):
+            self._process(
+                _make_minimal_unreadable_office_package("docx"),
+                "unreadable.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
     def test_rejects_overlap_equal_to_chunk_size(self) -> None:
         upload = _upload(_make_png(), "sample.png", "image/png")
 
@@ -299,58 +306,6 @@ class HybridOcrServiceTest(unittest.TestCase):
         )
 
 
-class LibreOfficeDocumentConverterTest(unittest.TestCase):
-    def test_converter_reads_generated_pdf_and_uses_isolated_profile(self) -> None:
-        converter = LibreOfficeDocumentConverter(
-            executable=sys.executable,
-            timeout_seconds=10,
-            max_output_bytes=5 * 1024 * 1024,
-        )
-        document_content = _make_office_package("docx")
-
-        def fake_run(command, **_kwargs):
-            output_directory = Path(command[command.index("--outdir") + 1])
-            (output_directory / "source.pdf").write_bytes(_make_digital_pdf())
-            return subprocess.CompletedProcess(command, 0, stdout="converted", stderr="")
-
-        with patch(
-            "app.services.hybrid_ocr.office_converter_service.subprocess.run",
-            side_effect=fake_run,
-        ) as run:
-            result = converter.convert_to_pdf(
-                _validated_document(
-                    document_content,
-                    "sample.docx",
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "docx",
-                )
-            )
-
-        command = run.call_args.args[0]
-        self.assertTrue(
-            any(value.startswith("-env:UserInstallation=file:") for value in command)
-        )
-        self.assertIn("--headless", command)
-        self.assertTrue(result.content.startswith(b"%PDF-"))
-
-    def test_missing_converter_raises_domain_error(self) -> None:
-        converter = LibreOfficeDocumentConverter(
-            executable="definitely-missing-libreoffice-command",
-            timeout_seconds=10,
-            max_output_bytes=1024,
-        )
-
-        with self.assertRaises(OfficeConversionError):
-            converter.convert_to_pdf(
-                _validated_document(
-                    _make_office_package("pptx"),
-                    "slides.pptx",
-                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                    "pptx",
-                )
-            )
-
-
 def _upload(content: bytes, file_name: str, content_type: str) -> UploadFile:
     return UploadFile(
         file=BytesIO(content),
@@ -359,21 +314,40 @@ def _upload(content: bytes, file_name: str, content_type: str) -> UploadFile:
     )
 
 
-def _validated_document(
-    content: bytes,
-    file_name: str,
-    content_type: str,
-    file_type: str,
-) -> ValidatedDocument:
-    return ValidatedDocument(
-        file_name=file_name,
-        content_type=content_type,
-        file_type=file_type,
-        content=content,
-    )
+def _make_office_package(file_type: str, include_image: bool = False) -> bytes:
+    output = BytesIO()
+    if file_type == "docx":
+        document = WordDocument()
+        document.add_heading("DOCX direct extraction heading", level=1)
+        document.add_paragraph("DOCX paragraph for RAG extraction")
+        table = document.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Field"
+        table.cell(0, 1).text = "Value"
+        table.cell(1, 0).text = "Diagnosis"
+        table.cell(1, 1).text = "Sample"
+        if include_image:
+            document.add_picture(BytesIO(_make_png()), width=Inches(2))
+        document.save(output)
+    elif file_type == "pptx":
+        presentation = Presentation()
+        slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        text_box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+        text_box.text = "PPTX direct extraction title"
+        slide.notes_slide.notes_text_frame.text = "PPTX speaker notes"
+        if include_image:
+            slide.shapes.add_picture(
+                BytesIO(_make_png()),
+                Inches(1),
+                Inches(2),
+                width=Inches(4),
+            )
+        presentation.save(output)
+    else:
+        raise ValueError(f"지원하지 않는 테스트 Office 형식: {file_type}")
+    return output.getvalue()
 
 
-def _make_office_package(file_type: str) -> bytes:
+def _make_minimal_unreadable_office_package(file_type: str) -> bytes:
     output = BytesIO()
     with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
         archive.writestr(

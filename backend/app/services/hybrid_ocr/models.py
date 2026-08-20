@@ -24,9 +24,6 @@ class OcrProcessingConfig:
     paddle_language: str
     max_office_uncompressed_bytes: int = 200 * 1024 * 1024
     max_office_archive_entries: int = 5_000
-    max_converted_pdf_bytes: int = 50 * 1024 * 1024
-    office_conversion_timeout_seconds: int = 120
-    office_converter_command: str = "soffice"
 
 
 @dataclass(frozen=True)
@@ -60,7 +57,7 @@ class ExtractedDocument:
     """파일 형식별 처리가 끝난 뒤 중심 서비스로 돌아오는 공통 결과입니다."""
 
     text: str
-    page_count: int
+    page_count: int | None
     document_type: str
     ocr_image_count: int
     average_confidence: float

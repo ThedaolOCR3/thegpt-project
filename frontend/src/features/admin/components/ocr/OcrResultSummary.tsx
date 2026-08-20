@@ -51,6 +51,8 @@ export function OcrResultSummary({
         <p>문서를 선택하고 분석 테스트를 실행해 주세요.</p>
       </div>
     );
+  const extension = result.documentName.split(".").pop()?.toLowerCase();
+  const unitLabel = extension === "pptx" ? "슬라이드" : "페이지";
   return (
     <div className="ocr-result">
       <div className="result-title-row">
@@ -65,8 +67,8 @@ export function OcrResultSummary({
       </div>
       <dl className="metric-grid">
         <div>
-          <dt>페이지</dt>
-          <dd>{result.pageCount}</dd>
+          <dt>{unitLabel}</dt>
+          <dd>{result.pageCount ?? "계산 안 됨"}</dd>
         </div>
         <div>
           <dt>추출 문자</dt>

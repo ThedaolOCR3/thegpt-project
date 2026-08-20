@@ -17,6 +17,17 @@ uvicorn app.main:app --reload
 프로젝트 최상위 `.env`의 `DATABASE_URL`을 Neon 콘솔에서 복사한 연결 문자열로 교체합니다.
 Backend는 실행 디렉터리와 관계없이 이 최상위 파일 하나만 읽습니다.
 
+## OCR 문서 처리
+
+- PDF: Native Text와 포함 이미지를 구분하는 Hybrid PDF 처리
+- PNG/JPG: PaddleOCR 처리
+- DOCX: `python-docx` 기반 문단·표·이미지 직접 추출
+- PPTX: `python-pptx` 기반 슬라이드·도형·표·이미지·발표자 노트 직접 추출
+
+DOCX/PPTX 처리를 위해 LibreOffice를 설치하거나 실행 경로를 설정할 필요가 없습니다.
+정확한 Office 페이지 미리보기 또는 페이지 번호가 필요하면 원본 프로그램에서 PDF로
+내보낸 뒤 PDF를 업로드합니다.
+
 ## 마이그레이션
 
 ```bash

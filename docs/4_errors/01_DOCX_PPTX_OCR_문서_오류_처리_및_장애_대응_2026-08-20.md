@@ -1,5 +1,7 @@
 # DOCX/PPTX OCR 문서 오류 처리 및 장애 대응
 
+> 상태: 이 문서는 2026-08-20 LibreOffice 기반 처리에서 발생한 장애 분석 기록이다. 이후 DOCX/PPTX 기본 처리는 직접 OOXML 추출로 전환되었다. 현재 구조는 [OCR 전체 구조 흐름](../3_flow/05_FLW_OCR_전체구조흐름_20260820.md)을 참고한다.
+
 작성일: 2026-08-20  
 대상: 관리자 OCR의 DOCX/PPTX 업로드, LibreOffice PDF 변환, Hybrid PDF/OCR 처리
 

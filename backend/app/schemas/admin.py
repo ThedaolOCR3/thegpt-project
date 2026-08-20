@@ -13,7 +13,7 @@ class AdminSchema(BaseModel):
 
 class OcrDocumentResponse(AdminSchema):
     document_name: str = Field(alias="documentName")
-    page_count: int = Field(alias="pageCount")
+    page_count: int | None = Field(alias="pageCount")
     character_count: int = Field(alias="characterCount")
     estimated_chunks: int = Field(alias="estimatedChunks")
     confidence: float

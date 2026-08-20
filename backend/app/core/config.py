@@ -28,9 +28,6 @@ class Settings(BaseSettings):
     ocr_paddle_language: str = "korean"
     ocr_max_office_uncompressed_size_mb: int = 200
     ocr_max_office_archive_entries: int = 5_000
-    ocr_max_converted_pdf_size_mb: int = 50
-    ocr_office_conversion_timeout_seconds: int = 120
-    ocr_office_converter_command: str = "soffice"
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
 

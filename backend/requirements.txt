@@ -11,11 +11,12 @@ PyJWT>=2.10,<3.0
 boto3>=1.40,<2.0
 python-multipart>=0.0.20,<1.0
 
-# Hybrid OCR (PDF/image). DOCX/PPTX 변환은 pip 패키지가 아니라
-# 별도로 설치한 LibreOffice의 soffice 실행 파일을 사용합니다.
+# Hybrid OCR (PDF/image) 및 DOCX/PPTX OOXML 직접 추출
 numpy>=2.0,<2.4
 Pillow>=11.0,<13.0
 PyMuPDF>=1.26,<1.29
 pymupdf4llm>=0.3,<0.4
 paddlepaddle>=3.3,<3.4
 paddleocr>=3.7,<3.8
+python-docx>=1.2,<2.0
+python-pptx>=1.0,<2.0

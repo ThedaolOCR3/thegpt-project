@@ -12,8 +12,8 @@ from app.services.hybrid_ocr.chunk_service import create_chunks
 from app.services.hybrid_ocr.document_validator import (
     validate_chunk_options,
     validate_document,
-    validate_pdf_content,
 )
+from app.services.hybrid_ocr.errors import DocumentProcessingError
 from app.services.hybrid_ocr.image_preprocessor import preprocess_image
 from app.services.hybrid_ocr.models import (
     ExtractedDocument,
@@ -22,9 +22,9 @@ from app.services.hybrid_ocr.models import (
     ProgressCallback,
     ValidatedDocument,
 )
-from app.services.hybrid_ocr.office_converter_service import (
-    LibreOfficeDocumentConverter,
-    OfficeDocumentConverter,
+from app.services.hybrid_ocr.office_parser_service import (
+    DirectOfficeDocumentParser,
+    OfficeDocumentParser,
 )
 from app.services.hybrid_ocr.paddle_ocr_service import get_paddle_ocr_service
 from app.services.hybrid_ocr.pdf_parser_service import process_pdf_document
@@ -37,6 +37,8 @@ DOCUMENT_TYPE_LABELS = {
     "digital_pdf": "디지털 PDF",
     "hybrid_pdf": "Hybrid PDF",
     "scanned_pdf": "스캔 PDF",
+    "docx_direct": "DOCX 직접 추출",
+    "pptx_direct": "PPTX 직접 추출",
 }
 
 
@@ -47,15 +49,11 @@ class DocumentProcessingService:
         self,
         config: OcrProcessingConfig,
         ocr_service_factory: Callable[[], OcrEngine],
-        office_converter: OfficeDocumentConverter | None = None,
+        office_parser: OfficeDocumentParser | None = None,
     ) -> None:
         self.config = config
         self.ocr_service_factory = ocr_service_factory
-        self.office_converter = office_converter or LibreOfficeDocumentConverter(
-            executable=config.office_converter_command,
-            timeout_seconds=config.office_conversion_timeout_seconds,
-            max_output_bytes=config.max_converted_pdf_bytes,
-        )
+        self.office_parser = office_parser or DirectOfficeDocumentParser()
 
     async def process_document(
         self,
@@ -89,7 +87,7 @@ class DocumentProcessingService:
         )
         _report_progress(progress_callback, "merging", 82, "문서 추출 결과를 통합했습니다.")
         logger.info(
-            "문서 추출 완료: type=%s, pages=%d, ocr_images=%d",
+            "문서 추출 완료: type=%s, pages=%s, ocr_images=%d",
             extracted_document.document_type,
             extracted_document.page_count,
             extracted_document.ocr_image_count,
@@ -138,39 +136,90 @@ class DocumentProcessingService:
         document: ValidatedDocument,
         progress_callback: ProgressCallback | None,
     ) -> ExtractedDocument:
-        """DOCX/PPTX를 PDF로 정규화한 뒤 기존 PDF 처리 결과로 복귀합니다."""
+        """DOCX/PPTX의 OOXML 구조를 직접 읽고 포함 이미지만 OCR합니다."""
 
         _report_progress(
             progress_callback,
-            "converting",
+            "parsing_office",
             22,
-            f"{document.file_type.upper()} 문서를 PDF로 변환하고 있습니다.",
+            f"{document.file_type.upper()} 문서 구조를 직접 분석하고 있습니다.",
         )
-        converted = self.office_converter.convert_to_pdf(document)
-        validate_pdf_content(
-            converted.content,
-            "application/pdf",
-            self.config.max_pdf_pages,
+        parsed = self.office_parser.parse(document)
+        _report_progress(
+            progress_callback,
+            "parsing_office",
+            35,
+            "Office 문서의 텍스트와 이미지 구조를 확인했습니다.",
+        )
+
+        unit_texts: list[str] = []
+        warnings = list(parsed.warnings)
+        confidences: list[float] = []
+        ocr_image_count = 0
+        total_images = sum(len(unit.images) for unit in parsed.units)
+        processed_images = 0
+
+        for unit in parsed.units:
+            unit_parts = [f"## {unit.title}"]
+            if unit.text:
+                unit_parts.append(unit.text)
+
+            for image_index, image in enumerate(unit.images, start=1):
+                progress = 35
+                if total_images:
+                    progress += round(processed_images / total_images * 45)
+                processed_images += 1
+                try:
+                    processed = preprocess_image(
+                        image.content,
+                        self.config.max_image_side,
+                        self.config.max_image_pixels,
+                    )
+                    if processed.width * processed.height < 4_096:
+                        warnings.append(f"{image.label}가 너무 작아 OCR에서 제외했습니다.")
+                        continue
+
+                    _report_progress(
+                        progress_callback,
+                        "loading_model",
+                        progress,
+                        f"{image.label}의 텍스트를 OCR하고 있습니다.",
+                    )
+                    ocr_result = self.ocr_service_factory().extract_text(processed)
+                    ocr_image_count += 1
+                    if ocr_result.line_count:
+                        confidences.append(ocr_result.confidence)
+                    if ocr_result.text:
+                        unit_parts.append(
+                            f"### 이미지 OCR {image_index}\n\n{ocr_result.text.strip()}"
+                        )
+                    else:
+                        warnings.append(f"{image.label}에서 텍스트를 찾지 못했습니다.")
+                except DocumentProcessingError as exc:
+                    warnings.append(f"{image.label} OCR을 건너뛰었습니다: {exc}")
+
+            if len(unit_parts) > 1:
+                unit_texts.append("\n\n".join(unit_parts))
+
+        extracted_text = "\n\n".join(unit_texts)
+        average_confidence = (
+            sum(confidences) / len(confidences)
+            if confidences
+            else (1.0 if extracted_text else 0.0)
         )
         _report_progress(
             progress_callback,
-            "converting",
-            25,
-            "Office 문서의 PDF 변환과 검증이 완료되었습니다.",
-        )
-        extracted = process_pdf_document(
-            converted.content,
-            self.config,
-            self.ocr_service_factory,
-            progress_callback,
+            "extracting",
+            80,
+            "Office 문서의 직접 추출을 완료했습니다.",
         )
         return ExtractedDocument(
-            text=extracted.text,
-            page_count=extracted.page_count,
-            document_type=extracted.document_type,
-            ocr_image_count=extracted.ocr_image_count,
-            average_confidence=extracted.average_confidence,
-            warnings=[*converted.warnings, *extracted.warnings],
+            text=extracted_text,
+            page_count=parsed.page_count,
+            document_type=parsed.document_type,
+            ocr_image_count=ocr_image_count,
+            average_confidence=average_confidence,
+            warnings=warnings,
         )
 
     def _process_image_document(
@@ -225,10 +274,23 @@ class DocumentProcessingService:
         ]
         if document.file_type in {"docx", "pptx"}:
             notes.insert(0, f"원본 형식: {document.file_type.upper()}")
+        review_warning_keywords = (
+            "실패",
+            "제외",
+            "건너뛰",
+            "읽지 못",
+            "완전하게",
+            "다를 수",
+            "만 추출",
+        )
         needs_review = (
             not cleaned_text
             or confidence_percent < 80
-            or any("실패" in warning for warning in extracted.warnings)
+            or any(
+                keyword in warning
+                for warning in extracted.warnings
+                for keyword in review_warning_keywords
+            )
         )
 
         return OcrDocumentResponse(
@@ -259,13 +321,6 @@ def _build_default_config() -> OcrProcessingConfig:
             settings.ocr_max_office_uncompressed_size_mb * 1024 * 1024
         ),
         max_office_archive_entries=settings.ocr_max_office_archive_entries,
-        max_converted_pdf_bytes=(
-            settings.ocr_max_converted_pdf_size_mb * 1024 * 1024
-        ),
-        office_conversion_timeout_seconds=(
-            settings.ocr_office_conversion_timeout_seconds
-        ),
-        office_converter_command=settings.ocr_office_converter_command,
     )
 
 
