@@ -2,12 +2,11 @@
 
 ## 실행
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp ../.env.example ../.env
-uvicorn app.main:app --reload
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item ..\.env.example ..\.env
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 - API 문서: http://localhost:8000/docs
@@ -37,9 +36,9 @@ alembic upgrade head
 
 ## 기존 Neon 스키마에서 모델 생성
 
-```bash
-pip install -r requirements-dev.txt
-python scripts/generate_models.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/generate_models.py
 ```
 
 생성 결과는 `app/models/generated.py`에 저장됩니다. 생성된 모델을 검토한 후

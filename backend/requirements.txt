@@ -20,3 +20,6 @@ paddlepaddle>=3.3,<3.4
 paddleocr>=3.7,<3.8
 python-docx>=1.2,<2.0
 python-pptx>=1.0,<2.0
+
+# 개발/협업 도구(requirements.txt를 단일 설치 기준으로 사용)
+sqlacodegen>=3.0,<4.0

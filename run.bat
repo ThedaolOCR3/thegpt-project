@@ -1,5 +1,5 @@
-::로컬에서 테스트할 때, node.js와 uvicon 서버를 한번에 실행 가능
-::package.json 세팅과 venv 가상환경, 라이브러리 설치가 선행되어야 한다.
+:: 최초 수동 설정 완료 후 Backend와 Frontend 개발 서버를 한 번에 실행합니다.
+:: 패키지 설치는 수행하지 않으며 Python 3.12 가상환경과 node_modules가 필요합니다.
 
 @echo off
 setlocal
@@ -10,6 +10,7 @@ set "PROJECT_ROOT=%~dp0"
 set "BACKEND_DIR=%PROJECT_ROOT%backend"
 set "FRONTEND_DIR=%PROJECT_ROOT%frontend"
 set "VENV_ACTIVATE=%BACKEND_DIR%\.venv\Scripts\activate.bat"
+set "VENV_PYTHON=%BACKEND_DIR%\.venv\Scripts\python.exe"
 
 echo ========================================
 echo   Medical AI Project Start
@@ -17,11 +18,51 @@ echo ========================================
 echo.
 
 REM Validate everything before opening either development server.
+if not exist "%PROJECT_ROOT%.env" (
+    echo [ERROR] Root environment file was not found:
+    echo         "%PROJECT_ROOT%.env"
+    echo.
+    echo Create it once with: Copy-Item .env.example .env
+    echo Then edit the copied file with the local development values.
+    pause
+    exit /b 1
+)
+
 if not exist "%VENV_ACTIVATE%" (
     echo [ERROR] Backend virtual environment was not found:
-    echo         "%VENV_ACTIVATE%"
+    echo         "%BACKEND_DIR%\.venv"
     echo.
-    echo Create it with: python -m venv backend\.venv
+    echo Create it with: py -3.12 -m venv backend\.venv
+    pause
+    exit /b 1
+)
+
+if not exist "%VENV_PYTHON%" (
+    echo [ERROR] Python executable was not found in backend\.venv:
+    echo         "%VENV_PYTHON%"
+    echo.
+    echo Recreate it with: py -3.12 -m venv backend\.venv
+    pause
+    exit /b 1
+)
+
+"%VENV_PYTHON%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)" > nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] backend\.venv must use Python 3.12.
+    echo Current virtual environment version:
+    "%VENV_PYTHON%" --version
+    echo.
+    echo Recreate backend\.venv with: py -3.12 -m venv backend\.venv
+    pause
+    exit /b 1
+)
+
+"%VENV_PYTHON%" -c "import fastapi, uvicorn, docx, pptx" > nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Required Backend packages are not installed.
+    echo.
+    echo Install them with:
+    echo backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
     pause
     exit /b 1
 )
@@ -36,6 +77,15 @@ if not exist "%FRONTEND_DIR%\package.json" (
 where npm.cmd > nul 2>&1
 if errorlevel 1 (
     echo [ERROR] npm was not found. Install Node.js and try again.
+    pause
+    exit /b 1
+)
+
+if not exist "%FRONTEND_DIR%\node_modules\" (
+    echo [ERROR] Frontend packages are not installed:
+    echo         "%FRONTEND_DIR%\node_modules"
+    echo.
+    echo Install them with: cd frontend ^&^& npm.cmd install
     pause
     exit /b 1
 )
