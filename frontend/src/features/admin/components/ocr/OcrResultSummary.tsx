@@ -34,7 +34,10 @@ export function OcrResultSummary({
             aria-valuemax={100}
             aria-valuenow={progress.progress}
           >
-            <span className="ocr-progress-bar" style={{ width: `${progress.progress}%` }} />
+            <span
+              className="ocr-progress-bar"
+              style={{ width: `${progress.progress}%` }}
+            />
           </div>
           <p>문서 구조 분석부터 텍스트 정제와 Chunk 생성까지 진행합니다.</p>
         </div>

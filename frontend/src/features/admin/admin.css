@@ -523,6 +523,14 @@
   font-size: 17px;
   font-weight: 800;
 }
+.result-block {
+  min-height: 0;
+  max-height: 360px;
+  padding-right: 4px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .result-block h4,
 .quality-note strong {
   margin: 0 0 8px;
