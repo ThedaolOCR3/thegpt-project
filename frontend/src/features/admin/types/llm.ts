@@ -14,6 +14,12 @@ export type LlmModelDefinition = {
   trainingStage: string;
   description: string;
   group: LlmModelGroup;
+  provider: string;
+  providerModel: string;
+  enabled: boolean;
+  available: boolean;
+  availabilityMessage: string | null;
+  isMock: boolean;
 };
 
 export type RunLlmModelRequest = {
@@ -25,11 +31,15 @@ export type RunLlmModelRequest = {
 
 export type LlmModelResult = {
   modelId: string;
+  provider: string;
+  providerModel: string;
   answer: string;
   responseTimeSeconds: number;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  finishReason: string | null;
+  isMock: boolean;
 };
 
 export type LlmModelRun = {
@@ -38,9 +48,13 @@ export type LlmModelRun = {
   answer?: string;
   error?: string;
   responseTimeSeconds?: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  provider?: string;
+  providerModel?: string;
+  isMock?: boolean;
+  finishReason?: string | null;
   startedAt?: number;
 };
 

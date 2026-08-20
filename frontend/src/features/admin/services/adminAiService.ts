@@ -1,4 +1,4 @@
-import type { LlmModelResult, RunLlmModelRequest } from '../types/llm';
+import type { LlmModelDefinition, LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
   MockSaveResult,
@@ -11,6 +11,7 @@ import { apiAdminAiService } from './apiAdminAiService';
 export interface AdminAiService {
   analyzeDocument(request: AnalyzeDocumentRequest, onProgress?: OcrProgressListener): Promise<OcrDocumentResult>;
   saveDocument(request: SaveDocumentRequest): Promise<MockSaveResult>;
+  listLlmModels(signal?: AbortSignal): Promise<LlmModelDefinition[]>;
   runLlmModel(request: RunLlmModelRequest): Promise<LlmModelResult>;
 }
 

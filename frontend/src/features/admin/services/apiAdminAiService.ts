@@ -1,5 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
-import type { LlmModelResult, RunLlmModelRequest } from '../types/llm';
+import type { LlmModelDefinition, LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
   MockSaveResult,
@@ -69,6 +69,10 @@ export const apiAdminAiService: AdminAiService = {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  },
+
+  listLlmModels(signal?: AbortSignal) {
+    return apiClient<LlmModelDefinition[]>('/admin/llm/models', { signal });
   },
 
   runLlmModel(request: RunLlmModelRequest) {

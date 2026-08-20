@@ -65,6 +65,7 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
   const responseTime =
     run.status === "running" ? runningSeconds : run.responseTimeSeconds;
   const isRunning = run.status === "running";
+  const isRunnable = model.enabled && model.available;
 
   return (
     <article
@@ -73,7 +74,12 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
     >
       <div className="model-card-header">
         <div>
-          <span>{model.family}</span>
+          <span className="model-source-line">
+            {model.family}
+            <em className={`provider-badge ${model.isMock ? "mock" : "real"}`}>
+              {model.isMock ? "Mock" : model.provider}
+            </em>
+          </span>
           <h4>{model.label}</h4>
         </div>
         <span className={`model-status ${run.status}`}>
@@ -95,20 +101,25 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
         <div>
           <dt>Input / Output</dt>
           <dd>
-            {run.inputTokens === undefined
-              ? "—"
-              : `${run.inputTokens} / ${run.outputTokens ?? 0}`}
+            {run.inputTokens == null || run.outputTokens == null
+              ? "계산 안 됨"
+              : `${run.inputTokens} / ${run.outputTokens}`}
           </dd>
         </div>
         <div>
           <dt>총 Token</dt>
-          <dd>{run.totalTokens ?? "—"}</dd>
+          <dd>{run.totalTokens ?? "계산 안 됨"}</dd>
         </div>
       </dl>
 
       <div className={`model-response ${run.status}`} aria-live="polite">
         <strong>답변</strong>
-        {run.status === "idle" && (
+        {run.status === "idle" && !isRunnable && (
+          <p className="model-error">
+            {model.availabilityMessage ?? "현재 실행할 수 없는 모델입니다."}
+          </p>
+        )}
+        {run.status === "idle" && isRunnable && (
           <p>아직 실행하지 않았습니다. 이 모델만 개별 실행할 수 있습니다.</p>
         )}
         {run.status === "running" && (
@@ -149,6 +160,7 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
           className="admin-primary-button model-run-button"
           type="button"
           onClick={onRun}
+          disabled={!isRunnable}
           aria-label={`${model.label} ${run.status === "idle" ? "실행" : "다시 실행"}`}
         >
           {run.status === "idle" ? <Play size={16} /> : <RotateCcw size={16} />}

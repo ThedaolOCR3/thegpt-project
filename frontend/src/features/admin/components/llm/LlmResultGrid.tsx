@@ -1,7 +1,3 @@
-import {
-  MAIN_LLM_COMPARISON_MODELS,
-  OTHER_LLM_COMPARISON_MODELS,
-} from "../../constants/adminOptions";
 import type {
   LlmModelDefinition,
   LlmModelRunMap,
@@ -9,7 +5,11 @@ import type {
 import { LlmResultCard } from "./LlmResultCard";
 
 type Props = {
+  models: readonly LlmModelDefinition[];
   modelRuns: LlmModelRunMap;
+  isLoading: boolean;
+  loadError: string;
+  onReload: () => void;
   onRunModel: (modelId: string) => void;
   onCancelModel: (modelId: string) => void;
 };
@@ -20,7 +20,7 @@ function ModelGroup({
   modelRuns,
   onRunModel,
   onCancelModel,
-}: Props & {
+}: Pick<Props, "modelRuns" | "onRunModel" | "onCancelModel"> & {
   models: readonly LlmModelDefinition[];
   className: string;
 }) {
@@ -30,7 +30,7 @@ function ModelGroup({
         <LlmResultCard
           key={model.id}
           model={model}
-          run={modelRuns[model.id]}
+          run={modelRuns[model.id] ?? { modelId: model.id, status: "idle" }}
           onRun={() => onRunModel(model.id)}
           onCancel={() => onCancelModel(model.id)}
         />
@@ -44,26 +44,46 @@ export function LlmResultGrid(props: Props) {
     (run) => run.status === "running",
   );
 
+  if (props.isLoading) {
+    return (
+      <div className="admin-card llm-model-loading">
+        LLM Provider 상태를 확인하고 있습니다...
+      </div>
+    );
+  }
+
+  if (props.loadError) {
+    return (
+      <div className="admin-card llm-model-loading" role="alert">
+        <p>{props.loadError}</p>
+        <button
+          className="admin-secondary-button"
+          type="button"
+          onClick={props.onReload}
+        >
+          모델 목록 다시 불러오기
+        </button>
+      </div>
+    );
+  }
+
+  const mainModels = props.models.filter((model) => model.group === "main");
+  const otherModels = props.models.filter((model) => model.group === "other");
+
   return (
-    <div
-      className="llm-comparison-results"
-      aria-busy={isBusy}
-    >
+    <div className="llm-comparison-results" aria-busy={isBusy}>
       <section
         className="llm-comparison-section"
         aria-labelledby="main-model-comparison-title"
       >
         <div className="llm-group-heading">
-          <span>TRAINING STAGE</span>
-          <h3 id="main-model-comparison-title">메인 모델 학습 단계 비교</h3>
-          <p>
-            학습과 파인튜닝을 완료한 모델과 동일 계열의 부분 학습 모델을
-            비교합니다.
-          </p>
+          <span>REAL PROVIDERS</span>
+          <h3 id="main-model-comparison-title">실제 LLM 비교</h3>
+          <p>로컬 Ollama Gemma 3와 Gemini API의 실제 응답을 비교합니다.</p>
         </div>
         <ModelGroup
           {...props}
-          models={MAIN_LLM_COMPARISON_MODELS}
+          models={mainModels}
           className="llm-model-grid main-model-grid"
         />
       </section>
@@ -76,13 +96,12 @@ export function LlmResultGrid(props: Props) {
           <span>MODEL FAMILY</span>
           <h3 id="other-model-comparison-title">다른 LLM 비교</h3>
           <p>
-            동일한 질문을 다른 종류의 Mock LLM에 전달해 응답 내용과 실행
-            성능을 비교합니다.
+            실제 Provider로 쉽게 교체할 수 있는 네 개의 명시적 Mock 모델입니다.
           </p>
         </div>
         <ModelGroup
           {...props}
-          models={OTHER_LLM_COMPARISON_MODELS}
+          models={otherModels}
           className="llm-model-grid other-model-grid"
         />
       </section>

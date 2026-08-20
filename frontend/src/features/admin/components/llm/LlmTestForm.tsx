@@ -6,6 +6,8 @@ type Props = {
   file: File | null;
   isRunningAll: boolean;
   hasRunningModels: boolean;
+  isLoadingModels: boolean;
+  hasRunnableModels: boolean;
   error: string;
   onPromptChange: (value: string) => void;
   onFileChange: (file: File | null) => void;
@@ -64,8 +66,8 @@ export function LlmTestForm(props: Props) {
           )}
         </div>
         <small>
-          실제 업로드 없이 모든 모델에 동일한 문서 조건을 적용하는 Mock
-          입력입니다.
+          파일 내용은 아직 업로드되지 않습니다. 모든 모델에는 파일명 조건만
+          동일하게 전달됩니다.
         </small>
       </div>
 
@@ -80,15 +82,24 @@ export function LlmTestForm(props: Props) {
           className="admin-primary-button llm-run-all-button"
           type="button"
           onClick={props.onRunAll}
-          disabled={props.hasRunningModels || props.isRunningAll}
+          disabled={
+            props.hasRunningModels ||
+            props.isRunningAll ||
+            props.isLoadingModels ||
+            !props.hasRunnableModels
+          }
           aria-busy={props.isRunningAll}
         >
           {props.isRunningAll ? (
             <>
               <LoaderCircle className="spin" size={17} /> 전체 모델 실행 중...
             </>
+          ) : props.isLoadingModels ? (
+            "모델 목록 확인 중..."
           ) : props.hasRunningModels ? (
             "개별 모델 실행 중..."
+          ) : !props.hasRunnableModels ? (
+            "실행 가능한 모델 없음"
           ) : (
             "전체 모델 비교 시작"
           )}
