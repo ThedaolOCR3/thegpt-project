@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.schemas.admin import (
     LlmCompareRequest,
+    LlmModelDefinitionResponse,
     LlmModelResponse,
     LlmRunRequest,
     LlmRunResponse,
@@ -15,7 +16,7 @@ from app.schemas.admin import (
     VectorSaveTestRequest,
     VectorSaveTestResponse,
 )
-from app.services.admin_llm import compare_models, run_model
+from app.services.admin_llm import compare_models, list_models, run_model
 from app.services.admin_ocr import save_document_test
 from app.services.hybrid_ocr.document_processing_service import process_document
 from app.services.hybrid_ocr.errors import (
@@ -27,6 +28,7 @@ from app.services.hybrid_ocr.errors import (
     OcrUnavailableError,
 )
 from app.services.ocr_job_service import ocr_job_manager
+from app.services.llm.contracts import LlmServiceError
 
 router = APIRouter()
 
@@ -121,13 +123,27 @@ async def test_vector_save(payload: VectorSaveTestRequest) -> VectorSaveTestResp
 
 @router.post("/llm/compare", response_model=list[LlmModelResponse])
 async def compare_llm(payload: LlmCompareRequest) -> list[LlmModelResponse]:
-    # 모델별 Mock 생성 로직을 Router에 노출하지 않고 LLM 중심 함수로 전달합니다.
-    return await compare_models(payload)
+    """기존 다중 비교 계약을 새 Provider 실행 경계로 유지합니다."""
+
+    try:
+        return await compare_models(payload)
+    except LlmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/llm/models", response_model=list[LlmModelDefinitionResponse])
+async def get_llm_models() -> list[LlmModelDefinitionResponse]:
+    """Frontend가 사용할 모델 목록과 현재 Provider 가용성을 반환합니다."""
+
+    return await list_models()
 
 
 @router.post("/llm/run", response_model=LlmRunResponse)
 async def run_llm(payload: LlmRunRequest) -> LlmRunResponse:
-    """고정 비교 UI의 모델 하나를 Backend Mock으로 실행합니다."""
+    """Model Registry가 선택한 실제 또는 Mock Provider를 실행합니다."""
 
-    return await run_model(payload)
+    try:
+        return await run_model(payload)
+    except LlmServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 

@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     ocr_max_office_archive_entries: int = 5_000
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
+    llm_ollama_enabled: bool = True
+    llm_ollama_base_url: str = "http://127.0.0.1:11434"
+    llm_ollama_model: str = "gemma3:1b"
+    llm_ollama_timeout_seconds: float = 120.0
+    llm_ollama_max_concurrency: int = 1
+    llm_gemini_enabled: bool = True
+    gemini_api_key: str | None = None
+    llm_gemini_model: str = "gemini-3.5-flash-lite"
+    llm_gemini_timeout_seconds: float = 60.0
+    llm_gemini_max_concurrency: int = 2
 
     @property
     def sqlalchemy_database_url(self) -> str:

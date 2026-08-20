@@ -60,11 +60,30 @@ class LlmRunRequest(AdminSchema):
 
 class LlmRunResponse(AdminSchema):
     model_id: str = Field(alias="modelId")
+    provider: str
+    provider_model: str = Field(alias="providerModel")
     answer: str
     response_time_seconds: float = Field(alias="responseTimeSeconds")
-    input_tokens: int = Field(alias="inputTokens")
-    output_tokens: int = Field(alias="outputTokens")
-    total_tokens: int = Field(alias="totalTokens")
+    input_tokens: int | None = Field(alias="inputTokens")
+    output_tokens: int | None = Field(alias="outputTokens")
+    total_tokens: int | None = Field(alias="totalTokens")
+    finish_reason: str | None = Field(default=None, alias="finishReason")
+    is_mock: bool = Field(alias="isMock")
+
+
+class LlmModelDefinitionResponse(AdminSchema):
+    id: str
+    label: str
+    family: str
+    training_stage: str = Field(alias="trainingStage")
+    description: str
+    group: Literal["main", "other"]
+    provider: str
+    provider_model: str = Field(alias="providerModel")
+    enabled: bool
+    available: bool
+    availability_message: str | None = Field(alias="availabilityMessage")
+    is_mock: bool = Field(alias="isMock")
 
 
 class LlmCompareRequest(AdminSchema):
@@ -91,7 +110,7 @@ class LlmModelResponse(AdminSchema):
     answer: str | None = None
     error: str | None = None
     response_time_seconds: float = Field(alias="responseTimeSeconds")
-    input_tokens: int = Field(alias="inputTokens")
-    output_tokens: int = Field(alias="outputTokens")
+    input_tokens: int | None = Field(alias="inputTokens")
+    output_tokens: int | None = Field(alias="outputTokens")
     chunk_size: int = Field(alias="chunkSize")
     overlap: int

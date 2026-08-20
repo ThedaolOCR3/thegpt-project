@@ -10,6 +10,8 @@ pwdlib[argon2]>=0.3,<1.0
 PyJWT>=2.10,<3.0
 boto3>=1.40,<2.0
 python-multipart>=0.0.20,<1.0
+httpx>=0.28,<1.0
+google-genai>=1.0,<3.0
 
 # Hybrid OCR (PDF/image) 및 DOCX/PPTX OOXML 직접 추출
 numpy>=2.0,<2.4

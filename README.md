@@ -68,7 +68,7 @@ backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 backend\.venv\Scripts\python.exe --version
 ```
 
-출력은 `Python 3.12.x`여야 합니다.
+출력은 `Python 3.12.x`여야 합니다..
 
 일반적인 최초 설정은 `backend/requirements.txt` 하나만 설치하면 됩니다. 개발 도구도 이 파일에 통합되어 있습니다. 기존 협업 흐름에서 `requirements-dev.txt`를 사용하던 팀원은 해당 파일을 그대로 설치해도 동일하게 동작합니다.
 
@@ -158,7 +158,7 @@ cd frontend
 npm.cmd run dev
 ```
 
-Frontend의 기본 Backend API 주소는 `http://localhost:8000/api`입니다. 다른 주소를 사용하려면 Frontend 환경의 `VITE_API_URL`을 설정합니다.
+Frontend의 기본 Backend API 주소는 `http://localhost:8000/api`입니다. 다른 주소를 사용하려면 최상위 `.env`의 `VITE_API_URL`을 설정합니다. Vite는 `frontend/vite.config.ts`의 `envDir` 설정으로 최상위 환경 파일을 읽으며 브라우저에는 `VITE_` 접두사 변수만 노출합니다.
 
 ## 5. 주요 프로젝트 구조
 
@@ -175,7 +175,8 @@ thegpt-project/
 │     ├─ api/                   # FastAPI Router
 │     ├─ schemas/               # 요청/응답 Schema
 │     └─ services/
-│        └─ hybrid_ocr/         # PDF/이미지/DOCX/PPTX 처리
+│        ├─ hybrid_ocr/         # PDF/이미지/DOCX/PPTX 처리
+│        └─ llm/                # Provider 계약, 모델 Registry, 실제/Mock 실행
 ├─ frontend/
 │  ├─ package.json
 │  └─ src/
@@ -207,9 +208,42 @@ OCR 전체 구조와 Office 직접 추출 전환 내용은 다음 문서를 참�
 - `docs/3_flow/05_FLW_OCR_전체구조흐름_20260820.md`
 - `docs/2_reports/06_RPT_OCR_Office직접추출전환_20260820.md`
 
-현재 OCR은 실제 문서를 처리합니다. VectorDB 저장 테스트와 LLM 비교 영역은 실제 외부 모델/저장소 연결 상태에 따라 테스트 또는 Mock 구현을 사용할 수 있습니다.
+현재 OCR은 실제 문서를 처리합니다. VectorDB 저장 테스트는 Mock입니다. LLM 비교 영역은 실제 Ollama Gemma 3·Gemini와 네 개의 명시적 Mock 모델을 함께 사용합니다.
 
-## 7. 자주 발생하는 문제
+## 7. LLM Provider 설정
+
+Admin LLM의 첫 번째 비교 영역은 다음 실제 Provider를 호출합니다.
+
+- `ollama-gemma3`: 로컬 Ollama의 순정 `gemma3:1b`
+- `gemini`: Google Gemini API의 `gemini-3.5-flash-lite`
+
+다른 비교 영역의 `medgemma`, `gemma`, `qwen`, `llama`는 현재 Mock입니다. Backend의 Model Registry에서 `provider_key`와 `provider_model`을 바꾸면 공통 API와 Frontend를 수정하지 않고 지원되는 실제 Provider로 전환할 수 있습니다.
+
+Ollama를 설치한 뒤 모델을 개발자가 직접 준비합니다. Backend는 모델을 자동으로 다운로드하지 않습니다.
+
+```powershell
+ollama --version
+ollama pull gemma3:1b
+ollama list
+```
+
+최상위 `.env`에서 Provider를 설정합니다.
+
+```dotenv
+LLM_OLLAMA_ENABLED=true
+LLM_OLLAMA_BASE_URL=http://127.0.0.1:11434
+LLM_OLLAMA_MODEL=gemma3:1b
+
+LLM_GEMINI_ENABLED=true
+GEMINI_API_KEY=개발자별_API_KEY
+LLM_GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+`GEMINI_API_KEY`는 Backend에서만 사용하며 `VITE_` 접두사를 붙이지 않습니다. 실제 키는 Git에 커밋하지 말고 개발자별 최상위 `.env`에만 기록합니다. Gemini 무료 등급에 민감한 의료·개인정보를 전송하지 않습니다.
+
+모델 목록과 가용성은 `GET /api/admin/llm/models`, 단일 실행은 `POST /api/admin/llm/run`에서 확인합니다.
+
+## 8. 자주 발생하는 문제
 
 ### `run.bat`에서 Python 3.12 오류가 표시되는 경우
 
@@ -232,3 +266,11 @@ cd ..
 ### 포트가 이미 사용 중인 경우
 
 기존에 실행 중인 Backend(8000) 또는 Frontend(5173) 프로세스를 종료한 뒤 `run.bat`을 다시 실행합니다.
+
+### Ollama Gemma 3 카드가 비활성화되는 경우
+
+Ollama가 실행 중인지, `ollama list`에 `.env`의 `LLM_OLLAMA_MODEL`과 정확히 같은 `gemma3:1b`가 있는지 확인합니다. `Ollama is running` 문구는 서버 실행 여부만 의미하며 모델 설치 여부를 보장하지 않습니다.
+
+### Gemini 카드가 비활성화되는 경우
+
+최상위 `.env`의 `GEMINI_API_KEY`와 Backend의 `google-genai` 패키지 설치 여부를 확인합니다. HTTP 429는 계정·프로젝트의 현재 무료 할당량을 확인해야 한다는 의미입니다.

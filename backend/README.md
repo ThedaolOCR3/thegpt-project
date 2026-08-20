@@ -16,6 +16,17 @@ Copy-Item ..\.env.example ..\.env
 프로젝트 최상위 `.env`의 `DATABASE_URL`을 Neon 콘솔에서 복사한 연결 문자열로 교체합니다.
 Backend는 실행 디렉터리와 관계없이 이 최상위 파일 하나만 읽습니다.
 
+## LLM Provider
+
+Admin LLM은 `app/services/llm`의 Provider 계약과 Model Registry를 사용합니다.
+
+- 실제: Ollama `gemma3:1b`, Gemini `gemini-3.5-flash-lite`
+- Mock: `medgemma`, `gemma`, `qwen`, `llama`
+
+Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 최상위 `.env`의 `GEMINI_API_KEY`에 개발자별로 설정합니다. API 키는 Frontend로 전달하거나 로그에 기록하지 않습니다.
+
+같은 Provider의 Mock 모델을 실제 모델로 바꿀 때는 `app/services/llm/registry.py`에서 해당 모델의 `provider_key`와 `provider_model`을 교체합니다. Router와 Frontend의 공통 실행 계약은 그대로 유지합니다.
+
 ## OCR 문서 처리
 
 - PDF: Native Text와 포함 이미지를 구분하는 Hybrid PDF 처리

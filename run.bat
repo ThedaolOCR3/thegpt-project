@@ -57,7 +57,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%VENV_PYTHON%" -c "import fastapi, uvicorn, docx, pptx" > nul 2>&1
+"%VENV_PYTHON%" -c "import fastapi, uvicorn, docx, pptx, httpx; import google.genai" > nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Required Backend packages are not installed.
     echo.
