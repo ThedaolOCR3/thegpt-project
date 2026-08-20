@@ -4,6 +4,7 @@ import { LlmTestForm } from "./LlmTestForm";
 
 export function LlmPanel() {
   const llm = useLlmComparison();
+
   return (
     <section className="admin-workspace" aria-labelledby="llm-panel-title">
       <div className="admin-section-heading">
@@ -11,32 +12,29 @@ export function LlmPanel() {
           <span className="admin-eyebrow">MODEL COMPARISON LAB</span>
           <h2 id="llm-panel-title">LLM 응답 비교</h2>
           <p>
-            같은 질문과 RAG 옵션으로 여러 모델의 답변 형식과 지표를 나란히
-            비교합니다.
+            같은 질문과 동일한 참고 문서 조건에서 학습 단계와 모델 종류에 따른
+            응답 품질 및 실행 지표를 비교합니다.
           </p>
         </div>
-        {/* <span className="mock-badge">프론트엔드 Mock</span> */}
+        <span className="mock-badge">Backend Mock</span>
       </div>
+
       <LlmTestForm
         prompt={llm.prompt}
-        modelIds={llm.modelIds}
         file={llm.file}
-        chunkSize={llm.chunkSize}
-        overlap={llm.overlap}
-        status={llm.status}
+        isRunningAll={llm.isRunningAll}
+        hasRunningModels={llm.hasRunningModels}
         error={llm.error}
         onPromptChange={llm.setPrompt}
-        onToggleModel={llm.toggleModel}
         onFileChange={llm.setFile}
-        onChunkSizeChange={llm.setChunkSize}
-        onOverlapChange={llm.setOverlap}
-        onCompare={llm.compare}
+        onRunAll={() => void llm.runAllModels()}
         onReset={llm.reset}
       />
+
       <LlmResultGrid
-        status={llm.status}
-        modelIds={llm.modelIds}
-        results={llm.results}
+        modelRuns={llm.modelRuns}
+        onRunModel={(modelId) => void llm.runModel(modelId)}
+        onCancelModel={llm.cancelModel}
       />
     </section>
   );

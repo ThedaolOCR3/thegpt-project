@@ -1,5 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
-import type { CompareModelsRequest, LlmComparisonResult } from '../types/llm';
+import type { LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
   MockSaveResult,
@@ -71,16 +71,15 @@ export const apiAdminAiService: AdminAiService = {
     });
   },
 
-  compareModels(request: CompareModelsRequest) {
-    return apiClient<LlmComparisonResult[]>('/admin/llm/compare', {
+  runLlmModel(request: RunLlmModelRequest) {
+    return apiClient<LlmModelResult>('/admin/llm/run', {
       method: 'POST',
       body: JSON.stringify({
         prompt: request.prompt,
-        modelIds: request.modelIds,
+        modelId: request.modelId,
         documentName: request.file?.name ?? null,
-        chunkSize: request.chunkSize,
-        overlap: request.overlap,
       }),
+      signal: request.signal,
     });
   },
 };

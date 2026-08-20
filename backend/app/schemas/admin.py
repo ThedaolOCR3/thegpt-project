@@ -46,6 +46,27 @@ class VectorSaveTestResponse(AdminSchema):
     message: str
 
 
+class LlmRunRequest(AdminSchema):
+    prompt: str = Field(min_length=1, max_length=10_000)
+    model_id: str = Field(alias="modelId", min_length=1, max_length=100)
+    document_name: str | None = Field(default=None, alias="documentName", max_length=255)
+
+    @model_validator(mode="after")
+    def validate_prompt(self) -> "LlmRunRequest":
+        if not self.prompt.strip():
+            raise ValueError("Prompt를 입력해 주세요.")
+        return self
+
+
+class LlmRunResponse(AdminSchema):
+    model_id: str = Field(alias="modelId")
+    answer: str
+    response_time_seconds: float = Field(alias="responseTimeSeconds")
+    input_tokens: int = Field(alias="inputTokens")
+    output_tokens: int = Field(alias="outputTokens")
+    total_tokens: int = Field(alias="totalTokens")
+
+
 class LlmCompareRequest(AdminSchema):
     prompt: str = Field(min_length=1, max_length=10_000)
     model_ids: list[str] = Field(alias="modelIds", min_length=2, max_length=4)

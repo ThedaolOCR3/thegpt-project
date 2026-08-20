@@ -7,13 +7,15 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.schemas.admin import (
     LlmCompareRequest,
     LlmModelResponse,
+    LlmRunRequest,
+    LlmRunResponse,
     OcrDocumentResponse,
     OcrJobCreatedResponse,
     OcrJobStatusResponse,
     VectorSaveTestRequest,
     VectorSaveTestResponse,
 )
-from app.services.admin_llm import compare_models
+from app.services.admin_llm import compare_models, run_model
 from app.services.admin_ocr import save_document_test
 from app.services.hybrid_ocr.document_processing_service import process_document
 from app.services.hybrid_ocr.errors import (
@@ -121,4 +123,11 @@ async def test_vector_save(payload: VectorSaveTestRequest) -> VectorSaveTestResp
 async def compare_llm(payload: LlmCompareRequest) -> list[LlmModelResponse]:
     # 모델별 Mock 생성 로직을 Router에 노출하지 않고 LLM 중심 함수로 전달합니다.
     return await compare_models(payload)
+
+
+@router.post("/llm/run", response_model=LlmRunResponse)
+async def run_llm(payload: LlmRunRequest) -> LlmRunResponse:
+    """고정 비교 UI의 모델 하나를 Backend Mock으로 실행합니다."""
+
+    return await run_model(payload)
 

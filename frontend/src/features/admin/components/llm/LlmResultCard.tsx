@@ -1,76 +1,160 @@
-import { useState } from "react";
-import { Check, Clipboard, LoaderCircle, X } from "lucide-react";
-import { getModelOption } from "../../../../components/Chat/modelOptions";
-import type { LlmComparisonResult } from "../../types/llm";
+import { useEffect, useState } from "react";
+import {
+  Ban,
+  Check,
+  Clipboard,
+  LoaderCircle,
+  Play,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
+import type {
+  LlmModelDefinition,
+  LlmModelRun,
+  LlmRunStatus,
+} from "../../types/llm";
 
-export function LoadingModelCard({ modelId }: { modelId: string }) {
-  return (
-    <article className="admin-card model-result-card loading-card">
-      <div className="model-card-header">
-        <h3>{getModelOption(modelId).label}</h3>
-        <span>
-          <LoaderCircle className="spin" size={14} /> 생성 중
-        </span>
-      </div>
-      <div className="skeleton-line wide" />
-      <div className="skeleton-line" />
-      <div className="skeleton-line short" />
-    </article>
-  );
+const STATUS_LABELS: Record<LlmRunStatus, string> = {
+  idle: "대기",
+  running: "실행 중",
+  success: "완료",
+  error: "오류",
+  cancelled: "취소",
+};
+
+function StatusIcon({ status }: { status: LlmRunStatus }) {
+  if (status === "running")
+    return <LoaderCircle className="spin" size={13} />;
+  if (status === "success") return <Check size={13} />;
+  if (status === "error") return <TriangleAlert size={13} />;
+  if (status === "cancelled") return <Ban size={13} />;
+  return <span className="model-idle-dot" aria-hidden="true" />;
 }
 
-export function LlmResultCard({ result }: { result: LlmComparisonResult }) {
+type Props = {
+  model: LlmModelDefinition;
+  run: LlmModelRun;
+  onRun: () => void;
+  onCancel: () => void;
+};
+
+export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
   const [copied, setCopied] = useState(false);
-  const model = getModelOption(result.modelId);
-  async function copy() {
-    if (!result.answer) return;
-    await navigator.clipboard.writeText(result.answer);
+  const [runningSeconds, setRunningSeconds] = useState(0);
+
+  useEffect(() => {
+    if (run.status !== "running" || !run.startedAt) {
+      setRunningSeconds(0);
+      return;
+    }
+
+    const updateElapsed = () =>
+      setRunningSeconds((Date.now() - run.startedAt!) / 1_000);
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 100);
+    return () => window.clearInterval(timer);
+  }, [run.startedAt, run.status]);
+
+  async function copyAnswer() {
+    if (!run.answer) return;
+    await navigator.clipboard.writeText(run.answer);
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+    window.setTimeout(() => setCopied(false), 1_500);
   }
+
+  const responseTime =
+    run.status === "running" ? runningSeconds : run.responseTimeSeconds;
+  const isRunning = run.status === "running";
+
   return (
-    <article className={`admin-card model-result-card ${result.status}`}>
+    <article
+      className={`admin-card model-result-card ${run.status}`}
+      aria-busy={isRunning}
+    >
       <div className="model-card-header">
         <div>
-          <span>{model.tier}</span>
-          <h3>{model.label}</h3>
+          <span>{model.family}</span>
+          <h4>{model.label}</h4>
         </div>
-        <span className={`model-status ${result.status}`}>
-          {result.status === "success" ? <Check size={13} /> : <X size={13} />}
-          {result.status === "success" ? "성공" : "오류"}
+        <span className={`model-status ${run.status}`}>
+          <StatusIcon status={run.status} />
+          {STATUS_LABELS[run.status]}
         </span>
       </div>
-      {result.status === "success" ? (
-        <>
-          <p className="model-answer">{result.answer}</p>
-          <button className="copy-button" type="button" onClick={copy}>
-            {copied ? <Check size={15} /> : <Clipboard size={15} />}{" "}
-            {copied ? "복사됨" : "답변 복사"}
-          </button>
-        </>
-      ) : (
-        <p className="model-error" role="alert">
-          {result.error}
-        </p>
-      )}
+
+      <div className="model-training-summary">
+        <span>{model.trainingStage}</span>
+        <p>{model.description}</p>
+      </div>
+
       <dl className="model-metrics">
         <div>
-          <dt>응답 시간</dt>
-          <dd>{result.responseTimeSeconds.toFixed(2)} sec</dd>
+          <dt>{isRunning ? "Elapsed" : "응답 시간"}</dt>
+          <dd>{responseTime === undefined ? "—" : `${responseTime.toFixed(2)} sec`}</dd>
         </div>
         <div>
-          <dt>입력 / 출력</dt>
+          <dt>Input / Output</dt>
           <dd>
-            {result.inputTokens} / {result.outputTokens} tokens
+            {run.inputTokens === undefined
+              ? "—"
+              : `${run.inputTokens} / ${run.outputTokens ?? 0}`}
           </dd>
         </div>
         <div>
-          <dt>설정</dt>
-          <dd>
-            {result.chunkSize} chunk · {result.overlap} overlap
-          </dd>
+          <dt>총 Token</dt>
+          <dd>{run.totalTokens ?? "—"}</dd>
         </div>
       </dl>
+
+      <div className={`model-response ${run.status}`} aria-live="polite">
+        <strong>답변</strong>
+        {run.status === "idle" && (
+          <p>아직 실행하지 않았습니다. 이 모델만 개별 실행할 수 있습니다.</p>
+        )}
+        {run.status === "running" && (
+          <p>
+            <LoaderCircle className="spin" size={15} /> 응답 생성 중...
+          </p>
+        )}
+        {run.status === "success" && (
+          <>
+            <p className="model-answer">{run.answer}</p>
+            <button className="copy-button" type="button" onClick={copyAnswer}>
+              {copied ? <Check size={15} /> : <Clipboard size={15} />}
+              {copied ? "복사됨" : "답변 복사"}
+            </button>
+          </>
+        )}
+        {run.status === "error" && (
+          <p className="model-error" role="alert">
+            {run.error}
+          </p>
+        )}
+        {run.status === "cancelled" && (
+          <p className="model-cancelled">{run.error}</p>
+        )}
+      </div>
+
+      {isRunning ? (
+        <button
+          className="admin-secondary-button model-run-button cancel"
+          type="button"
+          onClick={onCancel}
+          aria-label={`${model.label} 실행 취소`}
+        >
+          <Ban size={16} /> 실행 취소
+        </button>
+      ) : (
+        <button
+          className="admin-primary-button model-run-button"
+          type="button"
+          onClick={onRun}
+          aria-label={`${model.label} ${run.status === "idle" ? "실행" : "다시 실행"}`}
+        >
+          {run.status === "idle" ? <Play size={16} /> : <RotateCcw size={16} />}
+          {run.status === "idle" ? "모델 실행" : "다시 실행"}
+        </button>
+      )}
     </article>
   );
 }
