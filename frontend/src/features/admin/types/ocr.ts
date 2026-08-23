@@ -4,8 +4,14 @@ export type AnalyzeDocumentRequest = {
   overlap: number;
   signal?: AbortSignal;
 };
-export type SaveDocumentRequest = { documentName: string };
-export type MockSaveResult = { message: string };
+export type SaveDocumentRequest = { jobId: string };
+export type SaveDocumentResult = {
+  message: string;
+  documentId: string;
+  chunkCount: number;
+  embeddingDimension: number;
+  embeddingModel: string;
+};
 
 export type OcrProgressUpdate = {
   stage: string;
@@ -21,13 +27,13 @@ export type OcrJobCreated = {
 export type OcrJobStatus = OcrProgressUpdate & {
   jobId: string;
   status: 'queued' | 'processing' | 'completed' | 'failed';
-  result: OcrDocumentResult | null;
+  result: OcrDocumentPayload | null;
   error: string | null;
 };
 
 export type OcrProgressListener = (progress: OcrProgressUpdate) => void;
 
-export type OcrDocumentResult = {
+export type OcrDocumentPayload = {
   documentName: string;
   pageCount: number | null;
   characterCount: number;
@@ -38,3 +44,5 @@ export type OcrDocumentResult = {
   readiness: 'review' | 'ready';
   notes: string[];
 };
+
+export type OcrDocumentResult = OcrDocumentPayload & { jobId: string };

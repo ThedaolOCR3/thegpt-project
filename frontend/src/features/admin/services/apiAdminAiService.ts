@@ -2,12 +2,12 @@ import { apiClient } from '../../../services/apiClient';
 import type { LlmModelDefinition, LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
-  MockSaveResult,
   OcrDocumentResult,
   OcrJobCreated,
   OcrJobStatus,
   OcrProgressListener,
   SaveDocumentRequest,
+  SaveDocumentResult,
 } from '../types/ocr';
 import type { AdminAiService } from './adminAiService';
 
@@ -55,7 +55,8 @@ export const apiAdminAiService: AdminAiService = {
 
       if (status.status === 'completed') {
         if (!status.result) throw new Error('완료된 OCR 작업에 분석 결과가 없습니다.');
-        return status.result;
+        // 저장 시 Chunk를 다시 보내지 않고 Backend의 완료된 Job 결과를 참조합니다.
+        return { ...status.result, jobId: status.jobId };
       }
       if (status.status === 'failed') {
         throw new Error(status.error ?? 'OCR 문서 분석에 실패했습니다.');
@@ -65,7 +66,7 @@ export const apiAdminAiService: AdminAiService = {
   },
 
   saveDocument(request: SaveDocumentRequest) {
-    return apiClient<MockSaveResult>('/admin/ocr/vector-save-test', {
+    return apiClient<SaveDocumentResult>('/admin/ocr/vector-save', {
       method: 'POST',
       body: JSON.stringify(request),
     });

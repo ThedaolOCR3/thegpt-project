@@ -103,10 +103,10 @@ export function OcrResultSummary({
         disabled={saveStatus === "loading" || saveStatus === "success"}
       >
         {saveStatus === "loading"
-          ? "저장 테스트 중..."
+          ? "VectorDB 저장 중..."
           : saveStatus === "success"
-            ? "저장 테스트 완료"
-            : "VectorDB 저장 테스트"}
+            ? "VectorDB 저장 완료"
+            : "VectorDB에 저장"}
       </button>
       {saveMessage && (
         <p

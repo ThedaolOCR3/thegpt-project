@@ -1,16 +1,16 @@
 import type { LlmModelDefinition, LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
-  MockSaveResult,
   OcrDocumentResult,
   OcrProgressListener,
   SaveDocumentRequest,
+  SaveDocumentResult,
 } from '../types/ocr';
 import { apiAdminAiService } from './apiAdminAiService';
 
 export interface AdminAiService {
   analyzeDocument(request: AnalyzeDocumentRequest, onProgress?: OcrProgressListener): Promise<OcrDocumentResult>;
-  saveDocument(request: SaveDocumentRequest): Promise<MockSaveResult>;
+  saveDocument(request: SaveDocumentRequest): Promise<SaveDocumentResult>;
   listLlmModels(signal?: AbortSignal): Promise<LlmModelDefinition[]>;
   runLlmModel(request: RunLlmModelRequest): Promise<LlmModelResult>;
 }

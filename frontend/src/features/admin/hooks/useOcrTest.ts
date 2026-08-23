@@ -66,7 +66,7 @@ export function useOcrTest() {
     if (!result || saveStatus === 'loading') return;
     setSaveStatus('loading'); setSaveMessage('');
     try {
-      const response = await adminAiService.saveDocument({ documentName: result.documentName });
+      const response = await adminAiService.saveDocument({ jobId: result.jobId });
       setSaveMessage(response.message); setSaveStatus('success');
     } catch (unknownError) {
       setSaveMessage(messageOf(unknownError)); setSaveStatus('error');

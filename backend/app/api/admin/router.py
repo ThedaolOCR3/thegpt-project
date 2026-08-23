@@ -2,7 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.repositories.document_repository import DocumentPersistenceError
 
 from app.schemas.admin import (
     LlmCompareRequest,
@@ -13,11 +17,16 @@ from app.schemas.admin import (
     OcrDocumentResponse,
     OcrJobCreatedResponse,
     OcrJobStatusResponse,
-    VectorSaveTestRequest,
-    VectorSaveTestResponse,
+    OcrVectorSaveRequest,
+    OcrVectorSaveResponse,
 )
 from app.services.admin_llm import compare_models, list_models, run_model
-from app.services.admin_ocr import save_document_test
+from app.services.admin_ocr import OcrSaveValidationError, save_ocr_result_with_embeddings
+from app.services.embedding_service import (
+    EmbeddingGenerationError,
+    EmbeddingUnavailableError,
+    EmbeddingValidationError,
+)
 from app.services.hybrid_ocr.document_processing_service import process_document
 from app.services.hybrid_ocr.errors import (
     DocumentProcessingError,
@@ -116,9 +125,27 @@ def get_ocr_job(job_id: str) -> OcrJobStatusResponse:
         ) from exc
 
 
-@router.post("/ocr/vector-save-test", response_model=VectorSaveTestResponse)
-async def test_vector_save(payload: VectorSaveTestRequest) -> VectorSaveTestResponse:
-    return await save_document_test(payload)
+@router.post("/ocr/vector-save", response_model=OcrVectorSaveResponse)
+async def save_ocr_vector(
+    payload: OcrVectorSaveRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> OcrVectorSaveResponse:
+    """완료된 OCR Job의 기존 Chunk를 Embedding과 함께 저장합니다."""
+
+    try:
+        return await save_ocr_result_with_embeddings(payload, db)
+    except OcrJobNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except OcrSaveValidationError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except EmbeddingValidationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    except EmbeddingUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except EmbeddingGenerationError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    except DocumentPersistenceError as exc:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from exc
 
 
 @router.post("/llm/compare", response_model=list[LlmModelResponse])

@@ -1,6 +1,7 @@
-"""Admin OCR·LLM Mock API의 요청/응답 계약을 정의합니다."""
+"""Admin OCR·Vector 저장·LLM API의 요청/응답 계약을 정의합니다."""
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -38,12 +39,16 @@ class OcrJobStatusResponse(AdminSchema):
     error: str | None = None
 
 
-class VectorSaveTestRequest(AdminSchema):
-    document_name: str = Field(alias="documentName", min_length=1, max_length=255)
+class OcrVectorSaveRequest(AdminSchema):
+    job_id: str = Field(alias="jobId", min_length=1, max_length=64)
 
 
-class VectorSaveTestResponse(AdminSchema):
+class OcrVectorSaveResponse(AdminSchema):
     message: str
+    document_id: UUID = Field(alias="documentId")
+    chunk_count: int = Field(alias="chunkCount", ge=1)
+    embedding_dimension: int = Field(alias="embeddingDimension")
+    embedding_model: str = Field(alias="embeddingModel")
 
 
 class LlmRunRequest(AdminSchema):

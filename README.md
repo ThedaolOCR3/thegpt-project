@@ -2,7 +2,7 @@
 
 의료 진료 상담 AI 서비스를 목표로 개발 중인 **React + FastAPI 기반 웹 프로젝트**입니다.
 
-관리자 페이지에서 문서 OCR, 청크 설정, VectorDB 저장 테스트, LLM 응답 비교 기능을 제공합니다. PDF와 이미지뿐 아니라 DOCX/PPTX도 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
+관리자 페이지에서 문서 OCR, 청크 설정, Gemini Embedding 기반 VectorDB 저장, LLM 응답 비교 기능을 제공합니다. PDF와 이미지뿐 아니라 DOCX/PPTX도 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
 
 ## 1. 주요 기술 스택
 
@@ -201,6 +201,9 @@ React Admin
   → 텍스트 정리 및 Chunk 생성
   → GET /api/admin/ocr/jobs/{jobId}
   → 결과 화면
+  → POST /api/admin/ocr/vector-save
+  → Gemini Embedding (1024차원)
+  → Neon admin_documents + document_chunks Transaction 저장
 ```
 
 OCR 전체 구조와 Office 직접 추출 전환 내용은 다음 문서를 참고합니다.
@@ -208,7 +211,9 @@ OCR 전체 구조와 Office 직접 추출 전환 내용은 다음 문서를 참�
 - `docs/3_flow/05_FLW_OCR_전체구조흐름_20260820.md`
 - `docs/2_reports/06_RPT_OCR_Office직접추출전환_20260820.md`
 
-현재 OCR은 실제 문서를 처리합니다. VectorDB 저장 테스트는 Mock입니다. LLM 비교 영역은 실제 Ollama Gemma 3·Gemini와 네 개의 명시적 Mock 모델을 함께 사용합니다.
+현재 OCR은 실제 문서를 처리하며, 완료된 OCR Job의 기존 Chunk를 Gemini로 임베딩해 Neon `VECTOR(1024)`에 저장합니다. LLM 비교 영역은 실제 Ollama Gemma 3·Gemini와 네 개의 명시적 Mock 모델을 함께 사용합니다.
+
+원본 파일 저장소는 이번 범위에 포함하지 않습니다. `admin_documents.original_file_url`의 `NOT NULL` 계약을 지키기 위해 실제 파일 URL과 구분되는 `ocr-job://...` 추적 참조값을 저장합니다.
 
 ## 7. LLM Provider 설정
 
@@ -237,6 +242,10 @@ LLM_OLLAMA_MODEL=gemma3:1b
 LLM_GEMINI_ENABLED=true
 GEMINI_API_KEY=개발자별_API_KEY
 LLM_GEMINI_MODEL=gemini-3.5-flash-lite
+
+EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_DIMENSION=1024
+EMBEDDING_TIMEOUT_SECONDS=60
 ```
 
 `GEMINI_API_KEY`는 Backend에서만 사용하며 `VITE_` 접두사를 붙이지 않습니다. 실제 키는 Git에 커밋하지 말고 개발자별 최상위 `.env`에만 기록합니다. Gemini 무료 등급에 민감한 의료·개인정보를 전송하지 않습니다.
