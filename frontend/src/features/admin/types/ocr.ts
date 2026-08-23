@@ -9,6 +9,7 @@ export type SaveDocumentResult = {
   message: string;
   documentId: string;
   chunkCount: number;
+  embeddingProvider: string;
   embeddingDimension: number;
   embeddingModel: string;
 };

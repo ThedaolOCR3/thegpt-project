@@ -47,6 +47,7 @@ class OcrVectorSaveResponse(AdminSchema):
     message: str
     document_id: UUID = Field(alias="documentId")
     chunk_count: int = Field(alias="chunkCount", ge=1)
+    embedding_provider: str = Field(alias="embeddingProvider")
     embedding_dimension: int = Field(alias="embeddingDimension")
     embedding_model: str = Field(alias="embeddingModel")
 

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     llm_gemini_model: str = "gemini-3.5-flash-lite"
     llm_gemini_timeout_seconds: float = 60.0
     llm_gemini_max_concurrency: int = 2
+    embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 1024
     embedding_timeout_seconds: float = 60.0
