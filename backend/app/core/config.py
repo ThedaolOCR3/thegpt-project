@@ -23,6 +23,19 @@ class Settings(BaseSettings):
     guest_message_limit: int = 30
     guest_attachment_limit: int = 5
 
+    # Hybrid OCR(csj-ocr 브랜치에서 이식) 설정 — 이미지/PDF/Office 문서 처리 한도.
+    ocr_max_file_size_mb: int = 20
+    ocr_max_pdf_pages: int = 50
+    ocr_native_text_min_chars: int = 20
+    ocr_significant_image_area_ratio: float = 0.03
+    ocr_pdf_render_dpi: int = 200
+    ocr_max_image_side: int = 2400
+    ocr_max_image_pixels: int = 40_000_000
+    ocr_paddle_device: str = "cpu"
+    ocr_paddle_language: str = "korean"
+    ocr_max_office_uncompressed_size_mb: int = 200
+    ocr_max_office_archive_entries: int = 5_000
+
     @property
     def sqlalchemy_database_url(self) -> str:
         if self.database_url.startswith("postgresql://"):
