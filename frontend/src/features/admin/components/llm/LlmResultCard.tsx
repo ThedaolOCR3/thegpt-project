@@ -23,8 +23,7 @@ const STATUS_LABELS: Record<LlmRunStatus, string> = {
 };
 
 function StatusIcon({ status }: { status: LlmRunStatus }) {
-  if (status === "running")
-    return <LoaderCircle className="spin" size={13} />;
+  if (status === "running") return <LoaderCircle className="spin" size={13} />;
   if (status === "success") return <Check size={13} />;
   if (status === "error") return <TriangleAlert size={13} />;
   if (status === "cancelled") return <Ban size={13} />;
@@ -96,7 +95,11 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
       <dl className="model-metrics">
         <div>
           <dt>{isRunning ? "Elapsed" : "응답 시간"}</dt>
-          <dd>{responseTime === undefined ? "—" : `${responseTime.toFixed(2)} sec`}</dd>
+          <dd>
+            {responseTime === undefined
+              ? "—"
+              : `${responseTime.toFixed(2)} sec`}
+          </dd>
         </div>
         <div>
           <dt>Input / Output</dt>
@@ -120,7 +123,7 @@ export function LlmResultCard({ model, run, onRun, onCancel }: Props) {
           </p>
         )}
         {run.status === "idle" && isRunnable && (
-          <p>아직 실행하지 않았습니다. 이 모델만 개별 실행할 수 있습니다.</p>
+          <p>아직 실행하지 않았습니다. 개별 실행할 수 있습니다.</p>
         )}
         {run.status === "running" && (
           <p>
