@@ -14,3 +14,9 @@ python-multipart>=0.0.20,<1.0
 # ai/ocr 사용 (documents API의 OCR 미리보기) — 무거움(paddlepaddle 포함, 수백MB).
 # 리소스 제약 배포 환경에서는 OCR을 별도 워커/서비스로 분리하는 것도 고려할 것.
 -r ../ai/ocr/requirements.txt
+
+# hybrid_ocr (csj-ocr 브랜치에서 이식) — PDF/DOCX/PPTX 직접 추출용
+pymupdf>=1.24,<2.0
+python-docx>=1.1,<2.0
+python-pptx>=1.0,<2.0
+lxml>=5.0,<6.0
