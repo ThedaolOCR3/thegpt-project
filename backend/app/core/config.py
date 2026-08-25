@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     ocr_max_office_uncompressed_size_mb: int = 200
     ocr_max_office_archive_entries: int = 5_000
 
+    # ai/llm(MedGemma LoRA 어댑터 호출)용 — private HF Hub repo 읽기 권한 필요.
+    hf_token: str | None = None
+
     @property
     def sqlalchemy_database_url(self) -> str:
         if self.database_url.startswith("postgresql://"):

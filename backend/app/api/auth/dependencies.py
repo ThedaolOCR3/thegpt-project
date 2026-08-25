@@ -35,3 +35,10 @@ def get_current_user(
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "사용자를 찾을 수 없습니다.")
     return user
+
+
+def require_admin(current_user: Annotated[Users, Depends(get_current_user)]) -> Users:
+    """관리자 전용 엔드포인트에 붙이는 의존성 — is_admin이 아니면 403."""
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "관리자 권한이 필요합니다.")
+    return current_user

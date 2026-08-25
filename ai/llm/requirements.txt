@@ -1,0 +1,7 @@
+# GPU(CUDA) 필요 — 4bit 양자화 로딩은 CPU에서 안 됨.
+# 무겁다(torch만 수 GB) — 실제로 이 패키지를 쓰는 서버/런타임에서만 설치할 것.
+torch>=2.2,<3.0
+transformers>=4.45,<5.0
+peft>=0.13,<1.0
+bitsandbytes>=0.43,<1.0
+accelerate>=0.34,<2.0
