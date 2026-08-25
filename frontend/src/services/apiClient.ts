@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
 interface RequestOptions extends RequestInit {
   token?: string | null;
@@ -14,7 +14,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiClient<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const { token, headers, ...requestOptions } = options;
   // FormData(파일 업로드)일 땐 Content-Type을 강제로 붙이면 안 된다 — 브라우저가
   // multipart 경계(boundary)까지 포함해서 자동으로 설정해야 서버가 파싱할 수 있다.
@@ -22,7 +25,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
   const response = await fetch(`${API_URL}${path}`, {
     ...requestOptions,
     headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
@@ -30,7 +33,10 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new ApiError(body?.detail ?? '요청을 처리하지 못했습니다.', response.status);
+    throw new ApiError(
+      body?.detail ?? "요청을 처리하지 못했습니다.",
+      response.status,
+    );
   }
   return response.json() as Promise<T>;
 }

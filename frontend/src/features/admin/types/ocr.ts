@@ -1,10 +1,42 @@
-export type AnalyzeDocumentRequest = { file: File; chunkSize: number; overlap: number };
-export type SaveDocumentRequest = { documentName: string };
-export type MockSaveResult = { message: string };
+export type AnalyzeDocumentRequest = {
+  file: File;
+  chunkSize: number;
+  overlap: number;
+  signal?: AbortSignal;
+};
+export type SaveDocumentRequest = { jobId: string };
+export type SaveDocumentResult = {
+  message: string;
+  documentId: string;
+  chunkCount: number;
+  embeddingProvider: string;
+  embeddingDimension: number;
+  embeddingModel: string;
+};
 
-export type OcrDocumentResult = {
+export type OcrProgressUpdate = {
+  stage: string;
+  progress: number;
+  message: string;
+};
+
+export type OcrJobCreated = {
+  jobId: string;
+  status: 'queued';
+};
+
+export type OcrJobStatus = OcrProgressUpdate & {
+  jobId: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  result: OcrDocumentPayload | null;
+  error: string | null;
+};
+
+export type OcrProgressListener = (progress: OcrProgressUpdate) => void;
+
+export type OcrDocumentPayload = {
   documentName: string;
-  pageCount: number;
+  pageCount: number | null;
   characterCount: number;
   estimatedChunks: number;
   confidence: number;
@@ -13,3 +45,5 @@ export type OcrDocumentResult = {
   readiness: 'review' | 'ready';
   notes: string[];
 };
+
+export type OcrDocumentResult = OcrDocumentPayload & { jobId: string };

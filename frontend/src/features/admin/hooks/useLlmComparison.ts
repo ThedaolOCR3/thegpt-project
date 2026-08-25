@@ -1,95 +1,255 @@
-import { useState } from "react";
-import { DEFAULT_LLM_MODEL_IDS } from "../constants/adminOptions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { adminAiService } from "../services/adminAiService";
-import type { AsyncStatus } from "../types/common";
-import type { LlmComparisonResult } from "../types/llm";
+import type {
+  LlmModelDefinition,
+  LlmModelRunMap,
+} from "../types/llm";
+
+function createInitialModelRuns(models: readonly LlmModelDefinition[]): LlmModelRunMap {
+  return Object.fromEntries(
+    models.map((model) => [
+      model.id,
+      { modelId: model.id, status: "idle" as const },
+    ]),
+  );
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
 
 export function useLlmComparison() {
+  const [models, setModels] = useState<LlmModelDefinition[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [modelLoadError, setModelLoadError] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [modelIds, setModelIds] = useState<string[]>(DEFAULT_LLM_MODEL_IDS);
   const [file, setFile] = useState<File | null>(null);
-  const [chunkSize, setChunkSize] = useState(512);
-  const [overlap, setOverlap] = useState(50);
-  const [status, setStatus] = useState<AsyncStatus>("idle");
-  const [results, setResults] = useState<LlmComparisonResult[]>([]);
+  const [modelRuns, setModelRuns] = useState<LlmModelRunMap>({});
+  const [isRunningAll, setIsRunningAll] = useState(false);
   const [error, setError] = useState("");
 
-  function toggleModel(modelId: string) {
-    setModelIds((current) =>
-      current.includes(modelId)
-        ? current.filter((id) => id !== modelId)
-        : [...current, modelId],
-    );
-  }
+  const controllersRef = useRef(new Map<string, AbortController>());
+  const requestVersionsRef = useRef(new Map<string, number>());
+  const allRunVersionRef = useRef(0);
+  const allRunActiveRef = useRef(false);
+  const modelListControllerRef = useRef<AbortController | null>(null);
 
-  function validate() {
-    if (!prompt.trim()) return "비교할 공통 질문을 입력해 주세요.";
-    if (modelIds.length < 2) return "비교할 모델을 2개 이상 선택해 주세요.";
-    if (chunkSize < 100 || chunkSize > 4096)
-      return "Chunk Size는 100~4096 사이로 입력해 주세요.";
-    if (overlap < 0 || overlap >= chunkSize)
-      return "Overlap은 0 이상이며 Chunk Size보다 작아야 합니다.";
-    return "";
-  }
+  const loadModels = useCallback(async () => {
+    modelListControllerRef.current?.abort();
+    const controller = new AbortController();
+    modelListControllerRef.current = controller;
+    setIsLoadingModels(true);
+    setModelLoadError("");
+    try {
+      const nextModels = await adminAiService.listLlmModels(controller.signal);
+      setModels(nextModels);
+      setModelRuns(createInitialModelRuns(nextModels));
+    } catch (loadError) {
+      if (isAbortError(loadError)) return;
+      setModels([]);
+      setModelRuns({});
+      setModelLoadError(
+        loadError instanceof Error
+          ? loadError.message
+          : "LLM 모델 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      if (modelListControllerRef.current === controller) {
+        modelListControllerRef.current = null;
+        setIsLoadingModels(false);
+      }
+    }
+  }, []);
 
-  async function compare() {
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      setStatus("error");
+  useEffect(() => {
+    void loadModels();
+    return () => modelListControllerRef.current?.abort();
+  }, [loadModels]);
+
+  const runnableModels = useMemo(
+    () => models.filter((model) => model.enabled && model.available),
+    [models],
+  );
+  const hasRunningModels = useMemo(
+    () => Object.values(modelRuns).some((run) => run.status === "running"),
+    [modelRuns],
+  );
+
+  useEffect(
+    () => () => {
+      allRunVersionRef.current += 1;
+      allRunActiveRef.current = false;
+      controllersRef.current.forEach((controller, modelId) => {
+        requestVersionsRef.current.set(
+          modelId,
+          (requestVersionsRef.current.get(modelId) ?? 0) + 1,
+        );
+        controller.abort();
+      });
+      controllersRef.current.clear();
+    },
+    [],
+  );
+
+  const executeModel = useCallback(
+    async (modelId: string, runPrompt: string, referenceFile: File | null) => {
+      controllersRef.current.get(modelId)?.abort();
+      const requestVersion = (requestVersionsRef.current.get(modelId) ?? 0) + 1;
+      requestVersionsRef.current.set(modelId, requestVersion);
+      const controller = new AbortController();
+      const startedAt = Date.now();
+      controllersRef.current.set(modelId, controller);
+      setModelRuns((current) => ({
+        ...current,
+        [modelId]: { modelId, status: "running", startedAt },
+      }));
+
+      try {
+        const result = await adminAiService.runLlmModel({
+          prompt: runPrompt,
+          modelId,
+          file: referenceFile ?? undefined,
+          signal: controller.signal,
+        });
+        if (requestVersionsRef.current.get(modelId) !== requestVersion) return;
+        setModelRuns((current) => ({
+          ...current,
+          [modelId]: {
+            modelId,
+            status: "success",
+            answer: result.answer,
+            responseTimeSeconds: result.responseTimeSeconds,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            totalTokens: result.totalTokens,
+            provider: result.provider,
+            providerModel: result.providerModel,
+            isMock: result.isMock,
+            finishReason: result.finishReason,
+          },
+        }));
+      } catch (unknownError) {
+        if (requestVersionsRef.current.get(modelId) !== requestVersion) return;
+        setModelRuns((current) => ({
+          ...current,
+          [modelId]: {
+            modelId,
+            status: isAbortError(unknownError) ? "cancelled" : "error",
+            error: isAbortError(unknownError)
+              ? "실행이 취소되었습니다. Provider 추론은 계속될 수 있습니다."
+              : unknownError instanceof Error
+                ? unknownError.message
+                : "모델 실행 중 오류가 발생했습니다.",
+            responseTimeSeconds: (Date.now() - startedAt) / 1_000,
+          },
+        }));
+      } finally {
+        if (requestVersionsRef.current.get(modelId) === requestVersion) {
+          controllersRef.current.delete(modelId);
+        }
+      }
+    },
+    [],
+  );
+
+  const runModel = useCallback(
+    async (modelId: string, sharedPrompt = prompt, sharedFile: File | null = file) => {
+      const model = models.find((candidate) => candidate.id === modelId);
+      if (!model?.enabled || !model.available) {
+        setError(model?.availabilityMessage ?? "현재 실행할 수 없는 모델입니다.");
+        return;
+      }
+      const runPrompt = sharedPrompt.trim();
+      if (!runPrompt) {
+        setError("비교할 공통 질문을 입력해 주세요.");
+        return;
+      }
+      setError("");
+      await executeModel(modelId, runPrompt, sharedFile);
+    },
+    [executeModel, file, models, prompt],
+  );
+
+  const runAllModels = useCallback(async () => {
+    if (allRunActiveRef.current || hasRunningModels) return;
+    const runPrompt = prompt.trim();
+    if (!runPrompt) {
+      setError("비교할 공통 질문을 입력해 주세요.");
       return;
     }
-    if (status === "loading") return;
-    setError("");
-    setResults([]);
-    setStatus("loading");
-    try {
-      setResults(
-        await adminAiService.compareModels({
-          prompt: prompt.trim(),
-          modelIds,
-          file: file ?? undefined,
-          chunkSize,
-          overlap,
-        }),
-      );
-      setStatus("success");
-    } catch (unknownError) {
-      setError(
-        unknownError instanceof Error
-          ? unknownError.message
-          : "모델 비교 테스트에 실패했습니다.",
-      );
-      setStatus("error");
+    if (runnableModels.length === 0) {
+      setError("현재 실행 가능한 LLM 모델이 없습니다.");
+      return;
     }
-  }
-
-  function reset() {
-    setPrompt("");
-    setModelIds(DEFAULT_LLM_MODEL_IDS);
-    setFile(null);
-    setChunkSize(512);
-    setOverlap(50);
-    setResults([]);
+    const allRunVersion = allRunVersionRef.current + 1;
+    allRunVersionRef.current = allRunVersion;
+    allRunActiveRef.current = true;
     setError("");
-    setStatus("idle");
-  }
+    setIsRunningAll(true);
+    await Promise.allSettled(
+      runnableModels.map((model) => runModel(model.id, runPrompt, file)),
+    );
+    if (allRunVersionRef.current === allRunVersion) {
+      allRunActiveRef.current = false;
+      setIsRunningAll(false);
+    }
+  }, [file, hasRunningModels, prompt, runModel, runnableModels]);
+
+  const cancelModel = useCallback((modelId: string) => {
+    const controller = controllersRef.current.get(modelId);
+    if (!controller) return;
+    requestVersionsRef.current.set(modelId, (requestVersionsRef.current.get(modelId) ?? 0) + 1);
+    controller.abort();
+    controllersRef.current.delete(modelId);
+    setModelRuns((current) => {
+      const running = current[modelId];
+      if (!running || running.status !== "running") return current;
+      return {
+        ...current,
+        [modelId]: {
+          modelId,
+          status: "cancelled",
+          error: "실행이 취소되었습니다. Provider 추론은 계속될 수 있습니다.",
+          responseTimeSeconds: running.startedAt
+            ? (Date.now() - running.startedAt) / 1_000
+            : undefined,
+        },
+      };
+    });
+  }, []);
+
+  const reset = useCallback(() => {
+    allRunVersionRef.current += 1;
+    allRunActiveRef.current = false;
+    controllersRef.current.forEach((controller, modelId) => {
+      requestVersionsRef.current.set(modelId, (requestVersionsRef.current.get(modelId) ?? 0) + 1);
+      controller.abort();
+    });
+    controllersRef.current.clear();
+    setPrompt("");
+    setFile(null);
+    setModelRuns(createInitialModelRuns(models));
+    setError("");
+    setIsRunningAll(false);
+  }, [models]);
 
   return {
+    models,
+    isLoadingModels,
+    modelLoadError,
+    reloadModels: loadModels,
     prompt,
     setPrompt,
-    modelIds,
-    toggleModel,
     file,
     setFile,
-    chunkSize,
-    setChunkSize,
-    overlap,
-    setOverlap,
-    status,
-    results,
+    modelRuns,
+    isRunningAll,
+    hasRunningModels,
+    hasRunnableModels: runnableModels.length > 0,
     error,
-    compare,
+    runModel,
+    runAllModels,
+    cancelModel,
     reset,
   };
 }
