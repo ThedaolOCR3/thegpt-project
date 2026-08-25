@@ -7,6 +7,7 @@ import { VerifyEmailPage } from '../features/auth/verify';
 import { ForgotPasswordPage } from '../features/auth/password-reset/ForgotPasswordPage';
 import { ResetPasswordPage } from '../features/auth/password-reset/ResetPasswordPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
+import { RequireAdmin } from '../features/auth/RequireAdmin';
 import { AdminPage } from '../features/admin';
 import { ConsultationPage } from '../features/consultation';
 import { ChatPage } from '../features/chat';
@@ -43,7 +44,7 @@ export const router = createBrowserRouter([
       { path: '/ocr', element: <OcrPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/evaluation', element: <EvaluationPage /> },
-      { path: '/admin', element: <AdminPage /> },
+      { element: <RequireAdmin />, children: [{ path: '/admin', element: <AdminPage /> }] },
       { path: '/my', element: <RequireAuth />, children: [{ index: true, element: <MyPage /> }] },
     ],
   },

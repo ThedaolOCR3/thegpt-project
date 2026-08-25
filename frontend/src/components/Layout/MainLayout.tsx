@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar, SidebarProvider } from '../Sidebar';
 import { ThemeToggle } from '../Theme/ThemeToggle';
+import { AdminLink } from '../Admin/AdminLink';
 import { DocumentPreviewProvider, useDocumentPreview } from '../Chat/DocumentPreviewContext';
 import { DocumentPreviewPanel } from '../Chat/DocumentPreviewPanel';
 
@@ -27,7 +28,8 @@ function MainLayoutBody() {
     <div className="flex h-screen w-screen overflow-hidden bg-white dark:bg-neutral-950">
       <Sidebar />
       <main className="relative flex min-w-0 flex-1 flex-col">
-        <div className="absolute right-4 top-4 z-10">
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+          <AdminLink />
           <ThemeToggle />
         </div>
         <Outlet />
