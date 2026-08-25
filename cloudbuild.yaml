@@ -13,7 +13,7 @@ steps:
       - backend/dockerfile
       - -t
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:$COMMIT_SHA'
-      - backend
+      - .
 
   # 2. Artifact Registry에 이미지 업로드
   - name: 'gcr.io/cloud-builders/docker'

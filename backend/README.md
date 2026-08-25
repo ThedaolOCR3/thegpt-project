@@ -66,3 +66,5 @@ cd backend
 SMTP 및 이메일 인증의 자세한 흐름은 `docs/email-verification.md`를 참고하세요.
 
 비밀번호 재설정 링크 발송과 토큰 처리 흐름은 `docs/password-reset.md`를 참고하세요.
+
+R2 프로필 이미지 저장소 설정은 `docs/r2-profile-images.md`를 참고하세요.

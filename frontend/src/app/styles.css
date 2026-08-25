@@ -28,8 +28,3 @@ main {
 .app-header nav a { color: #6d675e; text-decoration: none; }
 .app-header nav a.active { color: #176c64; font-weight: 700; }
 .route-loading { padding: 48px; text-align: center; }
-
-@media (max-width: 720px) {
-  .app-header nav { display: none; }
-  .app-logo { flex: 1; }
-}
