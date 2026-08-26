@@ -5,13 +5,13 @@ from io import BytesIO
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
+from ai.ocr.errors import DocumentValidationError
 from app.schemas.admin import OcrDocumentResponse
-from app.services.hybrid_ocr.errors import (
-    DocumentValidationError,
+from app.services.ocr_job_service import (
     OcrJobCapacityError,
     OcrJobNotFoundError,
+    OcrJobManager,
 )
-from app.services.ocr_job_service import OcrJobManager
 
 
 class OcrJobManagerTest(unittest.TestCase):

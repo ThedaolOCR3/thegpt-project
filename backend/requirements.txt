@@ -11,25 +11,9 @@ PyJWT>=2.10,<3.0
 boto3>=1.40,<2.0
 python-multipart>=0.0.20,<1.0
 
-# ai/ocr 사용 (documents API의 OCR 미리보기) — 무거움(paddlepaddle 포함, 수백MB).
-# 리소스 제약 배포 환경에서는 OCR을 별도 워커/서비스로 분리하는 것도 고려할 것.
+# Image/PDF/DOCX/PPTX 공통 OCR 의존성의 단일 기준 파일입니다.
+# PaddleOCR가 무거우므로 리소스 제약 배포 환경에서는 별도 Worker도 고려합니다.
 -r ../ai/ocr/requirements.txt
 
-
-# admin에서 쓰는 ocr/llm 관련 패키지
-# 나중에 ocr 기능 통합이 필요함.
-httpx>=0.28,<1.0
-google-genai>=1.0,<3.0
-
-# Hybrid OCR (PDF/image) 및 DOCX/PPTX OOXML 직접 추출
-numpy>=2.0,<2.4
-Pillow>=11.0,<13.0
-PyMuPDF>=1.26,<1.29
-pymupdf4llm>=0.3,<0.4
-paddlepaddle>=3.3,<3.4
-paddleocr>=3.7,<3.8
-python-docx>=1.2,<2.0
-python-pptx>=1.0,<2.0
-
-# 개발/협업 도구(requirements.txt를 단일 설치 기준으로 사용)
-sqlacodegen>=3.0,<4.0
+# Ollama/Gemini 공통 LLM Provider 의존성입니다. MedGemma GPU Runtime은 선택 설치합니다.
+-r ../ai/llm/requirements-api.txt

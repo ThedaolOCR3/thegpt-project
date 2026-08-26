@@ -27,17 +27,19 @@ from app.services.embedding_service import (
     EmbeddingUnavailableError,
     EmbeddingValidationError,
 )
-from app.services.hybrid_ocr.document_processing_service import process_document
-from app.services.hybrid_ocr.errors import (
+from ai.ocr.errors import (
     DocumentProcessingError,
     DocumentTooLargeError,
     DocumentValidationError,
-    OcrJobCapacityError,
-    OcrJobNotFoundError,
     OcrUnavailableError,
 )
-from app.services.ocr_job_service import ocr_job_manager
-from app.services.llm.contracts import LlmServiceError
+from app.services.ocr_job_service import (
+    OcrJobCapacityError,
+    OcrJobNotFoundError,
+    ocr_job_manager,
+)
+from app.services.ocr_workflow import process_document
+from ai.llm import LlmServiceError
 
 router = APIRouter()
 

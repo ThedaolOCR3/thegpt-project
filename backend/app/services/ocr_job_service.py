@@ -12,22 +12,25 @@ from uuid import uuid4
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
+from ai.ocr.contracts import ProgressCallback
+from ai.ocr.errors import DocumentTooLargeError, OcrError
 from app.core.config import settings
 from app.schemas.admin import (
     OcrDocumentResponse,
     OcrJobCreatedResponse,
     OcrJobStatusResponse,
 )
-from app.services.hybrid_ocr.document_processing_service import process_document
-from app.services.hybrid_ocr.errors import (
-    DocumentTooLargeError,
-    HybridOcrError,
-    OcrJobCapacityError,
-    OcrJobNotFoundError,
-)
-from app.services.hybrid_ocr.models import ProgressCallback
+from app.services.ocr_workflow import process_document
 
 logger = logging.getLogger(__name__)
+
+
+class OcrJobNotFoundError(Exception):
+    """요청한 OCR Job이 없거나 만료되었을 때 발생합니다."""
+
+
+class OcrJobCapacityError(Exception):
+    """동시에 보관할 수 있는 OCR Job 수를 초과했을 때 발생합니다."""
 
 OcrProcessor = Callable[
     [UploadFile, int, int, ProgressCallback | None],
@@ -165,7 +168,7 @@ class OcrJobManager:
                     message,
                 ),
             )
-        except HybridOcrError as exc:
+        except OcrError as exc:
             logger.warning("OCR Job 실패: job_id=%s, error=%s", job_id, exc)
             self._fail_job(job_id, str(exc))
         except Exception:

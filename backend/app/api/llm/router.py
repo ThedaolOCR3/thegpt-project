@@ -24,18 +24,18 @@ def get_models() -> list[LlmModelResponse]:
 
 
 @router.post("/generate", response_model=LlmGenerateResponse)
-def generate_response(
+async def generate_response(
     payload: LlmGenerateRequest,
     current_user: Annotated[Users, Depends(get_current_user)],
 ) -> LlmGenerateResponse:
     """단일 모델로 응답 생성 — GPU가 있는 환경에서만 동작(없으면 503)."""
-    return generate(payload.model_id, payload.messages)
+    return await generate(payload.model_id, payload.messages)
 
 
 @router.post("/compare", response_model=list[LlmCompareResult])
-def compare_models(
+async def compare_models(
     payload: LlmCompareRequest,
     current_user: Annotated[Users, Depends(require_admin)],
 ) -> list[LlmCompareResult]:
     """여러 모델에 같은 프롬프트를 넣어 비교 — 관리자 페이지 LLM 탭용, 관리자 전용."""
-    return compare(payload.model_ids, payload.messages)
+    return await compare(payload.model_ids, payload.messages)

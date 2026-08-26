@@ -1,12 +1,15 @@
-"""이미지 전처리 — OCR 정확도를 높이기 위한 노이즈 제거 + 기울기 보정."""
+"""모든 OCR Image가 공유하는 방향·투명도·크기·노이즈·기울기 전처리입니다."""
+
+from io import BytesIO
+
 import cv2
 import numpy as np
+from PIL import Image, ImageOps, UnidentifiedImageError
 
-# 이보다 긴 변을 가진 이미지는 축소한다 — 폰 카메라 사진(4000px+)은 PaddleOCR
-# 인식률에 그 이상의 해상도가 필요 없는데, denoise/deskew/추론 비용만 픽셀 수에
-# 비례해서 늘어난다. 실제 문서로 확인 없이 더 줄이지는 말 것(글자가 뭉개질 수 있음).
+from .errors import DocumentProcessingError
+
 MAX_DIMENSION = 2200
-
+DEFAULT_MAX_PIXELS = 40_000_000
 PDF_MAGIC = b"%PDF"
 
 
@@ -15,6 +18,8 @@ def is_pdf(data: bytes) -> bool:
 
 
 def load_image(image_bytes: bytes) -> np.ndarray:
+    """기존 Local Lab 호환을 위해 Image Bytes를 BGR NumPy 배열로 읽습니다."""
+
     array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(array, cv2.IMREAD_COLOR)
     if image is None:
@@ -22,31 +27,20 @@ def load_image(image_bytes: bytes) -> np.ndarray:
     return image
 
 
-def pdf_to_images(pdf_bytes: bytes, dpi: int = 200) -> list[np.ndarray]:
-    """PDF 각 페이지를 OCR 파이프라인이 기대하는 BGR numpy 이미지로 렌더링한다."""
-    import pypdfium2 as pdfium
-
-    scale = dpi / 72  # pdfium은 72dpi 기준 좌표계를 씀
-    images: list[np.ndarray] = []
-    pdf = pdfium.PdfDocument(pdf_bytes)
-    try:
-        for page in pdf:
-            bitmap = page.render(scale=scale)
-            pil_image = bitmap.to_pil().convert("RGB")
-            rgb = np.array(pil_image)
-            images.append(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-    finally:
-        pdf.close()
-    return images
-
-
-def resize_if_too_large(image: np.ndarray, max_dimension: int = MAX_DIMENSION) -> np.ndarray:
-    h, w = image.shape[:2]
-    longest = max(h, w)
+def resize_if_too_large(
+    image: np.ndarray,
+    max_dimension: int = MAX_DIMENSION,
+) -> np.ndarray:
+    height, width = image.shape[:2]
+    longest = max(height, width)
     if longest <= max_dimension:
         return image
     scale = max_dimension / longest
-    return cv2.resize(image, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
+    return cv2.resize(
+        image,
+        (round(width * scale), round(height * scale)),
+        interpolation=cv2.INTER_AREA,
+    )
 
 
 def denoise(image: np.ndarray) -> np.ndarray:
@@ -54,47 +48,106 @@ def denoise(image: np.ndarray) -> np.ndarray:
 
 
 def deskew(image: np.ndarray) -> np.ndarray:
-    """문서가 스캔/촬영 과정에서 기울어져 있으면 회전시켜 바로잡는다.
+    """실제 수평 선분의 중앙값만 사용해 정상 Text의 90도 오회전을 방지합니다."""
 
-    주의: minAreaRect를 글자 픽셀 전체에 대해 한 번에 구하는 방식은 글자가
-    띄엄띄엄 떨어져 있는(문장이 짧은/여백이 많은) 이미지에서 실제 기울기와 무관한
-    값을 내놓는다 — 실제로 멀쩡한 가로 텍스트를 90도 가까이 돌려버려 텍스트를
-    깨뜨리는 걸 확인했다. 대신 Hough 직선 검출로 실제 '선분들'의 각도 중앙값을
-    쓴다 — 텍스트 줄이 실제로 이루는 방향에 더 안정적으로 반응한다.
-    """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=image.shape[1] // 4, maxLineGap=10)
+    lines = cv2.HoughLinesP(
+        edges,
+        1,
+        np.pi / 180,
+        threshold=100,
+        minLineLength=max(image.shape[1] // 4, 1),
+        maxLineGap=10,
+    )
     if lines is None:
         return image
 
-    angles = []
+    angles: list[float] = []
     for x1, y1, x2, y2 in lines[:, 0]:
-        angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
-        # 텍스트 줄은 수평에 가깝다고 가정 — 수직에 가까운 선(표 테두리 등)은 제외.
+        angle = float(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
         if abs(angle) < 45:
             angles.append(angle)
-
     if not angles:
         return image
 
     skew = float(np.median(angles))
-    if abs(skew) < 0.5:  # 거의 안 기울어졌으면 그대로 둔다 (불필요한 왜곡 방지)
+    if abs(skew) < 0.5:
         return image
 
-    h, w = image.shape[:2]
-    matrix = cv2.getRotationMatrix2D((w // 2, h // 2), skew, 1.0)
-    return cv2.warpAffine(image, matrix, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    height, width = image.shape[:2]
+    matrix = cv2.getRotationMatrix2D((width // 2, height // 2), skew, 1.0)
+    return cv2.warpAffine(
+        image,
+        matrix,
+        (width, height),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
 
 
-def preprocess_image(image: np.ndarray) -> np.ndarray:
-    """이미 디코딩된 이미지에 표준 전처리를 적용: 크기 축소(필요시) -> 노이즈 제거 -> 기울기 보정."""
-    image = resize_if_too_large(image)
-    image = denoise(image)
-    image = deskew(image)
-    return image
+def preprocess_image(
+    content: bytes | Image.Image,
+    max_image_side: int = MAX_DIMENSION,
+    max_image_pixels: int = DEFAULT_MAX_PIXELS,
+    *,
+    enable_denoise: bool = True,
+    enable_deskew: bool = True,
+) -> Image.Image:
+    """Image를 한 번 Decode한 뒤 공통 순서로 보정해 RGB Image를 반환합니다."""
+
+    try:
+        source_context = (
+            Image.open(BytesIO(content))
+            if isinstance(content, bytes)
+            else content.copy()
+        )
+        with source_context as source:
+            if source.width * source.height > max_image_pixels:
+                raise DocumentProcessingError(
+                    "OCR 대상 이미지 해상도가 허용 범위를 초과했습니다."
+                )
+            source.load()
+
+            # 1. 휴대폰 EXIF 방향을 실제 픽셀 방향에 먼저 반영합니다.
+            oriented = ImageOps.exif_transpose(source)
+
+            # 2. 투명 영역이 검은 배경으로 인식되지 않도록 흰색과 합성합니다.
+            if oriented.mode in {"RGBA", "LA"} or "transparency" in oriented.info:
+                rgba_image = oriented.convert("RGBA")
+                white_background = Image.new("RGBA", rgba_image.size, "white")
+                white_background.alpha_composite(rgba_image)
+                processed = white_background.convert("RGB")
+            else:
+                processed = oriented.convert("RGB")
+
+            # 3. 큰 Image는 이 지점에서 한 번만 Resize합니다.
+            if max(processed.size) > max_image_side:
+                processed.thumbnail(
+                    (max_image_side, max_image_side),
+                    Image.Resampling.LANCZOS,
+                )
+
+            # 4. OpenCV 보정은 명시적으로 활성화된 경우 한 번의 왕복 변환으로 적용합니다.
+            if enable_denoise or enable_deskew:
+                bgr_image = cv2.cvtColor(np.asarray(processed), cv2.COLOR_RGB2BGR)
+                if enable_denoise:
+                    bgr_image = denoise(bgr_image)
+                if enable_deskew:
+                    bgr_image = deskew(bgr_image)
+                processed = Image.fromarray(
+                    cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+                )
+
+            return processed.copy()
+    except DocumentProcessingError:
+        raise
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise DocumentProcessingError("OCR용 이미지를 준비하지 못했습니다.") from exc
 
 
 def preprocess(image_bytes: bytes) -> np.ndarray:
-    """OCR에 넣기 전 표준 전처리 순서: 디코딩 -> 크기 축소(필요시) -> 노이즈 제거 -> 기울기 보정."""
-    return preprocess_image(load_image(image_bytes))
+    """기존 보조 호출자를 위해 표준 전처리 결과를 BGR NumPy 배열로 반환합니다."""
+
+    processed = preprocess_image(image_bytes)
+    return cv2.cvtColor(np.asarray(processed), cv2.COLOR_RGB2BGR)

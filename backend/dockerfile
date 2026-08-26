@@ -7,6 +7,7 @@ ENV PYTHONUNBUFFERED=1
 
 COPY backend/requirements.txt backend/requirements.txt
 COPY ai/ocr/requirements.txt ai/ocr/requirements.txt
+COPY ai/llm/requirements-api.txt ai/llm/requirements-api.txt
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r backend/requirements.txt
@@ -14,5 +15,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY backend/ .
 COPY ai/__init__.py ai/__init__.py
 COPY ai/ocr/ ai/ocr/
+COPY ai/llm/ ai/llm/
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

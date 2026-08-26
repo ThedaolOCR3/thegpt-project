@@ -1,5 +1,5 @@
-"""관리자 문서 분석에 사용하는 Hybrid OCR 구성 요소입니다."""
+"""이전 Admin OCR 공개 Import를 새 Backend Workflow로 연결하는 호환 Package입니다."""
 
-from app.services.hybrid_ocr.document_processing_service import process_document
+from app.services.ocr_workflow import process_document
 
 __all__ = ["process_document"]

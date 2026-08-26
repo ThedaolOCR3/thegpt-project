@@ -11,14 +11,89 @@ from app.schemas.admin import (
     LlmRunRequest,
     LlmRunResponse,
 )
-from app.services.llm.application import LlmApplicationService
-from app.services.llm.contracts import LlmExecutionResult, LlmServiceError, ProviderGenerateRequest
-from app.services.llm.providers.gemini import GeminiLlmProvider
-from app.services.llm.providers.mock import MockLlmProvider
-from app.services.llm.providers.ollama import OllamaLlmProvider
-from app.services.llm.registry import ProviderRegistry, create_model_registry
+from ai.llm import (
+    LlmApplicationService,
+    LlmExecutionResult,
+    LlmModelDefinition,
+    LlmServiceError,
+    ModelRegistry,
+    ProviderGenerateRequest,
+    ProviderRegistry,
+)
+from ai.llm.providers.gemini import GeminiLlmProvider
+from ai.llm.providers.mock import MockLlmProvider
+from ai.llm.providers.ollama import OllamaLlmProvider
 
 logger = logging.getLogger(__name__)
+
+
+def create_admin_model_registry() -> ModelRegistry:
+    """Backend Settings를 기존 Admin 모델 정의로 변환합니다."""
+
+    return ModelRegistry(
+        (
+            LlmModelDefinition(
+                id="ollama-gemma3",
+                label="Gemma 3 (Local)",
+                family="Local LLM",
+                training_stage="순정 로컬 모델",
+                description="로컬 Ollama에서 실행하는 순정 Gemma 3 모델입니다.",
+                group="main",
+                provider_key="ollama",
+                provider_model=settings.llm_ollama_model,
+            ),
+            LlmModelDefinition(
+                id="gemini",
+                label="Gemini 3.5 Flash-Lite",
+                family="Google Gemini API",
+                training_stage="외부 API 모델",
+                description="Backend에서 Gemini API를 호출하는 실제 모델입니다.",
+                group="main",
+                provider_key="gemini",
+                provider_model=settings.llm_gemini_model,
+            ),
+            LlmModelDefinition(
+                id="medgemma",
+                label="MedGemma",
+                family="외부 비교 모델",
+                training_stage="Mock 비교군",
+                description="의료 응답 형식을 검증하는 Mock 모델입니다.",
+                group="other",
+                provider_key="mock",
+                provider_model="medgemma",
+            ),
+            LlmModelDefinition(
+                id="gemma",
+                label="Gemma (Mock)",
+                family="외부 비교 모델",
+                training_stage="Mock 비교군",
+                description="실제 로컬 Gemma 3와 구분되는 Mock 비교 모델입니다.",
+                group="other",
+                provider_key="mock",
+                provider_model="gemma",
+            ),
+            LlmModelDefinition(
+                id="qwen",
+                label="Qwen",
+                family="외부 비교 모델",
+                training_stage="Mock 비교군",
+                description="Qwen 응답 형태를 가정한 Mock 비교 모델입니다.",
+                group="other",
+                provider_key="mock",
+                provider_model="qwen",
+            ),
+            LlmModelDefinition(
+                id="llama",
+                label="Llama",
+                family="외부 비교 모델",
+                training_stage="Mock 오류 비교군",
+                description="모델별 오류 격리 UI를 확인하는 Mock 모델입니다.",
+                group="other",
+                provider_key="mock",
+                provider_model="llama",
+            ),
+        )
+    )
 
 
 def create_llm_application() -> LlmApplicationService:
@@ -39,7 +114,7 @@ def create_llm_application() -> LlmApplicationService:
             MockLlmProvider(),
         )
     )
-    return LlmApplicationService(create_model_registry(settings), providers)
+    return LlmApplicationService(create_admin_model_registry(), providers)
 
 
 llm_application = create_llm_application()
@@ -69,8 +144,8 @@ async def list_models() -> list[LlmModelDefinitionResponse]:
 async def run_model(request: LlmRunRequest) -> LlmRunResponse:
     execution = await llm_application.run(
         request.model_id,
-        ProviderGenerateRequest(
-            prompt=request.prompt.strip(),
+        ProviderGenerateRequest.from_prompt(
+            request.prompt.strip(),
             document_name=request.document_name,
         ),
     )
@@ -109,8 +184,8 @@ async def compare_models(request: LlmCompareRequest) -> list[LlmModelResponse]:
         *(
             llm_application.run(
                 model_id,
-                ProviderGenerateRequest(
-                    prompt=request.prompt.strip(),
+                ProviderGenerateRequest.from_prompt(
+                    request.prompt.strip(),
                     document_name=request.document_name,
                 ),
             )

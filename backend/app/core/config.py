@@ -35,12 +35,15 @@ class Settings(BaseSettings):
     ocr_max_image_pixels: int = 40_000_000
     ocr_paddle_device: str = "cpu"
     ocr_paddle_language: str = "korean"
+    ocr_min_confidence: float = 0.5
+    ocr_enable_denoise: bool = True
+    ocr_enable_deskew: bool = True
     ocr_max_office_uncompressed_size_mb: int = 200
     ocr_max_office_archive_entries: int = 5_000
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
 
-    # LLM 관련 설정 (추후 로직 통합 필요)
+    # ai/llm 공통 Core에 주입하는 LLM Provider 설정.
     llm_ollama_enabled: bool = True
     llm_ollama_base_url: str = "http://127.0.0.1:11434"
     llm_ollama_model: str = "gemma3:1b"
@@ -51,6 +54,9 @@ class Settings(BaseSettings):
     llm_gemini_model: str = "gemini-3.5-flash-lite"
     llm_gemini_timeout_seconds: float = 60.0
     llm_gemini_max_concurrency: int = 2
+    llm_medgemma_enabled: bool = True
+    llm_medgemma_max_concurrency: int = 1
+    hf_token: str | None = None
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 1024

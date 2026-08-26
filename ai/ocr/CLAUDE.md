@@ -1,30 +1,73 @@
-# ai/ocr — 문서/이미지 텍스트 추출
+# ai/ocr — Framework 독립 문서 OCR Core
 
-## 엔진
-PaddleOCR (`lang="korean"`, `use_angle_cls=True`). 무거운 모델이라 `_get_engine()`에서
-지연 로딩 + 캐싱한다 — 모듈을 import만 해도 모델이 안 뜨고, 첫 `run_ocr()` 호출 때 로드된다.
+## 중심 흐름
 
-## 흐름
+```text
+analyze_document(OcrDocumentInput, OcrProcessingConfig)
+→ validation.validate_document()
+→ Image / PDF / DOCX / PPTX 형식별 추출
+→ 공통 Image 전처리
+→ 단일 PaddleOcrService
+→ Raw Text 보존과 Cleaned Text 생성
+→ OcrDocumentResult 반환
 ```
-run_ocr(image_bytes) → preprocessing.preprocess() → PaddleOCR → postprocessing.postprocess() → OcrResult
+
+`pipeline.py`의 `analyze_document()`가 전체 실행 순서를 관리한다. PDF와 Office 추출기는 세부 작업 결과를 `ExtractedDocument`로 이 함수에 반환하며, Chunking·HTTP Response·Job·DB 저장은 수행하지 않는다.
+
+## PaddleOCR Engine
+
+`engine.py`만 `PaddleOCR`를 생성하고 `predict()`를 호출한다.
+
+- 기준 버전: `paddlepaddle>=3.3,<3.4`, `paddleocr>=3.7,<3.8`
+- 모델: `PP-OCRv5`, `lang="korean"`
+- `use_doc_orientation_classify=False`
+- `use_doc_unwarping=False`
+- `use_textline_orientation=False`
+- `enable_mkldnn=False`
+- 설정별 지연 로딩·Cache, 초기화 Lock, 추론 Lock 유지
+- GPU 초기화 실패 시 CPU Fallback 유지
+
+실제 모델은 첫 Image OCR 요청에서 준비될 수 있다. Import나 Unit Test만으로 모델을 Download하지 않는다.
+
+## 전처리
+
+`preprocessing.py`의 순서는 다음과 같다.
+
+```text
+Image Decode → EXIF 방향 → 투명 배경 흰색 합성 → 한 번 Resize
+→ Option이 켜진 경우 Denoise → Deskew → RGB PIL Image
 ```
-- **전처리** (`preprocessing.py`): 노이즈 제거(`fastNlMeansDenoisingColored`) → 기울기 보정(`deskew`,
-  0.3도 미만이면 안 건드림). 대비 보정/이진화는 PaddleOCR 자체 전처리와 겹쳐 정확도가
-  떨어지는 경우가 있어 일부러 안 넣었다 — 필요해지면 실제 문서로 A/B 테스트 후 추가할 것.
-- **후처리** (`postprocessing.py`): `min_confidence`(기본 0.5) 미만인 라인은 버리고,
-  중복 공백/개행만 정리한다.
 
-## 반환값
-`OcrResult(text: str, lines: list[OcrLine], min_confidence: float)` — `lines`는 라인별
-원문+신뢰도를 그대로 들고 있어서, 화면에 "신뢰도 낮아서 버려진 부분"을 보여주거나
-`min_confidence`를 바꿔가며 재현할 때 씀.
+PDF Rendering Image, Office 포함 Image, 일반 Image가 모두 같은 함수를 사용한다. Denoise와 Deskew는 `OcrProcessingConfig`로 명시하며 Backend 환경변수 `OCR_ENABLE_DENOISE`, `OCR_ENABLE_DESKEW`가 값을 조립한다.
 
-## 절대 금지 (루트 CLAUDE.md에서 이어짐)
-- **원본 OCR 텍스트 덮어쓰기 금지** — 사용자가 파싱 결과를 수정하더라도 원본 `OcrResult.text`는
-  별도로 보존해야 한다 (DB에 저장할 때 원본/수정본 컬럼을 분리할 것).
-- API 키 하드코딩 금지, 확인 없는 대규모 리팩터링 금지는 루트 규칙 그대로 적용.
+## 결과 계약
 
-## 재사용
-`backend/app/api/documents`(실제 서비스)와 `backend/local_lab`(로컬 성능테스트, git 미포함)
-양쪽에서 이 패키지를 그대로 호출한다. OCR 로직 자체는 여기 한 곳에만 있어야 한다 — 호출하는
-쪽(backend API, local_lab, 나중엔 admin 비교 도구)마다 따로 구현하지 말 것.
+- `raw_text`: Confidence 필터와 공통 Text 정제 전 원문
+- `cleaned_text`: 제어문자·과도한 빈 줄을 정리한 Text
+- `lines`: 실제 OCR Line의 Text·Confidence·Page·Box·Source
+- Native PDF 및 Office 직접 추출 Text는 실제 OCR Line으로 위장하지 않는다.
+
+기존 외부 호출자를 위해 다음 Import는 유지한다.
+
+```python
+from ai.ocr import run_ocr
+```
+
+`run_ocr()`는 별도 Engine을 만들지 않고 `analyze_document()`를 호출하는 호환 Wrapper다.
+
+## 의존 방향
+
+```text
+Backend / Worker / Local Lab → ai/ocr
+ai/ocr ─X→ fastapi, app.*, sqlalchemy
+```
+
+## Test
+
+프로젝트 최상위에서 실행한다.
+
+```powershell
+backend\.venv\Scripts\python.exe -B -m unittest discover -s tests -t . -p "test_*.py" -v
+```
+
+실제 Paddle Model Smoke Test는 Unit Test와 분리하고, 실행하지 않았다면 통과했다고 기록하지 않는다.

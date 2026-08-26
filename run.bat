@@ -11,6 +11,7 @@ set "BACKEND_DIR=%PROJECT_ROOT%backend"
 set "FRONTEND_DIR=%PROJECT_ROOT%frontend"
 set "VENV_ACTIVATE=%BACKEND_DIR%\.venv\Scripts\activate.bat"
 set "VENV_PYTHON=%BACKEND_DIR%\.venv\Scripts\python.exe"
+set "PYTHONPATH=%PROJECT_ROOT%"
 
 echo ========================================
 echo   Medical AI Project Start
@@ -57,7 +58,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%VENV_PYTHON%" -c "import fastapi, uvicorn, docx, pptx, httpx; import google.genai" > nul 2>&1
+"%VENV_PYTHON%" -c "import ai.ocr, fastapi, uvicorn, docx, pptx, httpx; import google.genai" > nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Required Backend packages are not installed.
     echo.
