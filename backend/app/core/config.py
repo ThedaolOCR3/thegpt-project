@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     guest_message_limit: int = 30
     guest_attachment_limit: int = 5
 
-    # Admin OCR 관련 설정(추후 로직 통합 필요)
+    # Hybrid OCR(csj-ocr 브랜치에서 이식) 설정 — 이미지/PDF/Office 문서 처리 한도.
     ocr_max_file_size_mb: int = 20
     ocr_max_pdf_pages: int = 50
     ocr_native_text_min_chars: int = 20

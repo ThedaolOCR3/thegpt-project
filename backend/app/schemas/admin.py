@@ -1,5 +1,9 @@
-"""Admin OCR·Vector 저장·LLM API의 요청/응답 계약을 정의합니다."""
+"""Hybrid OCR 응답 계약 — csj-ocr 브랜치의 schemas/admin.py에서 OCR 부분만 이식.
 
+관리자 LLM 비교 관련 스키마(LlmCompareRequest 등)는 아직 안 가져왔다 — 지금은 채팅
+첨부파일 OCR에만 hybrid_ocr을 쓰므로 필요한 만큼만 옮겼다. 나중에 관리자 대시보드
+OCR/LLM 비교 화면을 붙일 때 확장하면 된다.
+"""
 from typing import Literal
 from uuid import UUID
 
@@ -10,6 +14,19 @@ class AdminSchema(BaseModel):
     """Frontend의 camelCase와 Backend의 snake_case를 함께 허용합니다."""
 
     model_config = ConfigDict(populate_by_name=True)
+      
+class OcrAnalyzeRequest(AdminSchema):
+    document_name: str = Field(alias="documentName", min_length=1, max_length=255)
+    file_size: int = Field(alias="fileSize", ge=0)
+    content_type: str | None = Field(default=None, alias="contentType", max_length=100)
+    chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
+    overlap: int = Field(default=50, ge=0)
+
+    @model_validator(mode="after")
+    def validate_chunk_options(self) -> "OcrAnalyzeRequest":
+        if self.overlap >= self.chunk_size:
+            raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
+        return self
 
 
 class OcrDocumentResponse(AdminSchema):
