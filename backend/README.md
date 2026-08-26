@@ -18,14 +18,20 @@ Backend는 실행 디렉터리와 관계없이 이 최상위 파일 하나만 �
 
 ## LLM Provider
 
-Admin LLM은 `app/services/llm`의 Provider 계약과 Model Registry를 사용합니다.
+Admin LLM과 일반 LLM API는 `ai/llm`의 공통 Provider 계약과 Model Registry를 사용합니다.
 
 - 실제: Ollama `gemma3:1b`, Gemini `gemini-3.5-flash-lite`
 - Mock: `medgemma`, `gemma`, `qwen`, `llama`
 
 Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 최상위 `.env`의 `GEMINI_API_KEY`에 개발자별로 설정합니다. API 키는 Frontend로 전달하거나 로그에 기록하지 않습니다.
 
-같은 Provider의 Mock 모델을 실제 모델로 바꿀 때는 `app/services/llm/registry.py`에서 해당 모델의 `provider_key`와 `provider_model`을 교체합니다. Router와 Frontend의 공통 실행 계약은 그대로 유지합니다.
+Backend의 `app/services/admin_llm.py`는 환경변수를 공통 Core 설정으로 변환하고 Admin
+Schema를 조립합니다. `app/services/llm_service.py`는 기존 `/api/llm/*` 계약을 공통
+Core에 연결합니다. Provider 구현과 실행 순서는 `ai/llm`에만 존재합니다.
+
+CPU Backend는 `ai/llm/requirements-api.txt`만 설치합니다. CUDA 환경에서 MedGemma
+LoRA 추론까지 실행할 때는 `ai/llm/requirements-medgemma.txt`를 추가로 설치합니다.
+모델 목록 조회만으로 MedGemma Base Model이나 Adapter를 로드하지 않습니다.
 
 ## OCR 문서 처리
 
@@ -59,7 +65,7 @@ alembic upgrade head
 생성 결과는 `app/models/generated.py`에 저장됩니다. 생성된 모델을 검토한 후
 `app/models/__init__.py`에서 import하면 Alembic이 해당 모델을 인식합니다.
 
-## ai/ 패키지 (OCR·RAG)
+## ai/ 패키지 (OCR·RAG·LLM)
 
 `ai/ocr`, `ai/rag`는 backend/scripts/Colab이 공통으로 쓰는 독립 패키지다. `requirements.txt`
 설치만으로는 `ai` 패키지 자체가 import 가능해지지 않는다 — 저장소 루트를 editable로
@@ -76,7 +82,8 @@ cd backend
 .venv\Scripts\pip install -r ../ai/rag/requirements.txt
 ```
 
-자세한 내용은 `ai/ocr/CLAUDE.md`, `ai/rag/CLAUDE.md` 참고.
+자세한 내용은 `ai/ocr/CLAUDE.md`, `ai/rag/CLAUDE.md`와
+`docs/3_flow/11_FLW_LLM_AI코어이관코드비교_20260826.md`를 참고합니다.
 
 ⚠️ `ai/ocr`가 `backend/requirements.txt`에 들어가 있어서 documents API의 OCR 기능이
 지금은 backend 프로세스 안에서 그대로 돈다 — paddlepaddle만 수백MB라 Docker 이미지가

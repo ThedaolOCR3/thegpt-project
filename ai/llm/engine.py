@@ -39,6 +39,8 @@ class MedGemmaEngine:
         self._tokenizer = None
         self._loaded_adapters: set[str] = set()
         self._lock = threading.Lock()
+        # Adapter 선택부터 추론 완료까지 보호하여 동시 요청의 Adapter가 섞이지 않게 한다.
+        self._inference_lock = threading.Lock()
 
     def _ensure_base_loaded(self) -> None:
         if self._model is not None:
@@ -123,23 +125,28 @@ class MedGemmaEngine:
     ) -> str:
         """messages: [{"role": "user"/"assistant", "content": "..."}] 대화 기록.
         마지막 턴은 role="user"여야 한다(그다음 assistant 응답을 생성한다)."""
-        import torch
+        with self._inference_lock:
+            import torch
 
-        self._ensure_adapter_loaded(model_id)
-        self._model.set_adapter(model_id)
+            self._ensure_adapter_loaded(model_id)
+            self._model.set_adapter(model_id)
 
-        text = self._tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = self._tokenizer(text, return_tensors="pt").to(self._model.device)
+            text = self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            inputs = self._tokenizer(text, return_tensors="pt").to(self._model.device)
 
-        kwargs = {**DEFAULT_GENERATION_KWARGS, **generation_overrides}
+            kwargs = {**DEFAULT_GENERATION_KWARGS, **generation_overrides}
 
-        with torch.no_grad():
-            output = self._model.generate(**inputs, **kwargs)
+            with torch.no_grad():
+                output = self._model.generate(**inputs, **kwargs)
 
-        response = self._tokenizer.decode(
-            output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
-        )
-        return response.strip()
+            response = self._tokenizer.decode(
+                output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+            )
+            return response.strip()
 
     def is_base_loaded(self) -> bool:
         return self._model is not None

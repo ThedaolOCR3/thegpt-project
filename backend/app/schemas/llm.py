@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class LlmModelResponse(BaseModel):
@@ -8,13 +10,13 @@ class LlmModelResponse(BaseModel):
 
 
 class LlmMessageInput(BaseModel):
-    role: str
-    content: str
+    role: Literal["system", "user", "assistant"]
+    content: str = Field(min_length=1)
 
 
 class LlmGenerateRequest(BaseModel):
     model_id: str
-    messages: list[LlmMessageInput]
+    messages: list[LlmMessageInput] = Field(min_length=1)
 
 
 class LlmGenerateResponse(BaseModel):
@@ -23,8 +25,8 @@ class LlmGenerateResponse(BaseModel):
 
 
 class LlmCompareRequest(BaseModel):
-    model_ids: list[str]
-    messages: list[LlmMessageInput]
+    model_ids: list[str] = Field(min_length=1)
+    messages: list[LlmMessageInput] = Field(min_length=1)
 
 
 class LlmCompareResult(BaseModel):

@@ -1,7 +1,13 @@
-"""LLM Provider가 공유하는 요청, 결과, 오류 계약입니다."""
+"""LLM Core와 Provider가 공유하는 Framework 독립 계약입니다."""
 
 from dataclasses import dataclass
 from typing import Literal, Protocol
+
+
+@dataclass(frozen=True)
+class LlmMessage:
+    role: Literal["system", "user", "assistant"]
+    content: str
 
 
 @dataclass(frozen=True)
@@ -19,10 +25,30 @@ class LlmModelDefinition:
 
 @dataclass(frozen=True)
 class ProviderGenerateRequest:
-    prompt: str
+    messages: tuple[LlmMessage, ...]
     document_name: str | None = None
-    system_prompt: str | None = None
     max_output_tokens: int | None = None
+
+    @classmethod
+    def from_prompt(
+        cls,
+        prompt: str,
+        *,
+        document_name: str | None = None,
+        max_output_tokens: int | None = None,
+    ) -> "ProviderGenerateRequest":
+        """단일 Prompt 기반 호출을 공통 Message 계약으로 변환합니다."""
+
+        return cls(
+            messages=(LlmMessage(role="user", content=prompt),),
+            document_name=document_name,
+            max_output_tokens=max_output_tokens,
+        )
+
+    def joined_content(self) -> str:
+        """Mock 통계처럼 Message 전체 문자열이 필요한 경우에만 사용합니다."""
+
+        return "\n".join(message.content for message in self.messages)
 
 
 @dataclass(frozen=True)
@@ -74,7 +100,7 @@ class LlmProvider(Protocol):
 
 
 class LlmServiceError(Exception):
-    """Frontend에 안전하게 전달할 수 있는 LLM 도메인 오류입니다."""
+    """외부 응답에 안전하게 변환할 수 있는 LLM Domain 오류입니다."""
 
     status_code = 502
 

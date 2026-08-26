@@ -4,7 +4,8 @@
 
 ## 파일별 역할
 
-- `test_admin_llm.py`: LLM Provider, 모델 목록, 관리자 LLM API를 검증한다.
+- `test_admin_llm_api.py`: 관리자 LLM 모델 목록·실행·비교의 HTTP 계약을 검증한다.
+- `test_llm_api.py`: 일반 LLM 모델 목록·Message 전달·비교의 HTTP 계약을 검증한다.
 - `test_config_paths.py`: 최상위 `.env`와 프로젝트 경로 설정을 검증한다.
 - `test_document_ocr_api.py`: 서비스 OCR API의 Text·Line 응답과 오류 계약을 검증한다.
 - `test_admin_ocr_api.py`: Admin OCR Multipart 입력과 응답 계약을 검증한다.
@@ -39,3 +40,7 @@ Frontend Admin 페이지
 - 장애 재현용 개발·검증 환경에는 테스트를 포함해도 된다.
 
 즉, 테스트는 **Admin 기능 실행에는 선택 사항**이지만 **안전한 개발과 배포에는 중요한 검증 수단**이다.
+
+Provider, Registry와 Application Service의 Framework 독립 테스트는 Repository Root의
+`tests/ai/llm`에 둔다. Backend 테스트에서는 실제 Ollama, Gemini, MedGemma Runtime을
+호출하지 않고 Fake Provider를 공통 Application Service에 주입한다.

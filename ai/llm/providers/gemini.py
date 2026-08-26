@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from app.services.llm.contracts import (
+from ai.llm.contracts import (
     LlmContentBlockedError,
     LlmModelDefinition,
     LlmProviderAuthenticationError,
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 def _create_google_client(api_key: str) -> Any:
     from google import genai
+
     return genai.Client(api_key=api_key)
 
 
@@ -60,19 +61,31 @@ class GeminiLlmProvider:
             return ProviderAvailability(False, "google-genai 패키지가 설치되지 않았습니다.")
         return ProviderAvailability(True)
 
-    async def generate(self, request: ProviderGenerateRequest, model: LlmModelDefinition) -> ProviderGenerateResult:
+    async def generate(
+        self,
+        request: ProviderGenerateRequest,
+        model: LlmModelDefinition,
+    ) -> ProviderGenerateResult:
         if not self._enabled:
             raise LlmProviderUnavailableError("Gemini Provider가 비활성화되었습니다.")
         if not self._api_key:
             raise LlmProviderUnavailableError("최상위 .env에 GEMINI_API_KEY를 설정하세요.")
+
+        contents, config = self._build_contents_and_config(request)
         client: Any = None
         async_client: Any = None
         try:
             client = self._client_factory(self._api_key)
             async_client = client.aio
+            call_kwargs: dict[str, Any] = {
+                "model": model.provider_model,
+                "contents": contents,
+            }
+            if config:
+                call_kwargs["config"] = config
             async with self._semaphore:
                 response = await asyncio.wait_for(
-                    async_client.models.generate_content(model=model.provider_model, contents=request.prompt),
+                    async_client.models.generate_content(**call_kwargs),
                     timeout=self._timeout_seconds,
                 )
         except TimeoutError as exc:
@@ -81,6 +94,7 @@ class GeminiLlmProvider:
             self._raise_safe_provider_error(exc, model.provider_model)
         finally:
             await self._close_clients(async_client, client)
+
         answer = self._response_text(response)
         if not answer:
             if self._is_blocked_response(response):
@@ -99,6 +113,40 @@ class GeminiLlmProvider:
             total_tokens=total_tokens,
             finish_reason=self._finish_reason(response),
         )
+
+    @staticmethod
+    def _build_contents_and_config(
+        request: ProviderGenerateRequest,
+    ) -> tuple[str | list[dict[str, object]], dict[str, object]]:
+        """Core Messages를 Google GenAI의 contents/config 형식으로 변환합니다."""
+
+        system_messages = [
+            message.content for message in request.messages if message.role == "system"
+        ]
+        conversation = [
+            message for message in request.messages if message.role != "system"
+        ]
+        config: dict[str, object] = {}
+        if system_messages:
+            config["system_instruction"] = "\n\n".join(system_messages)
+        if request.max_output_tokens is not None:
+            config["max_output_tokens"] = request.max_output_tokens
+
+        # 단일 User Prompt는 기존 SDK 호출 형식을 유지하고, 대화 이력이 있으면
+        # user/model Content 목록으로 변환하여 순서를 보존합니다.
+        if len(conversation) == 1 and conversation[0].role == "user":
+            return conversation[0].content, config
+
+        contents: list[dict[str, object]] = []
+        for message in conversation:
+            role = "model" if message.role == "assistant" else "user"
+            contents.append(
+                {
+                    "role": role,
+                    "parts": [{"text": message.content}],
+                }
+            )
+        return contents, config
 
     @staticmethod
     async def _close_clients(async_client: Any, client: Any) -> None:

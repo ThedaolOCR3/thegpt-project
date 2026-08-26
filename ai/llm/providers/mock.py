@@ -1,9 +1,9 @@
-"""실제 Provider로 교체하기 전 UI 계약을 유지하는 명시적 Mock Provider입니다."""
+"""비교 UI와 회귀 테스트를 위한 명시적 Mock Provider입니다."""
 
 import asyncio
 from dataclasses import dataclass
 
-from app.services.llm.contracts import (
+from ai.llm.contracts import (
     LlmModelDefinition,
     LlmProviderUnavailableError,
     ProviderAvailability,
@@ -88,7 +88,7 @@ class MockLlmProvider:
 
         input_tokens = max(
             64,
-            round(len(request.prompt.strip()) * 1.7)
+            round(len(request.joined_content().strip()) * 1.7)
             + (18 if request.document_name else 0),
         )
         reference_note = (

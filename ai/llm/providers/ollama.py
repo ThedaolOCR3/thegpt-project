@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from app.services.llm.contracts import (
+from ai.llm.contracts import (
     LlmModelDefinition,
     LlmProviderRateLimitError,
     LlmProviderTimeoutError,
@@ -87,11 +87,17 @@ class OllamaLlmProvider:
     ) -> ProviderGenerateResult:
         if not self._enabled:
             raise LlmProviderUnavailableError("Ollama Provider가 비활성화되었습니다.")
-        messages: list[dict[str, str]] = []
-        if request.system_prompt:
-            messages.append({"role": "system", "content": request.system_prompt})
-        messages.append({"role": "user", "content": request.prompt})
-        payload: dict[str, Any] = {"model": model.provider_model, "messages": messages, "stream": False}
+
+        # Core Message의 role과 순서를 Ollama Chat API에 그대로 전달합니다.
+        messages = [
+            {"role": message.role, "content": message.content}
+            for message in request.messages
+        ]
+        payload: dict[str, Any] = {
+            "model": model.provider_model,
+            "messages": messages,
+            "stream": False,
+        }
         if request.max_output_tokens is not None:
             payload["options"] = {"num_predict": request.max_output_tokens}
         try:

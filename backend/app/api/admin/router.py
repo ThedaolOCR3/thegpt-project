@@ -39,7 +39,7 @@ from app.services.ocr_job_service import (
     ocr_job_manager,
 )
 from app.services.ocr_workflow import process_document
-from app.services.llm.contracts import LlmServiceError
+from ai.llm import LlmServiceError
 
 router = APIRouter()
 
