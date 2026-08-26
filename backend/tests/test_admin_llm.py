@@ -1,7 +1,7 @@
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
@@ -9,14 +9,11 @@ from app.services import admin_llm
 from app.services.llm.application import LlmApplicationService
 from app.services.llm.contracts import (
     LlmModelDefinition,
-    LlmProviderRateLimitError,
-    LlmProviderUnavailableError,
     ProviderAvailability,
     ProviderGenerateRequest,
     ProviderGenerateResult,
     UnknownLlmModelError,
 )
-from app.services.llm.providers.gemini import GeminiLlmProvider
 from app.services.llm.providers.ollama import OllamaLlmProvider
 from app.services.llm.registry import ModelRegistry, ProviderRegistry, create_model_registry
 
@@ -60,20 +57,18 @@ class FakeProvider:
 
 
 class RegistryAndApplicationTest(unittest.IsolatedAsyncioTestCase):
-    def test_final_registry_contains_two_real_and_four_mock_models(self) -> None:
+    def test_final_registry_contains_one_real_and_four_mock_models(self) -> None:
         settings = SimpleNamespace(
             llm_ollama_model="gemma3:1b",
-            llm_gemini_model="gemini-3.5-flash-lite",
         )
         definitions = create_model_registry(settings).list()  # type: ignore[arg-type]
         mapping = {definition.id: definition.provider_key for definition in definitions}
 
         self.assertEqual(
             list(mapping),
-            ["ollama-gemma3", "gemini", "medgemma", "gemma", "qwen", "llama"],
+            ["ollama-gemma3", "medgemma", "gemma", "qwen", "llama"],
         )
         self.assertEqual(mapping["ollama-gemma3"], "ollama")
-        self.assertEqual(mapping["gemini"], "gemini")
         self.assertTrue(all(mapping[item] == "mock" for item in ("medgemma", "gemma", "qwen", "llama")))
         self.assertNotIn("main-fine-tuned", mapping)
         self.assertNotIn("main-partial", mapping)
@@ -157,102 +152,6 @@ class OllamaProviderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("설치되지", availability.message or "")
 
 
-class GeminiProviderTest(unittest.IsolatedAsyncioTestCase):
-    async def test_async_sdk_response_and_usage_are_mapped(self) -> None:
-        response = SimpleNamespace(
-            text="Gemini 실제 응답",
-            usage_metadata=SimpleNamespace(
-                prompt_token_count=7,
-                candidates_token_count=11,
-                total_token_count=18,
-            ),
-            candidates=[SimpleNamespace(finish_reason="STOP")],
-            prompt_feedback=None,
-        )
-        async_client = SimpleNamespace(
-            models=SimpleNamespace(generate_content=AsyncMock(return_value=response)),
-            aclose=AsyncMock(),
-        )
-        client = SimpleNamespace(aio=async_client, close=Mock())
-        provider = GeminiLlmProvider(
-            enabled=True,
-            api_key="test-key",
-            timeout_seconds=10,
-            max_concurrency=1,
-            client_factory=lambda api_key: client,
-        )
-        definition = model_definition(
-            model_id="gemini",
-            provider_key="gemini",
-            provider_model="gemini-3.5-flash-lite",
-        )
-
-        result = await provider.generate(ProviderGenerateRequest(prompt="질문"), definition)
-
-        async_client.models.generate_content.assert_awaited_once_with(
-            model="gemini-3.5-flash-lite",
-            contents="질문",
-        )
-        self.assertEqual(result.answer, "Gemini 실제 응답")
-        self.assertEqual((result.input_tokens, result.output_tokens, result.total_tokens), (7, 11, 18))
-        async_client.aclose.assert_awaited_once()
-        client.close.assert_called_once()
-
-    async def test_quota_error_is_safe_and_mapped(self) -> None:
-        error = RuntimeError("secret provider details")
-        error.code = 429  # type: ignore[attr-defined]
-        async_client = SimpleNamespace(
-            models=SimpleNamespace(generate_content=AsyncMock(side_effect=error)),
-            aclose=AsyncMock(),
-        )
-        client = SimpleNamespace(aio=async_client, close=Mock())
-        provider = GeminiLlmProvider(
-            enabled=True,
-            api_key="must-not-leak",
-            timeout_seconds=10,
-            max_concurrency=1,
-            client_factory=lambda api_key: client,
-        )
-
-        with self.assertRaises(LlmProviderRateLimitError) as raised:
-            await provider.generate(
-                ProviderGenerateRequest(prompt="질문"),
-                model_definition(
-                    model_id="gemini",
-                    provider_key="gemini",
-                    provider_model="gemini-3.5-flash-lite",
-                ),
-            )
-        self.assertNotIn("must-not-leak", str(raised.exception))
-
-    async def test_missing_model_is_mapped_with_configured_model_name(self) -> None:
-        error = RuntimeError("provider details")
-        error.code = 404  # type: ignore[attr-defined]
-        async_client = SimpleNamespace(
-            models=SimpleNamespace(generate_content=AsyncMock(side_effect=error)),
-            aclose=AsyncMock(),
-        )
-        client = SimpleNamespace(aio=async_client, close=Mock())
-        provider = GeminiLlmProvider(
-            enabled=True,
-            api_key="must-not-leak",
-            timeout_seconds=10,
-            max_concurrency=1,
-            client_factory=lambda api_key: client,
-        )
-        definition = model_definition(
-            model_id="gemini",
-            provider_key="gemini",
-            provider_model="gemini-3.5-flash-lite",
-        )
-
-        with self.assertRaises(LlmProviderUnavailableError) as raised:
-            await provider.generate(ProviderGenerateRequest(prompt="질문"), definition)
-
-        self.assertIn("gemini-3.5-flash-lite", str(raised.exception))
-        self.assertNotIn("must-not-leak", str(raised.exception))
-
-
 class AdminLlmApiTest(unittest.TestCase):
     def setUp(self) -> None:
         from fastapi import FastAPI
@@ -262,11 +161,9 @@ class AdminLlmApiTest(unittest.TestCase):
 
         settings = SimpleNamespace(
             llm_ollama_model="gemma3:1b",
-            llm_gemini_model="gemini-3.5-flash-lite",
         )
         self.providers = (
             FakeProvider("ollama", is_mock=False),
-            FakeProvider("gemini", is_mock=False),
             FakeProvider("mock", is_mock=True),
         )
         self.application = LlmApplicationService(
@@ -287,10 +184,10 @@ class AdminLlmApiTest(unittest.TestCase):
 
         self.assertEqual(catalog_response.status_code, 200)
         catalog = catalog_response.json()
-        self.assertEqual(len(catalog), 6)
+        self.assertEqual(len(catalog), 5)
         self.assertEqual(catalog[0]["id"], "ollama-gemma3")
         self.assertFalse(catalog[0]["isMock"])
-        self.assertTrue(catalog[2]["isMock"])
+        self.assertTrue(catalog[1]["isMock"])
         self.assertNotIn("apiKey", json.dumps(catalog))
 
         self.assertEqual(run_response.status_code, 200)

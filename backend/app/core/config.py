@@ -46,11 +46,9 @@ class Settings(BaseSettings):
     llm_ollama_model: str = "gemma3:1b"
     llm_ollama_timeout_seconds: float = 120.0
     llm_ollama_max_concurrency: int = 1
-    llm_gemini_enabled: bool = True
+
+    # Gemini는 LLM에서는 사용하지 않고 문서 임베딩 Provider로만 사용한다.
     gemini_api_key: str | None = None
-    llm_gemini_model: str = "gemini-3.5-flash-lite"
-    llm_gemini_timeout_seconds: float = 60.0
-    llm_gemini_max_concurrency: int = 2
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 1024

@@ -54,16 +54,6 @@ def create_model_registry(settings: Settings) -> ModelRegistry:
                 provider_model=settings.llm_ollama_model,
             ),
             LlmModelDefinition(
-                id="gemini",
-                label="Gemini 3.5 Flash-Lite",
-                family="Google Gemini API",
-                training_stage="외부 API 모델",
-                description="Backend에서 Gemini API를 호출하는 실제 모델입니다.",
-                group="main",
-                provider_key="gemini",
-                provider_model=settings.llm_gemini_model,
-            ),
-            LlmModelDefinition(
                 id="medgemma",
                 label="MedGemma",
                 family="외부 비교 모델",

@@ -13,7 +13,6 @@ from app.schemas.admin import (
 )
 from app.services.llm.application import LlmApplicationService
 from app.services.llm.contracts import LlmExecutionResult, LlmServiceError, ProviderGenerateRequest
-from app.services.llm.providers.gemini import GeminiLlmProvider
 from app.services.llm.providers.mock import MockLlmProvider
 from app.services.llm.providers.ollama import OllamaLlmProvider
 from app.services.llm.registry import ProviderRegistry, create_model_registry
@@ -29,12 +28,6 @@ def create_llm_application() -> LlmApplicationService:
                 base_url=settings.llm_ollama_base_url,
                 timeout_seconds=settings.llm_ollama_timeout_seconds,
                 max_concurrency=settings.llm_ollama_max_concurrency,
-            ),
-            GeminiLlmProvider(
-                enabled=settings.llm_gemini_enabled,
-                api_key=settings.gemini_api_key,
-                timeout_seconds=settings.llm_gemini_timeout_seconds,
-                max_concurrency=settings.llm_gemini_max_concurrency,
             ),
             MockLlmProvider(),
         )
