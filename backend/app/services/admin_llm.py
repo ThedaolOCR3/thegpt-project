@@ -1,75 +1,151 @@
-"""Admin LLM 비교 요청의 검증, Mock 생성, 응답 조립 순서를 관리합니다."""
+"""Admin LLM API와 확장형 LLM Application Service 사이의 Facade입니다."""
 
+import asyncio
 import logging
 
-from fastapi import HTTPException, status
-
-from app.schemas.admin import LlmCompareRequest, LlmModelResponse
+from app.core.config import settings
+from app.schemas.admin import (
+    LlmCompareRequest,
+    LlmModelDefinitionResponse,
+    LlmModelResponse,
+    LlmRunRequest,
+    LlmRunResponse,
+)
+from app.services.llm.application import LlmApplicationService
+from app.services.llm.contracts import LlmExecutionResult, LlmServiceError, ProviderGenerateRequest
+from app.services.llm.providers.gemini import GeminiLlmProvider
+from app.services.llm.providers.mock import MockLlmProvider
+from app.services.llm.providers.ollama import OllamaLlmProvider
+from app.services.llm.registry import ProviderRegistry, create_model_registry
 
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS = {"medgemma", "gemma", "qwen"}
-MOCK_ANSWERS = {
-    "medgemma": "(backend_mock)의료 정보의 한계를 밝히고 위험 신호가 있다면 전문가 평가를 안내합니다.",
-    "gemma": "(backend_mock)문서의 핵심 근거를 증상, 검사 결과, 주의사항 순서로 정리합니다.",
-    "qwen": "(backend_mock)관련 문서 근거를 선별하고 충돌하는 내용은 확인 항목으로 구분합니다.",
-    "llama": "(backend_mock)질문의 의도를 요약하고 문서 근거와 다음 확인 사항을 제시합니다.",
-}
-RESPONSE_TIMES = (6.42, 9.18, 13.52)
-OUTPUT_TOKENS = (186, 154, 203)
+
+
+def create_llm_application() -> LlmApplicationService:
+    providers = ProviderRegistry(
+        (
+            OllamaLlmProvider(
+                enabled=settings.llm_ollama_enabled,
+                base_url=settings.llm_ollama_base_url,
+                timeout_seconds=settings.llm_ollama_timeout_seconds,
+                max_concurrency=settings.llm_ollama_max_concurrency,
+            ),
+            GeminiLlmProvider(
+                enabled=settings.llm_gemini_enabled,
+                api_key=settings.gemini_api_key,
+                timeout_seconds=settings.llm_gemini_timeout_seconds,
+                max_concurrency=settings.llm_gemini_max_concurrency,
+            ),
+            MockLlmProvider(),
+        )
+    )
+    return LlmApplicationService(create_model_registry(settings), providers)
+
+
+llm_application = create_llm_application()
+
+
+async def list_models() -> list[LlmModelDefinitionResponse]:
+    entries = await llm_application.list_models()
+    return [
+        LlmModelDefinitionResponse(
+            id=entry.definition.id,
+            label=entry.definition.label,
+            family=entry.definition.family,
+            trainingStage=entry.definition.training_stage,
+            description=entry.definition.description,
+            group=entry.definition.group,
+            provider=entry.provider,
+            providerModel=entry.definition.provider_model,
+            enabled=entry.definition.enabled,
+            available=entry.availability.available,
+            availabilityMessage=entry.availability.message,
+            isMock=entry.is_mock,
+        )
+        for entry in entries
+    ]
+
+
+async def run_model(request: LlmRunRequest) -> LlmRunResponse:
+    execution = await llm_application.run(
+        request.model_id,
+        ProviderGenerateRequest(
+            prompt=request.prompt.strip(),
+            document_name=request.document_name,
+        ),
+    )
+    logger.info(
+        "[AdminLLM] completed: model=%s provider=%s elapsed=%.2fs mock=%s",
+        execution.definition.id,
+        execution.provider,
+        execution.response_time_seconds,
+        execution.is_mock,
+    )
+    return _to_run_response(execution)
+
+
+def _to_run_response(execution: LlmExecutionResult) -> LlmRunResponse:
+    result = execution.result
+    return LlmRunResponse(
+        modelId=execution.definition.id,
+        provider=execution.provider,
+        providerModel=execution.definition.provider_model,
+        answer=result.answer,
+        responseTimeSeconds=execution.response_time_seconds,
+        inputTokens=result.input_tokens,
+        outputTokens=result.output_tokens,
+        totalTokens=result.total_tokens,
+        finishReason=result.finish_reason,
+        isMock=execution.is_mock,
+    )
 
 
 async def compare_models(request: LlmCompareRequest) -> list[LlmModelResponse]:
-    """Request → 검증 → 모델별 Mock → Response의 전체 실행 순서를 관리합니다."""
-    
-    validated_request = validate_llm_request(request)
+    """기존 비교 API를 같은 Provider 실행 경계로 유지합니다."""
 
-    # 실제 모델이 준비되면 아래 Mock 생성 호출만 Ollama/LLM 호출로 교체합니다.
-    mock_results = create_mock_model_results(validated_request)
-
-    response = build_compare_response(mock_results)
-    logger.info("[AdminLLM] %d mock model responses created", len(response))
-    return response
-
-
-def validate_llm_request(request: LlmCompareRequest) -> LlmCompareRequest:
-    """지원 모델을 한 번에 확인하고 잘못된 모델 목록을 명확히 반환합니다."""
-
-    unsupported_models = sorted(set(request.model_ids) - SUPPORTED_MODELS)
-    if unsupported_models:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"지원하지 않는 모델입니다: {', '.join(unsupported_models)}",
-        )
-    return request
-
-
-def create_mock_model_results(request: LlmCompareRequest) -> list[dict[str, object]]:
-    """향후 실제 다중 LLM 호출로 교체할 단일 Mock 처리 지점입니다."""
-
-    input_tokens = max(64, round(len(request.prompt.strip()) * 1.7))
-    results: list[dict[str, object]] = []
-    for index, model_id in enumerate(request.model_ids):
-        if model_id == "llama":
-            results.append({
-                "model_id": model_id, "status": "error",
-                "error": "[backend_mock]provider가 일시적으로 응답하지 않았습니다.",
-                "response_time_seconds": 8.74, "input_tokens": 0, "output_tokens": 0,
-                "chunk_size": request.chunk_size, "overlap": request.overlap,
-            })
+    for model_id in request.model_ids:
+        llm_application.resolve_model(model_id)
+    results = await asyncio.gather(
+        *(
+            llm_application.run(
+                model_id,
+                ProviderGenerateRequest(
+                    prompt=request.prompt.strip(),
+                    document_name=request.document_name,
+                ),
+            )
+            for model_id in request.model_ids
+        ),
+        return_exceptions=True,
+    )
+    response: list[LlmModelResponse] = []
+    for model_id, result in zip(request.model_ids, results, strict=True):
+        if isinstance(result, LlmServiceError):
+            response.append(
+                LlmModelResponse(
+                    modelId=model_id,
+                    status="error",
+                    error=str(result),
+                    responseTimeSeconds=0,
+                    inputTokens=None,
+                    outputTokens=None,
+                    chunkSize=request.chunk_size,
+                    overlap=request.overlap,
+                )
+            )
             continue
-        results.append({
-            "model_id": model_id,
-            "status": "success",
-            "answer": request.prompt+"의 답변 : " + MOCK_ANSWERS[model_id],
-            "response_time_seconds": RESPONSE_TIMES[index % len(RESPONSE_TIMES)],
-            "input_tokens": input_tokens,
-            "output_tokens": OUTPUT_TOKENS[index % len(OUTPUT_TOKENS)],
-            "chunk_size": request.chunk_size, "overlap": request.overlap,
-        })
-    return results
-
-
-def build_compare_response(mock_results: list[dict[str, object]]) -> list[LlmModelResponse]:
-    """모델별 내부 결과를 고정된 Frontend 응답 Schema로 변환합니다."""
-
-    return [LlmModelResponse.model_validate(result) for result in mock_results]
+        if isinstance(result, BaseException):
+            raise result
+        response.append(
+            LlmModelResponse(
+                modelId=model_id,
+                status="success",
+                answer=result.result.answer,
+                responseTimeSeconds=result.response_time_seconds,
+                inputTokens=result.result.input_tokens,
+                outputTokens=result.result.output_tokens,
+                chunkSize=request.chunk_size,
+                overlap=request.overlap,
+            )
+        )
+    return response

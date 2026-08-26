@@ -2,19 +2,41 @@
 
 ## 실행
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item ..\.env.example ..\.env
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 - API 문서: http://localhost:8000/docs
 - 상태 확인: http://localhost:8000/health
 - DB 상태 확인: http://localhost:8000/health/db
 
-`.env`의 `DATABASE_URL`을 Neon 콘솔에서 복사한 연결 문자열로 교체합니다.
+프로젝트 최상위 `.env`의 `DATABASE_URL`을 Neon 콘솔에서 복사한 연결 문자열로 교체합니다.
+Backend는 실행 디렉터리와 관계없이 이 최상위 파일 하나만 읽습니다.
+
+## LLM Provider
+
+Admin LLM은 `app/services/llm`의 Provider 계약과 Model Registry를 사용합니다.
+
+- 실제: Ollama `gemma3:1b`, Gemini `gemini-3.5-flash-lite`
+- Mock: `medgemma`, `gemma`, `qwen`, `llama`
+
+Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 최상위 `.env`의 `GEMINI_API_KEY`에 개발자별로 설정합니다. API 키는 Frontend로 전달하거나 로그에 기록하지 않습니다.
+
+같은 Provider의 Mock 모델을 실제 모델로 바꿀 때는 `app/services/llm/registry.py`에서 해당 모델의 `provider_key`와 `provider_model`을 교체합니다. Router와 Frontend의 공통 실행 계약은 그대로 유지합니다.
+
+## OCR 문서 처리
+
+- PDF: Native Text와 포함 이미지를 구분하는 Hybrid PDF 처리
+- PNG/JPG: PaddleOCR 처리
+- DOCX: `python-docx` 기반 문단·표·이미지 직접 추출
+- PPTX: `python-pptx` 기반 슬라이드·도형·표·이미지·발표자 노트 직접 추출
+
+DOCX/PPTX 처리를 위해 LibreOffice를 설치하거나 실행 경로를 설정할 필요가 없습니다.
+정확한 Office 페이지 미리보기 또는 페이지 번호가 필요하면 원본 프로그램에서 PDF로
+내보낸 뒤 PDF를 업로드합니다.
 
 ## 마이그레이션
 
@@ -25,9 +47,9 @@ alembic upgrade head
 
 ## 기존 Neon 스키마에서 모델 생성
 
-```bash
-pip install -r requirements-dev.txt
-python scripts/generate_models.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/generate_models.py
 ```
 
 생성 결과는 `app/models/generated.py`에 저장됩니다. 생성된 모델을 검토한 후

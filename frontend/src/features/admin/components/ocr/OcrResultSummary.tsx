@@ -1,15 +1,17 @@
 import { Check, FileText } from "lucide-react";
 import type { AsyncStatus } from "../../types/common";
-import type { OcrDocumentResult } from "../../types/ocr";
+import type { OcrDocumentResult, OcrProgressUpdate } from "../../types/ocr";
 
 export function OcrResultSummary({
   status,
+  progress,
   result,
   saveStatus,
   saveMessage,
   onSave,
 }: {
   status: AsyncStatus;
+  progress: OcrProgressUpdate;
   result: OcrDocumentResult | null;
   saveStatus: AsyncStatus;
   saveMessage: string;
@@ -19,8 +21,26 @@ export function OcrResultSummary({
     return (
       <div className="admin-loading-state">
         <span className="loading-orbit" />
-        <strong>OCR 결과를 준비하고 있습니다</strong>
-        <p>고정 fixture로 추출 품질과 chunk 결과를 생성합니다.</p>
+        <div className="ocr-progress-shell">
+          <div className="ocr-progress-heading">
+            <strong>{progress.message}</strong>
+            <span>{progress.progress}%</span>
+          </div>
+          <div
+            className="ocr-progress-track"
+            role="progressbar"
+            aria-label="OCR 분석 진행률"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.progress}
+          >
+            <span
+              className="ocr-progress-bar"
+              style={{ width: `${progress.progress}%` }}
+            />
+          </div>
+          <p>문서 구조 분석부터 텍스트 정제와 Chunk 생성까지 진행합니다.</p>
+        </div>
       </div>
     );
   if (!result)
@@ -31,6 +51,8 @@ export function OcrResultSummary({
         <p>문서를 선택하고 분석 테스트를 실행해 주세요.</p>
       </div>
     );
+  const extension = result.documentName.split(".").pop()?.toLowerCase();
+  const unitLabel = extension === "pptx" ? "슬라이드" : "페이지";
   return (
     <div className="ocr-result">
       <div className="result-title-row">
@@ -45,8 +67,8 @@ export function OcrResultSummary({
       </div>
       <dl className="metric-grid">
         <div>
-          <dt>페이지</dt>
-          <dd>{result.pageCount}</dd>
+          <dt>{unitLabel}</dt>
+          <dd>{result.pageCount ?? "계산 안 됨"}</dd>
         </div>
         <div>
           <dt>추출 문자</dt>
@@ -81,10 +103,10 @@ export function OcrResultSummary({
         disabled={saveStatus === "loading" || saveStatus === "success"}
       >
         {saveStatus === "loading"
-          ? "저장 테스트 중..."
+          ? "VectorDB 저장 중..."
           : saveStatus === "success"
-            ? "저장 테스트 완료"
-            : "VectorDB 저장 테스트"}
+            ? "VectorDB 저장 완료"
+            : "VectorDB에 저장"}
       </button>
       {saveMessage && (
         <p

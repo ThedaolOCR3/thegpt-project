@@ -4,9 +4,11 @@ export function createOcrMockResult(
   documentName: string,
   isPdf: boolean,
 ): OcrDocumentResult {
+  const extension = documentName.split(".").pop()?.toLowerCase();
   return {
+    jobId: "mock-ocr-job",
     documentName,
-    pageCount: isPdf ? 4 : 1,
+    pageCount: extension === "docx" ? null : isPdf ? 4 : 1,
     characterCount: isPdf ? 4_286 : 1_248,
     estimatedChunks: isPdf ? 11 : 4,
     confidence: isPdf ? 94.8 : 97.2,

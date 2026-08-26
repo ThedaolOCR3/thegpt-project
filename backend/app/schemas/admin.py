@@ -5,6 +5,7 @@
 OCR/LLM 비교 화면을 붙일 때 확장하면 된다.
 """
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,7 +31,7 @@ class OcrAnalyzeRequest(AdminSchema):
 
 class OcrDocumentResponse(AdminSchema):
     document_name: str = Field(alias="documentName")
-    page_count: int = Field(alias="pageCount")
+    page_count: int | None = Field(alias="pageCount")
     character_count: int = Field(alias="characterCount")
     estimated_chunks: int = Field(alias="estimatedChunks")
     confidence: float
@@ -39,12 +40,73 @@ class OcrDocumentResponse(AdminSchema):
     readiness: Literal["review", "ready"]
     notes: list[str]
 
-class VectorSaveTestRequest(AdminSchema):
-    document_name: str = Field(alias="documentName", min_length=1, max_length=255)
+
+class OcrJobCreatedResponse(AdminSchema):
+    job_id: str = Field(alias="jobId")
+    status: Literal["queued"]
 
 
-class VectorSaveTestResponse(AdminSchema):
+class OcrJobStatusResponse(AdminSchema):
+    job_id: str = Field(alias="jobId")
+    status: Literal["queued", "processing", "completed", "failed"]
+    stage: str
+    progress: int = Field(ge=0, le=100)
     message: str
+    result: OcrDocumentResponse | None = None
+    error: str | None = None
+
+
+class OcrVectorSaveRequest(AdminSchema):
+    job_id: str = Field(alias="jobId", min_length=1, max_length=64)
+
+
+class OcrVectorSaveResponse(AdminSchema):
+    message: str
+    document_id: UUID = Field(alias="documentId")
+    chunk_count: int = Field(alias="chunkCount", ge=1)
+    embedding_provider: str = Field(alias="embeddingProvider")
+    embedding_dimension: int = Field(alias="embeddingDimension")
+    embedding_model: str = Field(alias="embeddingModel")
+
+
+class LlmRunRequest(AdminSchema):
+    prompt: str = Field(min_length=1, max_length=10_000)
+    model_id: str = Field(alias="modelId", min_length=1, max_length=100)
+    document_name: str | None = Field(default=None, alias="documentName", max_length=255)
+
+    @model_validator(mode="after")
+    def validate_prompt(self) -> "LlmRunRequest":
+        if not self.prompt.strip():
+            raise ValueError("Prompt를 입력해 주세요.")
+        return self
+
+
+class LlmRunResponse(AdminSchema):
+    model_id: str = Field(alias="modelId")
+    provider: str
+    provider_model: str = Field(alias="providerModel")
+    answer: str
+    response_time_seconds: float = Field(alias="responseTimeSeconds")
+    input_tokens: int | None = Field(alias="inputTokens")
+    output_tokens: int | None = Field(alias="outputTokens")
+    total_tokens: int | None = Field(alias="totalTokens")
+    finish_reason: str | None = Field(default=None, alias="finishReason")
+    is_mock: bool = Field(alias="isMock")
+
+
+class LlmModelDefinitionResponse(AdminSchema):
+    id: str
+    label: str
+    family: str
+    training_stage: str = Field(alias="trainingStage")
+    description: str
+    group: Literal["main", "other"]
+    provider: str
+    provider_model: str = Field(alias="providerModel")
+    enabled: bool
+    available: bool
+    availability_message: str | None = Field(alias="availabilityMessage")
+    is_mock: bool = Field(alias="isMock")
 
 
 class LlmCompareRequest(AdminSchema):
@@ -71,7 +133,7 @@ class LlmModelResponse(AdminSchema):
     answer: str | None = None
     error: str | None = None
     response_time_seconds: float = Field(alias="responseTimeSeconds")
-    input_tokens: int = Field(alias="inputTokens")
-    output_tokens: int = Field(alias="outputTokens")
+    input_tokens: int | None = Field(alias="inputTokens")
+    output_tokens: int | None = Field(alias="outputTokens")
     chunk_size: int = Field(alias="chunkSize")
     overlap: int

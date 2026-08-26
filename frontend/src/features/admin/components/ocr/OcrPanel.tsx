@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useOcrTest } from "../../hooks/useOcrTest";
+import { OcrChunkSettings } from "./OcrChunkSettings";
 import { OcrDropzone } from "./OcrDropzone";
 import { OcrFilePreview } from "./OcrFilePreview";
 import { OcrResultSummary } from "./OcrResultSummary";
@@ -27,19 +28,25 @@ export function OcrPanel() {
             onSelect={ocr.selectFile}
           />
           {ocr.file ? (
-            <>
-              <SelectedFile
-                file={ocr.file}
-                disabled={ocr.status === "loading"}
-                onRemove={ocr.removeFile}
-              />
-              <OcrFilePreview file={ocr.file} />
-            </>
+            <SelectedFile
+              file={ocr.file}
+              disabled={ocr.status === "loading"}
+              onRemove={ocr.removeFile}
+            />
           ) : (
             <div className="admin-empty-inline">
               아직 선택한 문서가 없습니다.
             </div>
           )}
+          <OcrChunkSettings
+            chunkSize={ocr.chunkSize}
+            overlap={ocr.overlap}
+            overlapPercent={ocr.overlapPercent}
+            disabled={ocr.status === "loading"}
+            onChunkSizeChange={ocr.setChunkSize}
+            onOverlapPercentChange={ocr.setOverlapPercent}
+          />
+          {ocr.file && <OcrFilePreview file={ocr.file} />}
           {ocr.error && (
             <p className="admin-error" role="alert">
               {ocr.error}
@@ -67,6 +74,7 @@ export function OcrPanel() {
         >
           <OcrResultSummary
             status={ocr.status}
+            progress={ocr.progress}
             result={ocr.result}
             saveStatus={ocr.saveStatus}
             saveMessage={ocr.saveMessage}

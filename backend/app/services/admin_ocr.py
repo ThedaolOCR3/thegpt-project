@@ -1,85 +1,117 @@
-"""Admin OCR 요청의 검증, Mock 생성, 응답 조립 순서를 관리합니다."""
+"""완료된 OCR Job의 Chunk를 Embedding과 함께 Neon에 저장합니다."""
 
+import hashlib
 import logging
-from pathlib import Path
+from typing import Protocol
+from urllib.parse import quote
 
-from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.schemas.admin import (
-    OcrAnalyzeRequest,
-    OcrDocumentResponse,
-    VectorSaveTestRequest,
-    VectorSaveTestResponse,
+from app.repositories.document_repository import DocumentRepository, SavedDocument
+from app.schemas.admin import OcrVectorSaveRequest, OcrVectorSaveResponse
+from app.services.embedding_service import (
+    EmbeddingService,
+    EmbeddingValidationError,
+    embedding_service,
 )
+from app.services.ocr_job_service import OcrJobManager, ocr_job_manager
 
 logger = logging.getLogger(__name__)
-SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+
+NEON_VECTOR_DIMENSION = 1024
 
 
-async def analyze_document(request: OcrAnalyzeRequest) -> OcrDocumentResponse:
-    """Request → 검증 → Mock OCR → Response의 전체 실행 순서를 관리합니다."""
-
-    validated_request = validate_ocr_request(request)
-
-    # 실제 OCR 엔진이 준비되면 아래 Mock 생성 호출만 실제 OCR 호출로 교체합니다.
-    mock_result = create_mock_ocr_result(validated_request)
-
-    response = build_ocr_response(mock_result)
-    logger.info("[AdminOCR] Mock response created for %s", validated_request.document_name)
-    return response
+class OcrSaveValidationError(Exception):
+    """OCR 결과가 저장 가능한 상태가 아닐 때 발생합니다."""
 
 
-async def save_document_test(request: VectorSaveTestRequest) -> VectorSaveTestResponse:
-    """DB Side Effect 없이 VectorDB 저장 사용자 흐름만 확인합니다."""
+class DocumentSaver(Protocol):
+    def save_with_chunks(
+        self,
+        *,
+        original_file_url: str,
+        extracted_text: str,
+        chunks: list[str],
+        embeddings: list[list[float]],
+    ) -> SavedDocument: ...
 
-    logger.info("[AdminOCR] Vector save mock completed for %s", request.document_name)
-    return VectorSaveTestResponse(
-        message="(backend)저장 테스트가 완료되었습니다. 실제 VectorDB에는 저장되지 않았습니다."
+
+async def save_ocr_result_with_embeddings(
+    request: OcrVectorSaveRequest,
+    db: Session,
+    *,
+    job_manager: OcrJobManager = ocr_job_manager,
+    embedder: EmbeddingService = embedding_service,
+    repository: DocumentSaver | None = None,
+) -> OcrVectorSaveResponse:
+    """OCR 결과 조회 → Embedding → 문서·Chunk Transaction 저장을 관리합니다."""
+
+    job = job_manager.get_job(request.job_id)
+    if job.status != "completed" or job.result is None:
+        raise OcrSaveValidationError("완료된 OCR Job만 VectorDB에 저장할 수 있습니다.")
+    if not job.result.chunks:
+        raise OcrSaveValidationError("저장할 OCR Chunk가 없습니다.")
+
+    logger.info(
+        "[OCR SAVE] document save start: job_id=%s chunks=%d",
+        request.job_id,
+        len(job.result.chunks),
+    )
+    embeddings = await embedder.embed_chunks(job.result.chunks)
+    _validate_embeddings_before_storage(
+        chunks=job.result.chunks,
+        embeddings=embeddings,
+        configured_dimension=embedder.dimension,
+    )
+
+    document_repository = repository or DocumentRepository(db)
+    saved = document_repository.save_with_chunks(
+        original_file_url=_build_job_file_reference(request.job_id, job.result.document_name),
+        extracted_text=job.result.extracted_text,
+        chunks=job.result.chunks,
+        embeddings=embeddings,
+    )
+    return OcrVectorSaveResponse(
+        message=f"OCR 문서와 Chunk {saved.chunk_count}개를 VectorDB에 저장했습니다.",
+        documentId=saved.document_id,
+        chunkCount=saved.chunk_count,
+        embeddingProvider=embedder.provider,
+        embeddingDimension=embedder.dimension,
+        embeddingModel=embedder.model,
     )
 
 
-def validate_ocr_request(request: OcrAnalyzeRequest) -> OcrAnalyzeRequest:
-    """파일 본문을 읽지 않고 이름과 메타데이터만 검증합니다."""
+def _build_job_file_reference(job_id: str, document_name: str) -> str:
+    """원본 저장소가 생기기 전까지 영구 파일 URL과 구분되는 Job 추적값을 기록합니다."""
 
-    extension = Path(request.document_name).suffix.lower()
-    if extension not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="PDF, PNG, JPG 형식만 문서 분석 테스트에 사용할 수 있습니다.",
+    reference = f"ocr-job://{job_id}/{quote(document_name, safe='._-')}"
+    if len(reference) <= 500:
+        return reference
+    name_digest = hashlib.sha256(document_name.encode("utf-8")).hexdigest()
+    return f"ocr-job://{job_id}/{name_digest}"
+
+
+def _validate_embeddings_before_storage(
+    *,
+    chunks: list[str],
+    embeddings: list[list[float]],
+    configured_dimension: int,
+) -> None:
+    """Neon Repository 호출 직전에 실제 Vector가 VECTOR(1024) 계약과 같은지 재검증합니다."""
+
+    if configured_dimension != NEON_VECTOR_DIMENSION:
+        raise EmbeddingValidationError(
+            "Embedding 설정 차원은 Neon document_chunks.embedding의 "
+            f"VECTOR({NEON_VECTOR_DIMENSION})와 같아야 합니다. "
+            f"현재 설정: {configured_dimension}"
         )
-    return request
-
-
-def create_mock_ocr_result(request: OcrAnalyzeRequest) -> dict[str, object]:
-    """향후 실제 OCR 함수로 교체할 단일 Mock 처리 지점입니다."""
-
-    is_pdf = Path(request.document_name).suffix.lower() == ".pdf"
-    return {
-        "document_name": request.document_name,
-        "page_count": 4 if is_pdf else 1,
-        "character_count": 4_286 if is_pdf else 1_248,
-        "estimated_chunks": 11 if is_pdf else 4,
-        "confidence": 94.8 if is_pdf else 97.2,
-        "extracted_text": (
-            "(backend_mock)"
-            "환자의 현재 증상과 과거 병력을 함께 검토해야 합니다. "
-            "문서에 포함된 검사 결과는 임상적 판단을 보조하기 위한 참고 자료이며, "
-            "최종 진단은 의료 전문가의 확인이 필요합니다."
-        ),
-        "chunks": [
-            "(backend_mock)[Chunk 01] 환자의 현재 증상과 과거 병력을 함께 검토해야 합니다.",
-            "(backend_mock)[Chunk 02] 최종 진단은 의료 전문가의 확인이 필요합니다.",
-        ],
-        "readiness": "review" if is_pdf else "ready",
-        "notes": (
-            ["표가 포함된 페이지는 열 순서를 확인해 주세요.", "개인정보 포함 여부를 검토해 주세요."]
-            if is_pdf
-            else ["(backend_mock)","이미지 대비가 양호합니다.", "등록 전 추출 문장의 오탈자를 확인해 주세요."]
-        ),
-    }
-
-
-def build_ocr_response(mock_result: dict[str, object]) -> OcrDocumentResponse:
-    """Mock과 실제 구현 모두 동일한 Frontend 응답 계약을 사용하게 합니다."""
-
-    return OcrDocumentResponse.model_validate(mock_result)
+    if len(chunks) != len(embeddings):
+        raise EmbeddingValidationError(
+            f"OCR Chunk는 {len(chunks)}개지만 저장할 Embedding은 {len(embeddings)}개입니다."
+        )
+    for index, vector in enumerate(embeddings):
+        if len(vector) != NEON_VECTOR_DIMENSION:
+            raise EmbeddingValidationError(
+                f"Chunk {index}의 Embedding 차원은 {len(vector)}입니다. "
+                f"Neon 저장에는 정확히 {NEON_VECTOR_DIMENSION}차원이 필요합니다."
+            )

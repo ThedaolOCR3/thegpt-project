@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg"]);
+const OFFICE_EXTENSIONS = new Set(["docx", "pptx"]);
 
 const extensionOf = (fileName: string) =>
   fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -13,16 +14,36 @@ export function OcrFilePreview({ file }: { file: File }) {
   const isPdf = file.type === "application/pdf" || extension === "pdf";
   const isImage =
     file.type.startsWith("image/") || IMAGE_EXTENSIONS.has(extension);
+  const isOffice = OFFICE_EXTENSIONS.has(extension);
   const previewUrl = preview?.file === file ? preview.url : "";
 
   useEffect(() => {
+    if (isOffice) {
+      setPreview(null);
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setPreview({ file, url: objectUrl });
 
     return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+  }, [file, isOffice]);
 
-  if (!isPdf && !isImage) return null;
+  if (!isPdf && !isImage && !isOffice) return null;
+
+  if (isOffice) {
+    return (
+      <section className="ocr-file-preview" aria-label={`${file.name} 분석 안내`}>
+        <div className="ocr-preview-header">
+          <strong>파일 미리보기</strong>
+        </div>
+        <div className="ocr-preview-loading">
+          {extension.toUpperCase()}의 텍스트·표·이미지 구조를 직접 분석합니다.
+          정확한 페이지 미리보기가 필요하면 PDF로 업로드해 주세요.
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
