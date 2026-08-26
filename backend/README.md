@@ -29,7 +29,9 @@ Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 �
 
 ## OCR 문서 처리
 
-- PDF: Native Text와 포함 이미지를 구분하는 Hybrid PDF 처리
+두 OCR Endpoint는 `app/services/ocr_workflow.py`를 거쳐 같은 `ai.ocr.analyze_document()`를 호출합니다.
+
+- PDF: Native Text와 포함 이미지를 구분하는 Digital/Scanned/Hybrid 처리
 - PNG/JPG: PaddleOCR 처리
 - DOCX: `python-docx` 기반 문단·표·이미지 직접 추출
 - PPTX: `python-pptx` 기반 슬라이드·도형·표·이미지·발표자 노트 직접 추출
@@ -37,6 +39,8 @@ Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 �
 DOCX/PPTX 처리를 위해 LibreOffice를 설치하거나 실행 경로를 설정할 필요가 없습니다.
 정확한 Office 페이지 미리보기 또는 페이지 번호가 필요하면 원본 프로그램에서 PDF로
 내보낸 뒤 PDF를 업로드합니다.
+
+OCR Core는 동기 CPU 작업이며 Backend Adapter가 `asyncio.to_thread()`로 실행해 FastAPI Event Loop를 직접 막지 않습니다. Admin 문자 Chunk, Job 상태와 Vector Save는 Backend에 남아 있습니다.
 
 ## 마이그레이션
 

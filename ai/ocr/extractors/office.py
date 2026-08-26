@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from io import BytesIO
 import re
-from typing import Protocol
+from dataclasses import replace
+from typing import Callable, Protocol
 
 from docx import Document
 from docx.opc.constants import RELATIONSHIP_TYPE as DOCX_RELATIONSHIP_TYPE
@@ -15,8 +16,16 @@ from lxml import etree
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-from app.services.hybrid_ocr.errors import OfficeExtractionError
-from app.services.hybrid_ocr.models import ValidatedDocument
+from ..contracts import (
+    ExtractedDocument,
+    OcrEngine,
+    OcrLine,
+    OcrProcessingConfig,
+    ProgressCallback,
+    ValidatedDocument,
+)
+from ..errors import DocumentProcessingError, OfficeExtractionError
+from ..preprocessing import preprocess_image
 
 
 @dataclass(frozen=True)
@@ -206,6 +215,123 @@ class DirectOfficeDocumentParser:
                 "PPTX 문서를 직접 분석하지 못했습니다. "
                 "PowerPoint에서 새 문서로 저장하거나 PDF로 업로드해 주세요."
             ) from exc
+
+
+def process_office_document(
+    document: ValidatedDocument,
+    config: OcrProcessingConfig,
+    ocr_service_factory: Callable[[], OcrEngine],
+    progress_callback: ProgressCallback | None = None,
+    office_parser: OfficeDocumentParser | None = None,
+) -> ExtractedDocument:
+    """Office 직접 Text와 포함 Image OCR을 문서 단위 순서대로 합칩니다."""
+
+    parser = office_parser or DirectOfficeDocumentParser()
+    _report_progress(
+        progress_callback,
+        "parsing_office",
+        22,
+        f"{document.file_type.upper()} 문서 구조를 직접 분석하고 있습니다.",
+    )
+    parsed = parser.parse(document)
+    _report_progress(
+        progress_callback,
+        "parsing_office",
+        35,
+        "Office 문서의 텍스트와 이미지 구조를 확인했습니다.",
+    )
+
+    unit_texts: list[str] = []
+    raw_unit_texts: list[str] = []
+    warnings = list(parsed.warnings)
+    confidences: list[float] = []
+    lines: list[OcrLine] = []
+    ocr_image_count = 0
+    total_images = sum(len(unit.images) for unit in parsed.units)
+    processed_images = 0
+
+    for unit_index, unit in enumerate(parsed.units):
+        unit_parts = [f"## {unit.title}"]
+        raw_unit_parts = [f"## {unit.title}"]
+        if unit.text:
+            unit_parts.append(unit.text)
+            raw_unit_parts.append(unit.text)
+
+        for image_index, image in enumerate(unit.images, start=1):
+            progress = 35
+            if total_images:
+                progress += round(processed_images / total_images * 45)
+            processed_images += 1
+            try:
+                processed = preprocess_image(
+                    image.content,
+                    config.max_image_side,
+                    config.max_image_pixels,
+                    enable_denoise=config.enable_denoise,
+                    enable_deskew=config.enable_deskew,
+                )
+                if processed.width * processed.height < 4_096:
+                    warnings.append(f"{image.label}가 너무 작아 OCR에서 제외했습니다.")
+                    continue
+
+                _report_progress(
+                    progress_callback,
+                    "loading_model",
+                    progress,
+                    f"{image.label}의 텍스트를 OCR하고 있습니다.",
+                )
+                ocr_result = ocr_service_factory().extract_text(processed)
+                ocr_image_count += 1
+                if ocr_result.line_count:
+                    confidences.append(ocr_result.confidence)
+                lines.extend(
+                    replace(line, page=unit_index)
+                    for line in ocr_result.lines
+                )
+                raw_ocr_text = ocr_result.raw_text or ocr_result.text
+                if raw_ocr_text:
+                    raw_unit_parts.append(
+                        f"### 이미지 OCR {image_index}\n\n{raw_ocr_text.strip()}"
+                    )
+                if ocr_result.text:
+                    unit_parts.append(
+                        f"### 이미지 OCR {image_index}\n\n{ocr_result.text.strip()}"
+                    )
+                else:
+                    warnings.append(
+                        f"{image.label}에서 Confidence 기준을 통과한 텍스트를 찾지 못했습니다."
+                    )
+            except DocumentProcessingError as exc:
+                warnings.append(f"{image.label} OCR을 건너뛰었습니다: {exc}")
+
+        if len(unit_parts) > 1:
+            unit_texts.append("\n\n".join(unit_parts))
+        if len(raw_unit_parts) > 1:
+            raw_unit_texts.append("\n\n".join(raw_unit_parts))
+
+    extracted_text = "\n\n".join(unit_texts)
+    raw_text = "\n\n".join(raw_unit_texts)
+    average_confidence = (
+        sum(confidences) / len(confidences)
+        if confidences
+        else (1.0 if extracted_text else 0.0)
+    )
+    _report_progress(
+        progress_callback,
+        "extracting",
+        80,
+        "Office 문서의 직접 추출을 완료했습니다.",
+    )
+    return ExtractedDocument(
+        text=extracted_text,
+        page_count=parsed.page_count,
+        document_type=parsed.document_type,
+        ocr_image_count=ocr_image_count,
+        average_confidence=average_confidence,
+        warnings=warnings,
+        lines=lines,
+        raw_text=raw_text,
+    )
 
 
 def _render_docx_paragraph(paragraph: Paragraph) -> str:
@@ -403,3 +529,13 @@ def _deduplicate_images(images: list[OfficeImage]) -> list[OfficeImage]:
         seen.add(image.content)
         result.append(image)
     return result
+
+
+def _report_progress(
+    callback: ProgressCallback | None,
+    stage: str,
+    progress: int,
+    message: str,
+) -> None:
+    if callback is not None:
+        callback(stage, max(0, min(progress, 99)), message)

@@ -6,7 +6,9 @@
 
 - `test_admin_llm.py`: LLM Provider, 모델 목록, 관리자 LLM API를 검증한다.
 - `test_config_paths.py`: 최상위 `.env`와 프로젝트 경로 설정을 검증한다.
-- `test_hybrid_ocr.py`: PDF·이미지 Hybrid OCR 처리를 검증한다.
+- `test_document_ocr_api.py`: 서비스 OCR API의 Text·Line 응답과 오류 계약을 검증한다.
+- `test_admin_ocr_api.py`: Admin OCR Multipart 입력과 응답 계약을 검증한다.
+- `test_ocr_workflow.py`: 공통 Core Thread 호출과 Admin Chunk·응답 조립을 검증한다.
 - `test_ocr_jobs.py`: OCR 작업 생성과 상태 전이를 검증한다.
 - `test_ocr_vector_save.py`: OCR Chunk Embedding 검증과 문서·Chunk Transaction 저장을 검증한다.
 - `__init__.py`: 이 폴더를 Python 패키지로 인식시킨다.

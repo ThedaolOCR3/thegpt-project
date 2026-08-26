@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     ocr_max_image_pixels: int = 40_000_000
     ocr_paddle_device: str = "cpu"
     ocr_paddle_language: str = "korean"
+    ocr_min_confidence: float = 0.5
+    ocr_enable_denoise: bool = True
+    ocr_enable_deskew: bool = True
     ocr_max_office_uncompressed_size_mb: int = 200
     ocr_max_office_archive_entries: int = 5_000
     ocr_job_ttl_minutes: int = 60

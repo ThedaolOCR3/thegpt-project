@@ -1,19 +1,20 @@
 """PDF 구조 분석, Native Text 추출, 필요한 이미지 OCR을 담당합니다."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 import pymupdf
 
-from app.services.hybrid_ocr.errors import (
+from ..errors import (
     DocumentProcessingError,
     OcrUnavailableError,
 )
-from app.services.hybrid_ocr.image_preprocessor import preprocess_image
-from app.services.hybrid_ocr.models import (
+from ..preprocessing import preprocess_image
+from ..contracts import (
     ExtractedDocument,
     OcrEngine,
+    OcrLine,
     OcrProcessingConfig,
     ProgressCallback,
 )
@@ -61,6 +62,8 @@ def process_pdf_document(
 
             # 2. 각 페이지를 문서 순서대로 처리하고 결과를 다시 이 중심 함수로 받습니다.
             page_texts: list[str] = []
+            raw_page_texts: list[str] = []
+            ocr_lines: list[OcrLine] = []
             warnings: list[str] = []
             confidences: list[float] = []
             ocr_image_count = 0
@@ -80,7 +83,7 @@ def process_pdf_document(
                 )
 
                 if analysis.requires_page_ocr:
-                    text, page_confidences, page_warnings = _process_scanned_page(
+                    text, raw_text, page_confidences, page_warnings, page_lines = _process_scanned_page(
                         page,
                         analysis.page_number,
                         config,
@@ -91,7 +94,7 @@ def process_pdf_document(
                     source = "ocr" if text else "empty"
                     ocr_image_count += 1
                 elif analysis.significant_image_count:
-                    text, page_confidences, page_warnings, processed_images = (
+                    text, raw_text, page_confidences, page_warnings, processed_images, page_lines = (
                         _process_hybrid_page(
                             page,
                             analysis.page_number,
@@ -112,6 +115,8 @@ def process_pdf_document(
                     )
                     page_confidences = []
                     page_warnings = [native_warning] if native_warning else []
+                    raw_text = text
+                    page_lines = []
                     source = "native" if text else "empty"
 
                 _report_progress(
@@ -124,11 +129,16 @@ def process_pdf_document(
                 page_sources.append(source)
                 confidences.extend(page_confidences)
                 warnings.extend(page_warnings)
+                ocr_lines.extend(page_lines)
                 if text:
                     page_texts.append(f"## 페이지 {analysis.page_number}\n\n{text.strip()}")
                 else:
                     warnings.append(
                         f"{analysis.page_number}페이지에서 추출 가능한 텍스트가 없습니다."
+                    )
+                if raw_text:
+                    raw_page_texts.append(
+                        f"## 페이지 {analysis.page_number}\n\n{raw_text.strip()}"
                     )
 
             # 3. 페이지 순서를 유지한 통합 텍스트와 문서 유형을 중심 함수로 반환합니다.
@@ -145,6 +155,8 @@ def process_pdf_document(
                 ocr_image_count=ocr_image_count,
                 average_confidence=average_confidence,
                 warnings=warnings,
+                lines=ocr_lines,
+                raw_text="\n\n".join(raw_page_texts),
             )
     except (OcrUnavailableError, DocumentProcessingError):
         raise
@@ -221,7 +233,7 @@ def _process_scanned_page(
     ocr_service_factory: Callable[[], OcrEngine],
     progress_callback: ProgressCallback | None,
     progress: int,
-) -> tuple[str, list[float], list[str]]:
+) -> tuple[str, str, list[float], list[str], list[OcrLine]]:
     """Native Text가 부족한 페이지 전체를 렌더링해 PaddleOCR로 처리합니다."""
 
     try:
@@ -235,6 +247,8 @@ def _process_scanned_page(
             rendered_image,
             config.max_image_side,
             config.max_image_pixels,
+            enable_denoise=config.enable_denoise,
+            enable_deskew=config.enable_deskew,
         )
         _report_progress(
             progress_callback,
@@ -245,12 +259,14 @@ def _process_scanned_page(
         ocr_result = ocr_service_factory().extract_text(processed_image)
         warnings = [] if ocr_result.text else [f"{page_number}페이지 OCR 결과가 비어 있습니다."]
         confidences = [ocr_result.confidence] if ocr_result.line_count else []
-        return ocr_result.text, confidences, warnings
+        lines = _lines_for_page(ocr_result.lines, page_number)
+        raw_text = ocr_result.raw_text or ocr_result.text
+        return ocr_result.text, raw_text, confidences, warnings, lines
     except OcrUnavailableError:
         raise
     except DocumentProcessingError as exc:
         logger.exception("스캔 PDF 페이지 OCR 실패: page=%d", page_number)
-        return "", [], [f"{page_number}페이지 OCR 처리에 실패했습니다: {exc}"]
+        return "", "", [], [f"{page_number}페이지 OCR 처리에 실패했습니다: {exc}"], []
 
 
 def _process_hybrid_page(
@@ -260,10 +276,12 @@ def _process_hybrid_page(
     ocr_service_factory: Callable[[], OcrEngine],
     progress_callback: ProgressCallback | None,
     progress: int,
-) -> tuple[str, list[float], list[str], int]:
+) -> tuple[str, str, list[float], list[str], int, list[OcrLine]]:
     """Native Text 블록 사이의 이미지 위치에 OCR 결과를 삽입합니다."""
 
     merged_parts: list[str] = []
+    raw_merged_parts: list[str] = []
+    lines: list[OcrLine] = []
     confidences: list[float] = []
     warnings: list[str] = []
     processed_images = 0
@@ -276,6 +294,7 @@ def _process_hybrid_page(
             native_block_text = _text_from_block(block)
             if native_block_text:
                 merged_parts.append(native_block_text)
+                raw_merged_parts.append(native_block_text)
             continue
 
         if block_type != 1 or not _is_significant_image(
@@ -295,6 +314,8 @@ def _process_hybrid_page(
                 image_content,
                 config.max_image_side,
                 config.max_image_pixels,
+                enable_denoise=config.enable_denoise,
+                enable_deskew=config.enable_deskew,
             )
             _report_progress(
                 progress_callback,
@@ -312,16 +333,34 @@ def _process_hybrid_page(
             )
             continue
 
+        raw_ocr_text = ocr_result.raw_text or ocr_result.text
+        lines.extend(_lines_for_page(ocr_result.lines, page_number))
+        if ocr_result.line_count:
+            confidences.append(ocr_result.confidence)
+        if raw_ocr_text:
+            raw_merged_parts.append(f"[이미지 OCR]\n{raw_ocr_text}")
+
         if ocr_result.text:
             merged_parts.append(f"[이미지 OCR]\n{ocr_result.text}")
-            if ocr_result.line_count:
-                confidences.append(ocr_result.confidence)
         else:
             warnings.append(
-                f"{page_number}페이지의 이미지 영역에서 텍스트를 찾지 못했습니다."
+                f"{page_number}페이지의 이미지 영역에서 Confidence 기준을 통과한 텍스트를 찾지 못했습니다."
             )
 
-    return "\n\n".join(merged_parts), confidences, warnings, processed_images
+    return (
+        "\n\n".join(merged_parts),
+        "\n\n".join(raw_merged_parts),
+        confidences,
+        warnings,
+        processed_images,
+        lines,
+    )
+
+
+def _lines_for_page(lines: list[OcrLine], page_number: int) -> list[OcrLine]:
+    """Engine의 0 기준 Line을 실제 PDF Page Index로 다시 표시합니다."""
+
+    return [replace(line, page=page_number - 1) for line in lines]
 
 
 def _significant_image_blocks(

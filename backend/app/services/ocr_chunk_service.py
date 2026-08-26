@@ -1,4 +1,4 @@
-"""정제된 문서 텍스트를 관리자 검토용 RAG Chunk로 나눕니다."""
+"""정제된 OCR Text를 관리자 검토용 문자 기준 Chunk로 나눕니다."""
 
 
 def create_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:

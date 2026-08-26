@@ -1,9 +1,4 @@
-"""Hybrid OCR 응답 계약 — csj-ocr 브랜치의 schemas/admin.py에서 OCR 부분만 이식.
-
-관리자 LLM 비교 관련 스키마(LlmCompareRequest 등)는 아직 안 가져왔다 — 지금은 채팅
-첨부파일 OCR에만 hybrid_ocr을 쓰므로 필요한 만큼만 옮겼다. 나중에 관리자 대시보드
-OCR/LLM 비교 화면을 붙일 때 확장하면 된다.
-"""
+"""Admin OCR·LLM API가 Frontend와 공유하는 Request/Response 계약입니다."""
 from typing import Literal
 from uuid import UUID
 

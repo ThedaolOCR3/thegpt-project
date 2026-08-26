@@ -1,18 +1,14 @@
-"""업로드 문서를 실제 OCR 처리 전에 검증합니다."""
+"""Bytes 기반 OCR 입력의 파일명, MIME, Binary 구조와 제한을 검증합니다."""
 
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from zipfile import BadZipFile, ZipFile
 
 import pymupdf
-from fastapi import UploadFile
 from PIL import Image, UnidentifiedImageError
 
-from app.services.hybrid_ocr.errors import (
-    DocumentTooLargeError,
-    DocumentValidationError,
-)
-from app.services.hybrid_ocr.models import OcrProcessingConfig, ValidatedDocument
+from .contracts import OcrDocumentInput, OcrProcessingConfig, ValidatedDocument
+from .errors import DocumentTooLargeError, DocumentValidationError
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 SUPPORTED_OFFICE_EXTENSIONS = {".docx", ".pptx"}
@@ -42,49 +38,46 @@ OFFICE_REQUIRED_PARTS = {
 }
 
 
-async def validate_document(
-    file: UploadFile,
+def validate_document(
+    document: OcrDocumentInput,
     config: OcrProcessingConfig,
 ) -> ValidatedDocument:
-    """파일명, 크기, MIME, 실제 바이너리 형식을 순서대로 검증합니다."""
+    """파일명 → 크기 → MIME → 실제 Binary 구조 순서로 검증합니다."""
 
-    raw_file_name = (file.filename or "").replace("\\", "/")
+    raw_file_name = document.file_name.replace("\\", "/")
     file_name = Path(raw_file_name).name
     extension = Path(file_name).suffix.lower()
     content_type = (
-        (file.content_type or "application/octet-stream")
+        (document.content_type or "application/octet-stream")
         .split(";", 1)[0]
         .strip()
         .lower()
     )
-
     supported_extensions = (
         SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_OFFICE_EXTENSIONS | {".pdf"}
     )
+
     if not file_name or extension not in supported_extensions:
         raise DocumentValidationError(
             "PDF, PNG, JPG, DOCX, PPTX 파일만 업로드할 수 있습니다."
         )
-
-    # 선언된 크기만 신뢰하지 않고 제한보다 한 바이트 더 읽어 실제 크기를 확인합니다.
-    content = await file.read(config.max_file_bytes + 1)
-    if not content:
+    if not document.content:
         raise DocumentValidationError("빈 파일은 분석할 수 없습니다.")
-    if len(content) > config.max_file_bytes:
+    if len(document.content) > config.max_file_bytes:
         max_size_mb = config.max_file_bytes // (1024 * 1024)
         raise DocumentTooLargeError(
             f"파일 크기는 {max_size_mb}MB 이하여야 합니다."
         )
 
     if extension == ".pdf":
-        validate_pdf_content(content, content_type, config.max_pdf_pages)
+        validate_pdf_content(document.content, content_type, config.max_pdf_pages)
         file_type = "pdf"
     elif extension in SUPPORTED_OFFICE_EXTENSIONS:
-        _validate_office_document(content, extension, content_type, config)
+        _validate_office_document(document.content, extension, content_type, config)
         file_type = extension.removeprefix(".")
     else:
         _validate_image(
-            content,
+            document.content,
             extension,
             content_type,
             config.max_image_pixels,
@@ -95,19 +88,12 @@ async def validate_document(
         file_name=file_name,
         content_type=content_type,
         file_type=file_type,
-        content=content,
+        content=document.content,
     )
 
 
-def validate_chunk_options(chunk_size: int, overlap: int) -> None:
-    """Chunk가 앞으로 진행하지 못하는 잘못된 Overlap 설정을 차단합니다."""
-
-    if overlap >= chunk_size:
-        raise DocumentValidationError("Overlap은 Chunk Size보다 작아야 합니다.")
-
-
 def validate_pdf_content(content: bytes, content_type: str, max_pages: int) -> None:
-    """업로드 PDF와 Office 변환 PDF에 동일한 안전성 검증을 적용합니다."""
+    """PDF Signature, 암호화, 페이지 수와 각 Page 객체를 확인합니다."""
 
     if content_type not in SUPPORTED_PDF_MIME_TYPES:
         raise DocumentValidationError("PDF 파일의 MIME Type이 올바르지 않습니다.")
@@ -115,18 +101,17 @@ def validate_pdf_content(content: bytes, content_type: str, max_pages: int) -> N
         raise DocumentValidationError("PDF signature를 확인할 수 없습니다.")
 
     try:
-        with pymupdf.open(stream=content, filetype="pdf") as document:
-            if document.needs_pass or document.is_encrypted:
+        with pymupdf.open(stream=content, filetype="pdf") as pdf:
+            if pdf.needs_pass or pdf.is_encrypted:
                 raise DocumentValidationError("암호화된 PDF는 분석할 수 없습니다.")
-            if document.page_count == 0:
+            if pdf.page_count == 0:
                 raise DocumentValidationError("페이지가 없는 PDF는 분석할 수 없습니다.")
-            if document.page_count > max_pages:
+            if pdf.page_count > max_pages:
                 raise DocumentValidationError(
                     f"PDF는 최대 {max_pages}페이지까지 분석할 수 있습니다."
                 )
-            # 모든 페이지를 한 번 열어 손상된 페이지 객체가 있는지도 미리 확인합니다.
-            for page_number in range(document.page_count):
-                document.load_page(page_number)
+            for page_number in range(pdf.page_count):
+                pdf.load_page(page_number)
     except DocumentValidationError:
         raise
     except (pymupdf.FileDataError, RuntimeError, ValueError) as exc:
@@ -139,7 +124,7 @@ def _validate_office_document(
     content_type: str,
     config: OcrProcessingConfig,
 ) -> None:
-    """OOXML ZIP 구조, 실제 문서 파트와 압축 해제 한도를 확인합니다."""
+    """OOXML ZIP 경로, 암호화, Entry 수와 압축 해제 크기를 확인합니다."""
 
     if content_type not in SUPPORTED_OFFICE_MIME_TYPES[extension]:
         raise DocumentValidationError(
@@ -179,8 +164,6 @@ def _validate_office_document(
                 raise DocumentValidationError(
                     "확장자와 실제 Office 문서 형식이 일치하지 않습니다."
                 )
-
-            # CRC 오류와 잘린 ZIP 엔트리는 변환 프로세스에 넘기기 전에 차단합니다.
             if archive.testzip() is not None:
                 raise DocumentValidationError(
                     "손상되었거나 읽을 수 없는 Office 문서입니다."
