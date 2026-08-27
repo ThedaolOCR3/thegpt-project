@@ -2,6 +2,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from time import sleep
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -54,6 +55,32 @@ class PaddleResultParsingTest(unittest.TestCase):
                 future.result()
 
         self.assertEqual(pipeline.maximum_active_calls, 1)
+
+    def test_korean_uses_explicit_lightweight_models_not_heavy_default(self) -> None:
+        # lang="korean"만 넘기면 PaddleOCR이 기본으로 무거운 "server" 디텍션 모델을
+        # 골라서 메모리를 훨씬 많이 먹는다(실측 15GB+) — 그래서 모델 이름을 전부
+        # 명시해야 한다. 이 테스트는 그 회귀를 막는다.
+        service = PaddleOcrService("cpu", "korean")
+
+        with patch("paddleocr.PaddleOCR") as mock_paddle_ocr:
+            service._create_pipeline()
+
+        _, kwargs = mock_paddle_ocr.call_args
+        self.assertNotIn("lang", kwargs)
+        self.assertEqual(kwargs["text_detection_model_name"], "PP-OCRv5_mobile_det")
+        self.assertEqual(kwargs["text_recognition_model_name"], "korean_PP-OCRv5_mobile_rec")
+        self.assertEqual(kwargs["textline_orientation_model_name"], "PP-LCNet_x0_25_textline_ori")
+
+    def test_other_language_falls_back_to_plain_lang_option(self) -> None:
+        # 한국어 외 언어는 경량 모델 조합을 검증하지 않았으므로 기존 lang= 방식을 유지한다.
+        service = PaddleOcrService("cpu", "en")
+
+        with patch("paddleocr.PaddleOCR") as mock_paddle_ocr:
+            service._create_pipeline()
+
+        _, kwargs = mock_paddle_ocr.call_args
+        self.assertEqual(kwargs["lang"], "en")
+        self.assertNotIn("text_detection_model_name", kwargs)
 
 
 class _CountingPaddleService(PaddleOcrService):
