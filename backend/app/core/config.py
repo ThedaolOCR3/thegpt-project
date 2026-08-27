@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.paths import ROOT_ENV_FILE
@@ -56,11 +57,42 @@ class Settings(BaseSettings):
     llm_gemini_max_concurrency: int = 2
     llm_medgemma_enabled: bool = True
     llm_medgemma_max_concurrency: int = 1
+    llm_qwen_enabled: bool = True
+    llm_qwen_max_concurrency: int = 1
+    # Llama는 base model이 HuggingFace Gated Repo라 Meta 라이선스 접근 승인 전까지는
+    # 항상 unavailable로 뜬다(ai/llm/providers/llama.py) — 승인 후에도 이 값 자체는
+    # 그대로 True로 둔다.
+    llm_llama_enabled: bool = True
+    llm_llama_max_concurrency: int = 1
     hf_token: str | None = None
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 1024
     embedding_timeout_seconds: float = 60.0
+
+    # ai/rag의 EmbeddingProvider 선택 설정. 위 embedding_*(OCR→Gemini 임베딩,
+    # document_chunks.embedding 컬럼용)와는 완전히 별개다 — 혼동 금지. 팀원이
+    # RAG용 임베딩 모델을 정하기 전까지는 "hashing"(자리 채우기용, GPU 불필요)이
+    # 기본값이고, 결정되면 "sentence_transformer"로 바꾸고 모델 이름만 채우면 된다
+    # (코드 변경 없음). rag_embedding_dimension/truncate_dim을 안 채우면
+    # sentence-transformers가 모델에서 자동으로 알아낸다.
+    rag_embedding_provider: str = "hashing"
+    rag_embedding_model_name: str | None = None
+    rag_embedding_dimension: int | None = None
+    rag_embedding_truncate_dim: int | None = None
+    rag_embedding_revision: str | None = None
+    rag_embedding_trust_remote_code: bool = False
+    rag_embedding_query_prompt_name: str | None = None
+    rag_embedding_document_prompt_name: str | None = None
+
+    @field_validator("rag_embedding_dimension", "rag_embedding_truncate_dim", mode="before")
+    @classmethod
+    def _blank_env_string_means_none(cls, value: object) -> object:
+        # .env 관례상 안 쓰는 optional 값은 `KEY=`(빈 문자열)로 남겨둔다 — pydantic은
+        # 빈 문자열을 int로 못 바꾸니 여기서 미리 None으로 취급한다.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @property
     def sqlalchemy_database_url(self) -> str:
