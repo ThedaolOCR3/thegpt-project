@@ -1,17 +1,34 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from ai.consultation import ConsultationResult, build_llm_application, consult
+from ai.rag import RetrievedChunk
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.models.generated import Messages, Users
+from app.models.generated import Conversations, Messages, Users
 from app.repositories.conversation import ConversationRepository
 from app.repositories.message import MessageRepository
 from app.schemas.message import MessageAttachmentInput, MessageAttachmentResponse, MessageResponse
+from app.services import rag_search_service
 from app.services.conversation import ConversationService
 
 logger = get_logger("services.message")
+
+# 프로세스당 하나만 유지 — 각 Provider는 내부적으로 ai.llm.engine의 base model별
+# 전역 싱글턴을 재사용하므로, 여기서 매 요청마다 새로 만들어도 모델을 중복
+# 로드하지는 않지만 그래도 가벼운 객체 하나로 고정해두는 게 낫다.
+_llm_application = build_llm_application(
+    hf_token=settings.hf_token,
+    medgemma_enabled=settings.llm_medgemma_enabled,
+    medgemma_max_concurrency=settings.llm_medgemma_max_concurrency,
+    qwen_enabled=settings.llm_qwen_enabled,
+    qwen_max_concurrency=settings.llm_qwen_max_concurrency,
+    llama_enabled=settings.llm_llama_enabled,
+    llama_max_concurrency=settings.llm_llama_max_concurrency,
+)
 
 
 def to_message_response(message: Messages) -> MessageResponse:
@@ -32,17 +49,9 @@ def to_message_response(message: Messages) -> MessageResponse:
     )
 
 
-# TODO: ai/consultation(증상 -> 질병/진료과/처방)이 붙기 전까지 쓰는 임시 응답.
-# 실제 RAG/LLM 연동 시 이 함수만 교체하면 나머지 흐름(저장/조회)은 그대로 재사용 가능하다.
-def _generate_placeholder_reply(user_content: str) -> str:
-    return (
-        f'"{user_content}"에 대해 확인했어요. '
-        "AI 진료상담 로직은 아직 연동 준비 중이라 임시 응답을 드리고 있어요."
-    )
-
-
 class MessageService:
     def __init__(self, db: Session) -> None:
+        self.db = db
         self.conversations_service = ConversationService(db)
         self.conversations = ConversationRepository(db)
         self.messages = MessageRepository(db)
@@ -52,12 +61,13 @@ class MessageService:
         messages = self.messages.list_by_conversation(conversation.id)
         return [to_message_response(m) for m in messages]
 
-    def send_message(
+    async def send_message(
         self,
         conversation_id: str,
         current_user: Users,
         content: str,
         attachments: list[MessageAttachmentInput] | None = None,
+        model_id: str | None = None,
     ) -> MessageResponse:
         attachments = attachments or []
         content = content.strip()
@@ -78,11 +88,49 @@ class MessageService:
         if is_first_message and not conversation.is_title_custom:
             self.conversations.set_auto_title(conversation, content or attachments[0].name)
 
-        assistant_message = self.messages.create(
-            conversation.id, "assistant", _generate_placeholder_reply(content)
-        )
+        reply_content = await self._generate_reply(content, conversation, model_id)
+
+        assistant_message = self.messages.create(conversation.id, "assistant", reply_content)
         self.conversations.touch(conversation)
         return to_message_response(assistant_message)
+
+    async def _generate_reply(
+        self, content: str, conversation: Conversations, model_id: str | None = None
+    ) -> str:
+        # 텍스트가 없고 첨부파일만 있는 경우(OCR 미연동 상태라 첨부 내용을 알 수 없음)엔
+        # LLM 호출 자체가 의미 없어서 안내 문구만 반환한다.
+        if not content:
+            return "첨부해주신 파일은 확인했어요. 증상이나 궁금하신 점을 글로도 함께 적어주시면 더 정확히 답변드릴 수 있어요."
+
+        reference_chunks = await asyncio.to_thread(self._search_reference_chunks, content)
+
+        consult_kwargs = {"model_id": model_id} if model_id else {}
+        result: ConsultationResult = await consult(
+            _llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
+        )
+
+        if result.department:
+            self.conversations.set_category_if_unset(conversation, result.department)
+
+        return result.answer
+
+    def _search_reference_chunks(self, query: str) -> list[RetrievedChunk]:
+        """RAG 검색 결과를 consult()의 참고 의료 정보로 넘긴다. RAG 데이터셋이 아직
+        Neon에 안 들어갔거나(테이블은 있는데 0건) 마이그레이션 자체가 아직 안
+        적용된 경우(테이블 없음) 등 어떤 이유로든 검색이 실패해도, 여기서 잡아서
+        빈 결과를 반환한다 — consult()는 빈/None 결과를 "참고 정보 없음" 경로로
+        처리하므로 채팅은 LLM+프롬프트 엔지니어링만으로 계속 응답한다(안 죽음).
+        나중에 실제 데이터가 채워지면 이 함수는 코드 변경 없이 그대로 검색 결과를
+        반환하기 시작한다."""
+        try:
+            return rag_search_service.search(self.db, query)
+        except Exception:
+            logger.exception("RAG 검색 실패 — 참고 정보 없이 LLM/프롬프트만으로 응답을 이어감: query=%r", query)
+            # DB 오류(예: 마이그레이션 전이라 chunk_embeddings 테이블이 아직 없음)는
+            # Postgres 트랜잭션 자체를 abort 상태로 만든다 — rollback을 안 하면 이후
+            # 이 요청에서 하는 모든 DB 작업(응답 메시지 저장 등)이 함께 실패한다.
+            self.db.rollback()
+            return []
 
     def _check_guest_limits(self, current_user: Users, new_attachment_count: int) -> None:
         if current_user.auth_provider != "guest":

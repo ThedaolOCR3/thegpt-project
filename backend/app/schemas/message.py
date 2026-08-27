@@ -29,3 +29,6 @@ class MessageCreateRequest(BaseModel):
     # 비어있을 수 있다 — "텍스트도 첨부도 둘 다 없음"만 서비스 계층에서 막는다.
     content: str = Field(default="", max_length=8000)
     attachments: list[MessageAttachmentInput] = []
+    # 프론트 ModelSelect가 고른 모델 id(예: "medgemma-main"). 안 보내거나 등록 안 된
+    # id를 보내면 ai.consultation.pipeline.DEFAULT_MODEL_ID로 안전하게 대체된다.
+    model_id: str | None = None

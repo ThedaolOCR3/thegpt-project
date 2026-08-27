@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { MessageInput } from '../../components/Chat/MessageInput';
 import { MessageBubble } from '../../components/Chat/MessageBubble';
 import { useDocumentPreview } from '../../components/Chat/DocumentPreviewContext';
+import { useModelSelect } from '../../components/Chat/ModelSelectContext';
 import { getMessages, sendMessage } from '../../api/messages';
 import { notifyConversationsChanged } from '../../api/conversationsEvents';
 import { ApiError } from '../../services/apiClient';
@@ -22,6 +23,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const { openPreview } = useDocumentPreview();
+  const { modelId } = useModelSelect();
   const bottomRef = useRef<HTMLDivElement>(null);
   // StrictMode(개발 모드)는 effect를 두 번 실행하므로, pendingMessage를 이미
   // 처리했는지 conversationId별로 기록해 중복 전송을 막는다.
@@ -95,7 +97,7 @@ export function ChatPage() {
 
     setSending(true);
     try {
-      const assistantMessage = await sendMessage(conversationId, content, files);
+      const assistantMessage = await sendMessage(conversationId, content, files, modelId);
       setMessages((current) => [...current, assistantMessage]);
       // 첫 메시지였다면 서버가 대화 제목을 자동으로 채웠을 수 있으니 사이드바에 알려준다.
       notifyConversationsChanged();
