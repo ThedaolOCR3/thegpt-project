@@ -17,10 +17,12 @@ from ai.llm.contracts import (
     ProviderGenerateResult,
     UnknownLlmModelError,
 )
-from ai.llm.engine import MedGemmaEngine, get_engine
+from ai.llm.engine import LoraAdapterEngine, MedGemmaEngine, get_engine, get_lora_engine
 from ai.llm.registry import (
+    LLAMA_MODEL_DEFINITIONS,
     MEDGEMMA_MODEL_DEFINITIONS,
     MODEL_REGISTRY,
+    QWEN_MODEL_DEFINITIONS,
     ModelEntry,
     ModelRegistry,
     ProviderRegistry,
@@ -46,10 +48,14 @@ __all__ = [
     "ProviderGenerateRequest",
     "ProviderGenerateResult",
     "UnknownLlmModelError",
+    "LoraAdapterEngine",
     "MedGemmaEngine",
     "get_engine",
+    "get_lora_engine",
+    "LLAMA_MODEL_DEFINITIONS",
     "MEDGEMMA_MODEL_DEFINITIONS",
     "MODEL_REGISTRY",
+    "QWEN_MODEL_DEFINITIONS",
     "ModelEntry",
     "ModelRegistry",
     "ProviderRegistry",

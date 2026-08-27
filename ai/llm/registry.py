@@ -42,7 +42,7 @@ MEDGEMMA_MODEL_DEFINITIONS: tuple[LlmModelDefinition, ...] = (
     LlmModelDefinition(
         id="medgemma-screening",
         provider_key="medgemma",
-        provider_model="gon-0130/medgemma-4b-lora-consultation-v2",
+        provider_model="gon-0130/medgemma-4b-lora-consultation",
         label="MedGemma (스크리닝)",
         family="MedGemma LoRA",
         training_stage="초기 학습 버전",
@@ -57,6 +57,40 @@ MEDGEMMA_MODEL_DEFINITIONS: tuple[LlmModelDefinition, ...] = (
         family="MedGemma LoRA",
         training_stage="메인 학습 버전",
         description="유료 Colab에서 학습한 메인 버전 — 지식/추론보강/대화형 11개 데이터셋.",
+        group="other",
+    ),
+)
+
+QWEN_MODEL_DEFINITIONS: tuple[LlmModelDefinition, ...] = (
+    LlmModelDefinition(
+        id="qwen-medical",
+        provider_key="qwen",
+        provider_model="csj9630/qwen3-4b-medical-qlora",
+        label="Qwen3 (의료 LoRA)",
+        family="Qwen3 LoRA",
+        training_stage="QLoRA 4bit SFT",
+        description="Qwen/Qwen3-4B 기반, KorMedMCQA + GenMedGPT-5k-ko로 미세조정한 의료 어댑터.",
+        group="other",
+    ),
+)
+
+# meta-llama/Llama-3.2-3B-Instruct는 HuggingFace Gated Repo다 — HF_TOKEN 계정이 Meta
+# 라이선스에 동의하고 접근 승인을 받아야 실제로 로드된다. 승인 전에는 항상 unavailable로
+# 뜨지만(ai/llm/engine.py의 GatedRepoError 처리 참고), 정의 자체는 미리 등록해둔다 —
+# 접근 승인이 나면 코드 변경 없이 바로 쓸 수 있게 하기 위함("준비만 해두기").
+LLAMA_MODEL_DEFINITIONS: tuple[LlmModelDefinition, ...] = (
+    LlmModelDefinition(
+        id="llama-medical",
+        provider_key="llama",
+        provider_model="csj9630/llama32-3b-medical-qlora",
+        label="Llama 3.2 (의료 LoRA)",
+        family="Llama 3.2 LoRA",
+        training_stage="QLoRA 4bit SFT",
+        description=(
+            "meta-llama/Llama-3.2-3B-Instruct 기반, KorMedMCQA + GenMedGPT-5k-ko로 "
+            "미세조정한 의료 어댑터. Base 모델이 Gated Repo라 이 프로젝트의 HF 계정이 "
+            "Meta 라이선스 접근 승인을 받기 전까지는 항상 unavailable로 표시된다."
+        ),
         group="other",
     ),
 )
