@@ -67,10 +67,14 @@ class AdminLlmApiTest(unittest.TestCase):
 
         self.assertEqual(catalog_response.status_code, 200)
         catalog = catalog_response.json()
-        self.assertEqual(len(catalog), 6)
+        # ollama-gemma3, gemini, medgemma-screening, medgemma-main, qwen-medical,
+        # llama-medical, gemma(mock) — medgemma/qwen/llama 전부 실제
+        # LlmModelDefinition이고, 아직 실제 모델이 없는 gemma만 Mock으로 남는다.
+        self.assertEqual(len(catalog), 7)
         self.assertEqual(catalog[0]["id"], "ollama-gemma3")
         self.assertFalse(catalog[0]["isMock"])
-        self.assertTrue(catalog[2]["isMock"])
+        self.assertTrue(catalog[6]["isMock"])
+        self.assertEqual(catalog[6]["id"], "gemma")
         self.assertNotIn("apiKey", json.dumps(catalog))
 
         self.assertEqual(run_response.status_code, 200)
@@ -111,7 +115,10 @@ class AdminLlmApiTest(unittest.TestCase):
                 "/api/admin/llm/compare",
                 json={
                     "prompt": "질문",
-                    "modelIds": ["ollama-gemma3", "medgemma"],
+                    # medgemma-screening의 provider_key("medgemma")는 이 테스트의
+                    # ProviderRegistry(ollama/gemini/mock만 등록)에 없으므로 provider
+                    # 실패 상황을 그대로 재현한다.
+                    "modelIds": ["ollama-gemma3", "medgemma-screening"],
                     "chunkSize": 512,
                     "overlap": 50,
                 },

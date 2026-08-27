@@ -12,6 +12,9 @@ from app.schemas.admin import (
     LlmRunResponse,
 )
 from ai.llm import (
+    LLAMA_MODEL_DEFINITIONS,
+    MEDGEMMA_MODEL_DEFINITIONS,
+    QWEN_MODEL_DEFINITIONS,
     LlmApplicationService,
     LlmExecutionResult,
     LlmModelDefinition,
@@ -21,8 +24,11 @@ from ai.llm import (
     ProviderRegistry,
 )
 from ai.llm.providers.gemini import GeminiLlmProvider
+from ai.llm.providers.llama import LlamaLlmProvider
+from ai.llm.providers.medgemma import MedGemmaLlmProvider
 from ai.llm.providers.mock import MockLlmProvider
 from ai.llm.providers.ollama import OllamaLlmProvider
+from ai.llm.providers.qwen import QwenLlmProvider
 
 logger = logging.getLogger(__name__)
 
@@ -52,45 +58,19 @@ def create_admin_model_registry() -> ModelRegistry:
                 provider_key="gemini",
                 provider_model=settings.llm_gemini_model,
             ),
-            LlmModelDefinition(
-                id="medgemma",
-                label="MedGemma",
-                family="외부 비교 모델",
-                training_stage="Mock 비교군",
-                description="의료 응답 형식을 검증하는 Mock 모델입니다.",
-                group="other",
-                provider_key="mock",
-                provider_model="medgemma",
-            ),
+            # /api/llm과 동일한 정의를 그대로 재사용 — 두 곳에 중복 유지하지 않는다.
+            *MEDGEMMA_MODEL_DEFINITIONS,
+            *QWEN_MODEL_DEFINITIONS,
+            *LLAMA_MODEL_DEFINITIONS,  # 승인 전까지는 항상 unavailable로 뜬다(ai/llm/providers/llama.py)
             LlmModelDefinition(
                 id="gemma",
                 label="Gemma (Mock)",
                 family="외부 비교 모델",
                 training_stage="Mock 비교군",
-                description="실제 로컬 Gemma 3와 구분되는 Mock 비교 모델입니다.",
+                description="실제 의료 파인튜닝 모델이 아직 없어 Mock으로만 비교하는 모델입니다.",
                 group="other",
                 provider_key="mock",
                 provider_model="gemma",
-            ),
-            LlmModelDefinition(
-                id="qwen",
-                label="Qwen",
-                family="외부 비교 모델",
-                training_stage="Mock 비교군",
-                description="Qwen 응답 형태를 가정한 Mock 비교 모델입니다.",
-                group="other",
-                provider_key="mock",
-                provider_model="qwen",
-            ),
-            LlmModelDefinition(
-                id="llama",
-                label="Llama",
-                family="외부 비교 모델",
-                training_stage="Mock 오류 비교군",
-                description="모델별 오류 격리 UI를 확인하는 Mock 모델입니다.",
-                group="other",
-                provider_key="mock",
-                provider_model="llama",
             ),
         )
     )
@@ -110,6 +90,21 @@ def create_llm_application() -> LlmApplicationService:
                 api_key=settings.gemini_api_key,
                 timeout_seconds=settings.llm_gemini_timeout_seconds,
                 max_concurrency=settings.llm_gemini_max_concurrency,
+            ),
+            MedGemmaLlmProvider(
+                enabled=settings.llm_medgemma_enabled,
+                hf_token=settings.hf_token,
+                max_concurrency=settings.llm_medgemma_max_concurrency,
+            ),
+            QwenLlmProvider(
+                enabled=settings.llm_qwen_enabled,
+                hf_token=settings.hf_token,
+                max_concurrency=settings.llm_qwen_max_concurrency,
+            ),
+            LlamaLlmProvider(
+                enabled=settings.llm_llama_enabled,
+                hf_token=settings.hf_token,
+                max_concurrency=settings.llm_llama_max_concurrency,
             ),
             MockLlmProvider(),
         )
