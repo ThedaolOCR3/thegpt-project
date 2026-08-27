@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { Conversation } from '../../api/types';
+import { formatRelativeDate } from '../../utils/formatDate';
 
 type HistoryItemProps = {
   conversation: Conversation;
@@ -75,9 +76,14 @@ export function HistoryItem({ conversation, active, onSelect, onRename, onDelete
         />
       ) : (
         <div className="flex items-center justify-between gap-1">
-          <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
-            {conversation.title}
-          </span>
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
+              {conversation.title}
+            </span>
+            <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">
+              {formatRelativeDate(conversation.updatedAt)}
+            </span>
+          </div>
           <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"

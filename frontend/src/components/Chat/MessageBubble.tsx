@@ -1,5 +1,7 @@
-import { FileText } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Copy, FileText } from 'lucide-react';
 import type { Message, MessageAttachment } from '../../api/types';
+import { formatMessageTime } from '../../utils/formatDate';
 
 type MessageBubbleProps = {
   message: Message;
@@ -8,9 +10,21 @@ type MessageBubbleProps = {
 
 export function MessageBubble({ message, onPreviewAttachment }: MessageBubbleProps) {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      // 2초 뒤 아이콘을 원래대로 되돌린다 — 매번 새 타이머라 겹쳐 눌러도 마지막 클릭 기준으로 리셋됨.
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 클립보드 권한이 없는 브라우저/환경 — 조용히 무시(복사 버튼 자체가 부가 기능이라 에러 UI까지는 안 둠).
+    }
+  }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
       <div className="max-w-[70%]">
         {message.content && (
           <div
@@ -41,6 +55,26 @@ export function MessageBubble({ message, onPreviewAttachment }: MessageBubblePro
             ))}
           </div>
         )}
+
+        <div
+          className={`mt-1 flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500 ${
+            isUser ? 'justify-end' : 'justify-start'
+          }`}
+        >
+          {!isUser && message.content && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              title="답변 복사"
+              aria-label="답변 복사"
+              className="flex items-center gap-1 rounded p-0.5 hover:text-neutral-600 dark:hover:text-neutral-300"
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied && <span>복사됨</span>}
+            </button>
+          )}
+          <span>{formatMessageTime(message.createdAt)}</span>
+        </div>
       </div>
     </div>
   );
