@@ -19,6 +19,12 @@ from app.schemas.admin import (
     OcrJobStatusResponse,
     OcrVectorSaveRequest,
     OcrVectorSaveResponse,
+    RetrievalEvalResponse,
+)
+from app.services.admin_evaluation import (
+    RetrievalEvalDatasetMissingError,
+    RetrievalEvalUnavailableError,
+    run_retrieval_evaluation,
 )
 from app.services.admin_llm import compare_models, list_models, run_model
 from app.services.admin_ocr import OcrSaveValidationError, save_ocr_result_with_embeddings
@@ -175,4 +181,17 @@ async def run_llm(payload: LlmRunRequest) -> LlmRunResponse:
         return await run_model(payload)
     except LlmServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/evaluations/retrieval", response_model=RetrievalEvalResponse)
+async def get_retrieval_evaluation() -> RetrievalEvalResponse:
+    """`scripts/eval_data/*.jsonl` 기준 RAG 검색 정확도(Recall@k, MRR)를 계산합니다.
+    호출할 때마다 새로 계산하며(캐시 없음), corpus 규모에 따라 몇십 초 걸릴 수 있습니다."""
+
+    try:
+        return await run_retrieval_evaluation()
+    except RetrievalEvalDatasetMissingError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except RetrievalEvalUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
 
