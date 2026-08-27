@@ -1,13 +1,15 @@
 from .chunking import Chunk, chunk_text
-from .embedding import EMBEDDING_DIM, embed_query, embed_texts
+from .embeddings.base import EmbeddingProvider
+from .embeddings.hashing import HashingEmbeddingProvider
+from .embeddings.sentence_transformer import SentenceTransformerEmbeddingProvider
 from .pipeline import RetrievedChunk, retrieve
 
 __all__ = [
     "Chunk",
     "chunk_text",
-    "EMBEDDING_DIM",
-    "embed_query",
-    "embed_texts",
+    "EmbeddingProvider",
+    "HashingEmbeddingProvider",
+    "SentenceTransformerEmbeddingProvider",
     "RetrievedChunk",
     "retrieve",
 ]
