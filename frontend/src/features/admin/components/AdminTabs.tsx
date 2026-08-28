@@ -1,10 +1,11 @@
 import { useRef, type KeyboardEvent } from "react";
-import { BrainCircuit, ScanText } from "lucide-react";
+import { BrainCircuit, LineChart, ScanText } from "lucide-react";
 import type { AdminTab } from "../types/common";
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: "ocr", label: "OCR" },
   { id: "llm", label: "LLM" },
+  { id: "eval", label: "성능 지표" },
 ];
 
 export function AdminTabs({
@@ -47,8 +48,10 @@ export function AdminTabs({
         >
           {tab.id === "ocr" ? (
             <ScanText size={17} />
-          ) : (
+          ) : tab.id === "llm" ? (
             <BrainCircuit size={17} />
+          ) : (
+            <LineChart size={17} />
           )}
           {tab.label}
         </button>

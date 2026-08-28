@@ -125,6 +125,34 @@ class DocumentChunks(Base):
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
 
     document: Mapped['AdminDocuments'] = relationship('AdminDocuments', back_populates='document_chunks')
+    chunk_embeddings: Mapped[list['ChunkEmbeddings']] = relationship('ChunkEmbeddings', back_populates='chunk')
+
+
+class ChunkEmbeddings(Base):
+    """RAG(팀원이 임베딩 모델을 정하는 중)용 정규화된 임베딩 저장 테이블. 청크 하나당
+    provider(모델)별로 행이 하나씩 생긴다 — 모델을 몇 개/어떤 걸 쓰든 스키마 변경이
+    필요 없다. 기존 document_chunks.embedding(Gemini 파이프라인용)과는 별개다."""
+
+    __tablename__ = 'chunk_embeddings'
+    __table_args__ = (
+        ForeignKeyConstraint(['chunk_id'], ['vector_db.document_chunks.id'], ondelete='CASCADE', name='chunk_embeddings_chunk_id_fkey'),
+        PrimaryKeyConstraint('id', name='chunk_embeddings_pkey'),
+        UniqueConstraint('chunk_id', 'provider_name', name='chunk_embeddings_chunk_id_provider_name_key'),
+        Index('idx_chunk_embeddings_chunk_id', 'chunk_id'),
+        Index('idx_chunk_embeddings_provider_name', 'provider_name'),
+        {'schema': 'vector_db'}
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
+    chunk_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    provider_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 컬럼 폭은 2048로 넓게 잡고(마이그레이션 참고) 실제로 쓰는 길이는 dimension에 별도
+    # 기록한다 — 짧은 벡터는 0으로 패딩해서 저장한다(코사인 유사도에 영향 없음).
+    embedding: Mapped[Optional[Any]] = mapped_column(VECTOR(2048))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
+
+    chunk: Mapped['DocumentChunks'] = relationship('DocumentChunks', back_populates='chunk_embeddings')
 
 
 class MessageAttachments(Base):

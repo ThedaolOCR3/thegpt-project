@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AdminHeader } from "../components/AdminHeader";
 import { AdminTabs } from "../components/AdminTabs";
+import { EvaluationPanel } from "../components/evaluation/EvaluationPanel";
 import { LlmPanel } from "../components/llm/LlmPanel";
 import { OcrPanel } from "../components/ocr/OcrPanel";
 import type { AdminTab } from "../types/common";
@@ -29,6 +30,15 @@ export function AdminPage() {
         hidden={activeTab !== "llm"}
       >
         <LlmPanel />
+      </div>
+      <div
+        id="eval-tabpanel"
+        role="tabpanel"
+        aria-labelledby="eval-tab"
+        className="admin-tabpanel"
+        hidden={activeTab !== "eval"}
+      >
+        <EvaluationPanel />
       </div>
     </div>
   );

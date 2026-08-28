@@ -13,6 +13,7 @@ from app.api.conversations.router import router as conversations_router
 from app.api.documents.router import router as documents_router
 from app.api.evaluations.router import router as evaluations_router
 from app.api.llm.router import router as llm_router
+from app.api.rag.router import router as rag_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -28,3 +29,4 @@ api_router.include_router(consultation_router, prefix="/consultation", tags=["co
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 api_router.include_router(evaluations_router, prefix="/evaluations", tags=["evaluations"])
 api_router.include_router(llm_router, prefix="/llm", tags=["llm"])
+api_router.include_router(rag_router, prefix="/rag", tags=["rag"])

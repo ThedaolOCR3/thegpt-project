@@ -14,7 +14,7 @@ function getInitialModelId() {
 }
 
 // 홈 화면에서 고른 모델이 채팅 화면으로 넘어가도 유지되도록 컨텍스트로 공유한다.
-// 지금은 mock이라 어떤 모델을 골라도 응답은 동일하다 — 실제 라우팅은 백엔드 연동 후 적용.
+// modelId는 그대로 api/messages.ts의 sendMessage()를 통해 백엔드로 전달된다.
 export function ModelSelectProvider({ children }: { children: ReactNode }) {
   const [modelId, setModelIdState] = useState(getInitialModelId);
 

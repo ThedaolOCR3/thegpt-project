@@ -80,13 +80,30 @@ class PaddleOcrService:
 
         # 설치 기준인 PaddleOCR 3.7 / PP-OCRv5 옵션을 한곳에서만 관리합니다.
         options = {
-            "lang": self.language,
             "ocr_version": "PP-OCRv5",
             "use_doc_orientation_classify": False,
             "use_doc_unwarping": False,
             "use_textline_orientation": False,
             "enable_mkldnn": False,
         }
+
+        if self.language == "korean":
+            # 모델 이름을 명시하지 않고 lang="korean"만 쓰면 디텍션이 기본으로
+            # "server"(무거운) 버전을 골라서 메모리를 훨씬 많이 먹는다(실측 15GB+까지
+            # 올라감). 모델 이름을 하나라도 지정하면 PaddleOCR이 lang= 옵션 전체를
+            # 무시하므로, 한국어 인식 모델(korean_PP-OCRv5_mobile_rec)도 반드시 같이
+            # 명시해야 한다 — 안 그러면 조용히 일반(비한국어) 인식 모델로 바뀐다.
+            options.update(
+                {
+                    "text_detection_model_name": "PP-OCRv5_mobile_det",
+                    "text_recognition_model_name": "korean_PP-OCRv5_mobile_rec",
+                    "textline_orientation_model_name": "PP-LCNet_x0_25_textline_ori",
+                }
+            )
+        else:
+            # 한국어 외 언어는 아직 경량 모델 조합을 검증하지 않았다 — 기존처럼
+            # lang=만 넘겨서 PaddleOCR 기본 동작에 맡긴다.
+            options["lang"] = self.language
 
         try:
             logger.info("PaddleOCR 초기화 시작: device=%s", self.device)

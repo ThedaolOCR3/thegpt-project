@@ -991,3 +991,31 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 검색 정확도(성능 지표) 탭 */
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--admin-border);
+  font-weight: 600;
+}
+.admin-eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  padding: 16px 20px 20px;
+}
+.admin-eval-table th,
+.admin-eval-table td {
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 14px;
+}
+.admin-eval-table th {
+  color: var(--admin-muted, #64748b);
+  font-weight: 500;
+}
+.admin-eval-table td {
+  font-weight: 600;
+}

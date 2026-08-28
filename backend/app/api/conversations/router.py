@@ -60,12 +60,12 @@ def list_messages(
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageResponse, status_code=201)
-def send_message(
+async def send_message(
     conversation_id: str,
     payload: MessageCreateRequest,
     current_user: Annotated[Users, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> MessageResponse:
-    return MessageService(db).send_message(
-        conversation_id, current_user, payload.content, payload.attachments
+    return await MessageService(db).send_message(
+        conversation_id, current_user, payload.content, payload.attachments, payload.model_id
     )

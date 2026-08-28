@@ -60,3 +60,12 @@ class ConversationRepository:
             return
         conversation.title = title
         self.db.commit()
+
+    def set_category_if_unset(self, conversation: Conversations, category: str) -> None:
+        """진료과 분류 결과로 카테고리를 채운다. 이미 값이 있으면(사용자가 나중에 직접
+        바꿀 수 있게 될 걸 대비) 덮어쓰지 않는다 — 대화 도중 증상이 바뀌어 분류 결과가
+        흔들려도 사이드바의 '진료과별' 그룹이 계속 바뀌지 않게 하기 위함."""
+        if conversation.category:
+            return
+        conversation.category = category
+        self.db.commit()

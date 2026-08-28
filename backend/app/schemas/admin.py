@@ -132,3 +132,14 @@ class LlmModelResponse(AdminSchema):
     output_tokens: int | None = Field(alias="outputTokens")
     chunk_size: int = Field(alias="chunkSize")
     overlap: int
+
+
+class RetrievalEvalResponse(AdminSchema):
+    """`scripts/eval_data/*.jsonl` 기준 dense 검색 정확도. 값은 매번 새로 계산한다
+    (캐시 없음) — corpus/쿼리 임베딩 계산이 끝나야 응답이 온다."""
+
+    num_queries: int = Field(alias="numQueries")
+    # JSON 키는 문자열이어야 해서 k값(int)을 문자열로 바꿔 보낸다(예: {"1": 0.42, "5": 0.71}).
+    recall_at_k: dict[str, float] = Field(alias="recallAtK")
+    mrr: float
+    dataset_name: str = Field(alias="datasetName")

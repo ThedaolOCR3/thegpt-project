@@ -50,6 +50,7 @@ export async function sendMessage(
   conversationId: string,
   content: string,
   files?: File[],
+  modelId?: string,
 ): Promise<Message> {
   const dto = await withChatToken((token) =>
     apiClient<MessageDto>(`/conversations/${conversationId}/messages`, {
@@ -58,6 +59,9 @@ export async function sendMessage(
       body: JSON.stringify({
         content,
         attachments: files?.map((f) => ({ name: f.name, size: f.size, type: f.type })) ?? [],
+        // 백엔드가 모르는 model_id를 보내도 안전한 기본 모델로 대체되므로(ai.consultation
+        // pipeline), 여기서 별도 검증 없이 그대로 전달한다.
+        model_id: modelId,
       }),
     }),
   );
