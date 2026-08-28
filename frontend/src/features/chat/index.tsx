@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { MessageInput } from '../../components/Chat/MessageInput';
 import { MessageBubble } from '../../components/Chat/MessageBubble';
+import { ChatExportMenu } from '../../components/Chat/ChatExportMenu';
 import { useDocumentPreview } from '../../components/Chat/DocumentPreviewContext';
 import { useModelSelect } from '../../components/Chat/ModelSelectContext';
 import { getMessages, sendMessage } from '../../api/messages';
@@ -79,6 +80,14 @@ export function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 저장 파일 제목 — 대화 목록에서 별도로 title을 다시 불러오지 않고, 이 화면에 이미
+  // 있는 첫 사용자 메시지에서 짧게 뽑아 쓴다.
+  const chatTitle = useMemo(() => {
+    const firstUserMessage = messages.find((m) => m.role === 'user')?.content?.trim();
+    if (!firstUserMessage) return '채팅내역';
+    return firstUserMessage.length > 30 ? `${firstUserMessage.slice(0, 30)}…` : firstUserMessage;
+  }, [messages]);
+
   async function sendUserMessage(content: string, files: File[]) {
     if (!conversationId) return;
 
@@ -125,6 +134,11 @@ export function ChatPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
+            {messages.length > 0 && (
+              <div className="mb-1 flex justify-end">
+                <ChatExportMenu messages={messages} title={chatTitle} />
+              </div>
+            )}
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} onPreviewAttachment={openPreview} />
             ))}
