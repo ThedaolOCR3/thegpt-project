@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, FileText, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize2, X } from 'lucide-react';
 import { extractTextFromImage } from '../../api/documents';
 import type { MessageAttachment } from '../../api/types';
+import { ImageLightbox } from './ImageLightbox';
 
 type DocumentPreviewPanelProps = {
   attachments: MessageAttachment[];
@@ -225,6 +226,13 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
 }
 
 function OriginalPreview({ attachment }: { attachment: MessageAttachment }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // 썸네일/다음·이전 이동으로 첨부가 바뀌면 이전 첨부 기준으로 열려있던 라이트박스는 닫는다.
+  useEffect(() => {
+    setLightboxOpen(false);
+  }, [attachment.url]);
+
   if (!attachment.url) {
     return (
       <div className="flex h-40 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-neutral-300 px-3 text-center text-xs text-neutral-400 dark:border-neutral-600">
@@ -237,11 +245,22 @@ function OriginalPreview({ attachment }: { attachment: MessageAttachment }) {
 
   if (isImage(attachment)) {
     return (
-      <img
-        src={attachment.url}
-        alt={attachment.name}
-        className="max-h-80 w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-700"
-      />
+      <>
+        <button
+          type="button"
+          title="확대해서 보기"
+          onClick={() => setLightboxOpen(true)}
+          className="group relative block w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700"
+        >
+          <img src={attachment.url} alt={attachment.name} className="max-h-80 w-full object-contain" />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
+            <Maximize2 size={20} className="text-white" />
+          </span>
+        </button>
+        {lightboxOpen && (
+          <ImageLightbox src={attachment.url} alt={attachment.name} onClose={() => setLightboxOpen(false)} />
+        )}
+      </>
     );
   }
 
