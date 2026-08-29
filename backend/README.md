@@ -14,24 +14,24 @@ Copy-Item ..\.env.example ..\.env
 - DB 상태 확인: http://localhost:8000/health/db
 
 프로젝트 최상위 `.env`의 `DATABASE_URL`을 Neon 콘솔에서 복사한 연결 문자열로 교체합니다.
-Backend는 실행 디렉터리와 관계없이 이 최상위 파일 하나만 읽습니다.
+최상위 `.env`가 없는 로컬 환경에서는 기존 `backend/.env`를 fallback으로 읽습니다.
 
 ## LLM Provider
 
 Admin LLM과 일반 LLM API는 `ai/llm`의 공통 Provider 계약과 Model Registry를 사용합니다.
 
-- 실제: Ollama `gemma3:1b`, Gemini `gemini-3.5-flash-lite`
-- Mock: `medgemma`, `gemma`, `qwen`, `llama`
+- `gemma`: Vast.ai의 Gemma 2 2B 한국어 의료 QLoRA
+- `medgemma`, `medgemma-dataset`: 하나의 MedGemma 4B base를 공유하는 최종·데이터셋 LoRA
+- `qwen`, `llama`: Vast.ai의 Qwen3 4B·Llama 3.2 3B 의료 QLoRA
 
-Ollama 모델은 `ollama pull gemma3:1b`로 직접 준비하고, Gemini 키는 최상위 `.env`의 `GEMINI_API_KEY`에 개발자별로 설정합니다. API 키는 Frontend로 전달하거나 로그에 기록하지 않습니다.
+Admin의 5개 모델은 모두 `remote-http` Provider를 통해 Vast.ai 2× V100 서버를 호출합니다. Gemini LLM은 사용하지 않습니다. `GEMINI_API_KEY`는 OCR Chunk Embedding에만 사용하며, Vast.ai API 키는 `LLM_REMOTE_API_KEY`로 분리합니다. 두 키 모두 Frontend나 로그에 노출하지 않습니다.
 
 Backend의 `app/services/admin_llm.py`는 환경변수를 공통 Core 설정으로 변환하고 Admin
 Schema를 조립합니다. `app/services/llm_service.py`는 기존 `/api/llm/*` 계약을 공통
 Core에 연결합니다. Provider 구현과 실행 순서는 `ai/llm`에만 존재합니다.
 
-CPU Backend는 `ai/llm/requirements-api.txt`만 설치합니다. CUDA 환경에서 MedGemma
-LoRA 추론까지 실행할 때는 `ai/llm/requirements-medgemma.txt`를 추가로 설치합니다.
-모델 목록 조회만으로 MedGemma Base Model이나 Adapter를 로드하지 않습니다.
+Backend에는 `ai/llm/requirements-api.txt`의 HTTP 의존성만 필요합니다. CUDA와 모델 파일은
+Vast.ai 서버에만 있으며, Backend의 모델 목록 조회는 원격 `/health`만 확인합니다.
 
 ## OCR 문서 처리
 
