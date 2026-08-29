@@ -46,17 +46,7 @@ export function ModelSelect() {
                     : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700'
                 }`}
               >
-                <span className="flex items-center gap-1">
-                  {option.label}
-                  {option.disconnected && (
-                    <span
-                      title="아직 실제 모델에 연결되지 않았어요. 선택해도 기본 모델로 응답해요."
-                      className="text-[10px] text-neutral-400 dark:text-neutral-500"
-                    >
-                      (미연결)
-                    </span>
-                  )}
-                </span>
+                <span>{option.label}</span>
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                     option.tier === 'recommended'

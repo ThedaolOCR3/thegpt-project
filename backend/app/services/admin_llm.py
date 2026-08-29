@@ -12,9 +12,6 @@ from app.schemas.admin import (
     LlmRunResponse,
 )
 from ai.llm import (
-    LLAMA_MODEL_DEFINITIONS,
-    MEDGEMMA_MODEL_DEFINITIONS,
-    QWEN_MODEL_DEFINITIONS,
     LlmApplicationService,
     LlmExecutionResult,
     LlmModelDefinition,
@@ -23,12 +20,7 @@ from ai.llm import (
     ProviderGenerateRequest,
     ProviderRegistry,
 )
-from ai.llm.providers.gemini import GeminiLlmProvider
-from ai.llm.providers.llama import LlamaLlmProvider
-from ai.llm.providers.medgemma import MedGemmaLlmProvider
-from ai.llm.providers.mock import MockLlmProvider
-from ai.llm.providers.ollama import OllamaLlmProvider
-from ai.llm.providers.qwen import QwenLlmProvider
+from ai.llm.providers.remote_http import RemoteHttpLlmProvider
 
 logger = logging.getLogger(__name__)
 
@@ -39,38 +31,54 @@ def create_admin_model_registry() -> ModelRegistry:
     return ModelRegistry(
         (
             LlmModelDefinition(
-                id="ollama-gemma3",
-                label="Gemma 3 (Local)",
-                family="Local LLM",
-                training_stage="순정 로컬 모델",
-                description="로컬 Ollama에서 실행하는 순정 Gemma 3 모델입니다.",
-                group="main",
-                provider_key="ollama",
-                provider_model=settings.llm_ollama_model,
-            ),
-            LlmModelDefinition(
-                id="gemini",
-                label="Gemini 3.5 Flash-Lite",
-                family="Google Gemini API",
-                training_stage="외부 API 모델",
-                description="Backend에서 Gemini API를 호출하는 실제 모델입니다.",
-                group="main",
-                provider_key="gemini",
-                provider_model=settings.llm_gemini_model,
-            ),
-            # /api/llm과 동일한 정의를 그대로 재사용 — 두 곳에 중복 유지하지 않는다.
-            *MEDGEMMA_MODEL_DEFINITIONS,
-            *QWEN_MODEL_DEFINITIONS,
-            *LLAMA_MODEL_DEFINITIONS,  # 승인 전까지는 항상 unavailable로 뜬다(ai/llm/providers/llama.py)
-            LlmModelDefinition(
                 id="gemma",
-                label="Gemma (Mock)",
-                family="외부 비교 모델",
-                training_stage="Mock 비교군",
-                description="실제 의료 파인튜닝 모델이 아직 없어 Mock으로만 비교하는 모델입니다.",
+                label="Gemma Medical",
+                family="Gemma 2 2B",
+                training_stage="한국어 의료 QLoRA",
+                description="Vast.ai V100에서 실행하는 Gemma 2 2B 한국어 의료 QLoRA 모델입니다.",
+                group="main",
+                provider_key="remote-http",
+                provider_model=settings.llm_remote_gemma_model,
+            ),
+            LlmModelDefinition(
+                id="medgemma",
+                label="MedGemma (최종)",
+                family="MedGemma LoRA",
+                training_stage="의료 상담 최종 LoRA",
+                description="Vast.ai V100에서 MedGemma 4B base에 최종 상담 LoRA를 적용한 모델입니다.",
+                group="main",
+                provider_key="remote-http",
+                provider_model=settings.llm_remote_medgemma_final_model,
+            ),
+            LlmModelDefinition(
+                id="medgemma-dataset",
+                label="MedGemma (데이터셋)",
+                family="MedGemma LoRA",
+                training_stage="의료 상담 데이터셋 LoRA",
+                description="최종 모델과 같은 MedGemma 4B base에 데이터셋 LoRA를 적용한 비교 모델입니다.",
+                group="main",
+                provider_key="remote-http",
+                provider_model=settings.llm_remote_medgemma_dataset_model,
+            ),
+            LlmModelDefinition(
+                id="qwen",
+                label="Qwen Medical",
+                family="Qwen3 4B",
+                training_stage="QLoRA 의료 파인튜닝",
+                description="Vast.ai V100에서 실행하는 Qwen3 4B 의료 QLoRA 모델입니다.",
                 group="other",
-                provider_key="mock",
-                provider_model="gemma",
+                provider_key="remote-http",
+                provider_model=settings.llm_remote_qwen_model,
+            ),
+            LlmModelDefinition(
+                id="llama",
+                label="Llama Medical",
+                family="Llama 3.2 3B",
+                training_stage="QLoRA 의료 파인튜닝",
+                description="Vast.ai V100에서 실행하는 Llama 3.2 3B 의료 QLoRA 모델입니다.",
+                group="other",
+                provider_key="remote-http",
+                provider_model=settings.llm_remote_llama_model,
             ),
         )
     )
@@ -79,34 +87,13 @@ def create_admin_model_registry() -> ModelRegistry:
 def create_llm_application() -> LlmApplicationService:
     providers = ProviderRegistry(
         (
-            OllamaLlmProvider(
-                enabled=settings.llm_ollama_enabled,
-                base_url=settings.llm_ollama_base_url,
-                timeout_seconds=settings.llm_ollama_timeout_seconds,
-                max_concurrency=settings.llm_ollama_max_concurrency,
+            RemoteHttpLlmProvider(
+                enabled=settings.llm_remote_enabled,
+                base_url=settings.llm_remote_base_url,
+                api_key=settings.llm_remote_api_key,
+                timeout_seconds=settings.llm_remote_timeout_seconds,
+                max_concurrency=settings.llm_remote_max_concurrency,
             ),
-            GeminiLlmProvider(
-                enabled=settings.llm_gemini_enabled,
-                api_key=settings.gemini_api_key,
-                timeout_seconds=settings.llm_gemini_timeout_seconds,
-                max_concurrency=settings.llm_gemini_max_concurrency,
-            ),
-            MedGemmaLlmProvider(
-                enabled=settings.llm_medgemma_enabled,
-                hf_token=settings.hf_token,
-                max_concurrency=settings.llm_medgemma_max_concurrency,
-            ),
-            QwenLlmProvider(
-                enabled=settings.llm_qwen_enabled,
-                hf_token=settings.hf_token,
-                max_concurrency=settings.llm_qwen_max_concurrency,
-            ),
-            LlamaLlmProvider(
-                enabled=settings.llm_llama_enabled,
-                hf_token=settings.hf_token,
-                max_concurrency=settings.llm_llama_max_concurrency,
-            ),
-            MockLlmProvider(),
         )
     )
     return LlmApplicationService(create_admin_model_registry(), providers)

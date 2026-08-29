@@ -59,8 +59,7 @@ export async function sendMessage(
       body: JSON.stringify({
         content,
         attachments: files?.map((f) => ({ name: f.name, size: f.size, type: f.type })) ?? [],
-        // 백엔드가 모르는 model_id를 보내도 안전한 기본 모델로 대체되므로(ai.consultation
-        // pipeline), 여기서 별도 검증 없이 그대로 전달한다.
+        // ModelSelect가 Backend의 Vast.ai Model Registry와 같은 ID를 사용한다.
         model_id: modelId,
       }),
     }),

@@ -18,8 +18,7 @@ router = APIRouter()
 
 @router.get("/models", response_model=list[LlmModelResponse])
 def get_models() -> list[LlmModelResponse]:
-    """등록된 MedGemma 어댑터 목록 — 채팅 모델 선택 드롭다운, 관리자 비교 화면이 공유해서 쓴다.
-    레지스트리만 읽는 가벼운 조회라 GPU/모델 로드 없이 항상 응답 가능하다."""
+    """Vast.ai에 연결된 5개 모델 목록을 가벼운 Registry 조회로 반환합니다."""
     return list_available_models()
 
 
@@ -28,7 +27,7 @@ async def generate_response(
     payload: LlmGenerateRequest,
     current_user: Annotated[Users, Depends(get_current_user)],
 ) -> LlmGenerateResponse:
-    """단일 모델로 응답 생성 — GPU가 있는 환경에서만 동작(없으면 503)."""
+    """선택한 Vast.ai 원격 모델로 응답을 생성합니다."""
     return await generate(payload.model_id, payload.messages)
 
 

@@ -14,8 +14,8 @@ export function LlmPanel() {
           <span className="admin-eyebrow">MODEL COMPARISON LAB</span>
           <h2 id="llm-panel-title">LLM 응답 비교</h2>
           <p>
-            실제 Ollama·Gemini 모델과 명시적인 Mock 비교군에 같은 질문을
-            전달해 응답과 실행 지표를 비교합니다.
+            Gemma·MedGemma 최종·MedGemma 데이터셋·Qwen·Llama 다섯 모델에
+            같은 질문을 전달해 응답과 실행 지표를 비교합니다.
           </p>
         </div>
         <span className="mock-badge">
@@ -24,9 +24,9 @@ export function LlmPanel() {
       </div>
 
       <p className="llm-provider-notice">
-        Gemini 실행 시 입력한 질문은 외부 API로 전송됩니다. 무료 등급에는
-        민감한 의료·개인정보를 입력하지 마세요. 선택한 참고 파일은 아직
-        업로드되지 않으며 파일명만 조건으로 전달됩니다.
+        모든 모델 실행 시 입력한 질문은 Vast.ai 추론 서버로 전송됩니다. 민감한
+        의료·개인정보를 입력하지 마세요. 선택한 참고 파일은 아직 업로드되지
+        않으며 파일명만 조건으로 전달됩니다.
       </p>
 
       <LlmTestForm
