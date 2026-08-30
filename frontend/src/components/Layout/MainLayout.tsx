@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar, SidebarProvider } from '../Sidebar';
 import { ThemeToggle } from '../Theme/ThemeToggle';
-import { AdminLink } from '../Admin/AdminLink';
+import { AdminNav } from '../Admin/AdminNav';
 import { DocumentPreviewProvider, useDocumentPreview } from '../Chat/DocumentPreviewContext';
 import { DocumentPreviewPanel } from '../Chat/DocumentPreviewPanel';
 
@@ -28,7 +28,7 @@ function MainLayoutBody() {
       <Sidebar />
       <main className="relative flex min-w-0 flex-1 flex-col">
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
-          <AdminLink />
+          <AdminNav />
           <ThemeToggle />
         </div>
         <Outlet />

@@ -8,6 +8,7 @@ import { ResetPasswordPage } from "../features/auth/password-reset/ResetPassword
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { RequireAdmin } from "../features/auth/RequireAdmin";
 import { AdminPage } from "../features/admin";
+import { DashboardPage } from "../features/dashboard";
 import { ConsultationPage } from "../features/consultation";
 import { ChatPage } from "../features/chat";
 import { DocumentPage } from "../features/document";
@@ -35,7 +36,10 @@ export const router = createBrowserRouter([
       {
         // 관리자(is_admin) 계정만 접근할 수 있습니다.
         element: <RequireAdmin />,
-        children: [{ path: "/admin", element: <AdminPage /> }],
+        children: [
+          { path: "/admin", element: <AdminPage /> },
+          { path: "/dashboard", element: <DashboardPage /> },
+        ],
       },
       {
         // 로그인한 사용자만 사이드바 마이페이지에 접근할 수 있습니다.
