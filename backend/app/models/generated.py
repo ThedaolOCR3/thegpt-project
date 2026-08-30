@@ -173,3 +173,40 @@ class MessageAttachments(Base):
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
 
     message: Mapped['Messages'] = relationship('Messages', back_populates='message_attachments')
+
+
+class ConsultationLogs(Base):
+    """관리자 대시보드 지표(모델별 성공률, 폴백 응답 비율, RAG 0건 비율, 사용자별
+    사용량 등)의 데이터 원천. 요청(메시지) 하나당 한 행. 조회는 대부분 집계
+    쿼리(GROUP BY)라 Users/Conversations/Messages 쪽에 역방향 relationship은
+    두지 않았다 — 필요해지면 그때 추가한다."""
+
+    __tablename__ = 'consultation_logs'
+    __table_args__ = (
+        ForeignKeyConstraint(['user_id'], ['app_db.users.id'], ondelete='CASCADE', name='consultation_logs_user_id_fkey'),
+        ForeignKeyConstraint(['conversation_id'], ['app_db.conversations.id'], ondelete='CASCADE', name='consultation_logs_conversation_id_fkey'),
+        ForeignKeyConstraint(['message_id'], ['app_db.messages.id'], ondelete='CASCADE', name='consultation_logs_message_id_fkey'),
+        PrimaryKeyConstraint('id', name='consultation_logs_pkey'),
+        Index('idx_consultation_logs_user_id', 'user_id'),
+        Index('idx_consultation_logs_created_at', 'created_at'),
+        Index('idx_consultation_logs_model_id', 'model_id'),
+        {'schema': 'app_db'}
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    conversation_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
+    message_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
+    model_id: Mapped[Optional[str]] = mapped_column(String(100))
+    provider_key: Mapped[Optional[str]] = mapped_column(String(50))
+    is_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('false'))
+    is_emergency: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('false'))
+    department: Mapped[Optional[str]] = mapped_column(String(50))
+    confidence: Mapped[Optional[str]] = mapped_column(String(10))
+    rag_hit_count: Mapped[Optional[int]] = mapped_column(Integer)
+    input_tokens: Mapped[Optional[int]] = mapped_column(Integer)
+    output_tokens: Mapped[Optional[int]] = mapped_column(Integer)
+    total_tokens: Mapped[Optional[int]] = mapped_column(Integer)
+    response_time_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    error_type: Mapped[Optional[str]] = mapped_column(String(100))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
