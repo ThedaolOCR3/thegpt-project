@@ -3,14 +3,17 @@ from functools import lru_cache
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.paths import ROOT_ENV_FILE
+from app.core.paths import ENV_FILE
 
 
 class Settings(BaseSettings):
     app_name: str = "MediSense API"
     app_env: str = "local"
     api_prefix: str = "/api"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
     database_url: str = "sqlite:///./local.db"
     model_schemas: str = "app_db,vector_db"
     jwt_secret_key: str = "change-this-in-production"
@@ -44,27 +47,20 @@ class Settings(BaseSettings):
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
 
-    # ai/llm 공통 Core에 주입하는 LLM Provider 설정.
-    llm_ollama_enabled: bool = True
-    llm_ollama_base_url: str = "http://127.0.0.1:11434"
-    llm_ollama_model: str = "gemma3:1b"
-    llm_ollama_timeout_seconds: float = 120.0
-    llm_ollama_max_concurrency: int = 1
-    llm_gemini_enabled: bool = True
+    # 모든 LLM은 Vast.ai의 공통 원격 추론 서버에서 실행합니다.
+    llm_remote_enabled: bool = False
+    llm_remote_base_url: str = ""
+    llm_remote_api_key: str | None = None
+    llm_remote_gemma_model: str = "gemma"
+    llm_remote_medgemma_final_model: str = "medgemma-final"
+    llm_remote_medgemma_dataset_model: str = "medgemma-dataset"
+    llm_remote_qwen_model: str = "qwen"
+    llm_remote_llama_model: str = "llama"
+    llm_remote_timeout_seconds: float = 300.0
+    llm_remote_max_concurrency: int = 5
+
+    # Gemini는 LLM으로 호출하지 않고 OCR Chunk Embedding에만 사용합니다.
     gemini_api_key: str | None = None
-    llm_gemini_model: str = "gemini-3.5-flash-lite"
-    llm_gemini_timeout_seconds: float = 60.0
-    llm_gemini_max_concurrency: int = 2
-    llm_medgemma_enabled: bool = True
-    llm_medgemma_max_concurrency: int = 1
-    llm_qwen_enabled: bool = True
-    llm_qwen_max_concurrency: int = 1
-    # Llama는 base model이 HuggingFace Gated Repo라 Meta 라이선스 접근 승인 전까지는
-    # 항상 unavailable로 뜬다(ai/llm/providers/llama.py) — 승인 후에도 이 값 자체는
-    # 그대로 True로 둔다.
-    llm_llama_enabled: bool = True
-    llm_llama_max_concurrency: int = 1
-    hf_token: str | None = None
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 1024
@@ -101,7 +97,7 @@ class Settings(BaseSettings):
         return self.database_url
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_ENV_FILE,
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )

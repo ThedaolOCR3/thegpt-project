@@ -290,9 +290,9 @@ class LoraAdapterEngine:
         """messages: [{"role": "user"/"assistant", "content": "..."}] 대화 기록.
         마지막 턴은 role="user"여야 한다(그다음 assistant 응답을 생성한다)."""
         with self._inference_lock:
+            self._ensure_adapter_loaded(adapter_name, adapter_repo)
             import torch
 
-            self._ensure_adapter_loaded(adapter_name, adapter_repo)
             self._model.set_adapter(adapter_name)
 
             text = self._tokenizer.apply_chat_template(

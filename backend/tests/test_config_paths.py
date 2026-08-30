@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.core.config import Settings
 from app.core.email_config import EmailSettings
-from app.core.paths import PROJECT_ROOT, ROOT_ENV_FILE
+from app.core.paths import BACKEND_ENV_FILE, ENV_FILE, PROJECT_ROOT, ROOT_ENV_FILE
 from app.core.storage_config import StorageSettings
 
 
@@ -13,15 +13,18 @@ class ConfigPathTest(unittest.TestCase):
 
         self.assertEqual(PROJECT_ROOT, expected_project_root)
         self.assertEqual(ROOT_ENV_FILE, expected_project_root / ".env")
+        self.assertEqual(BACKEND_ENV_FILE, expected_project_root / "backend" / ".env")
+        expected_env_file = ROOT_ENV_FILE if ROOT_ENV_FILE.exists() else BACKEND_ENV_FILE
+        self.assertEqual(ENV_FILE, expected_env_file)
 
-    def test_all_backend_settings_use_the_same_root_env_file(self) -> None:
+    def test_all_backend_settings_use_the_same_selected_env_file(self) -> None:
         settings_classes = (Settings, EmailSettings, StorageSettings)
 
         for settings_class in settings_classes:
             with self.subTest(settings_class=settings_class.__name__):
                 self.assertEqual(
                     Path(settings_class.model_config["env_file"]),
-                    ROOT_ENV_FILE,
+                    ENV_FILE,
                 )
 
 

@@ -211,45 +211,43 @@ OCR 전체 구조와 Office 직접 추출 전환 내용은 다음 문서를 참�
 - `docs/3_flow/05_FLW_OCR_전체구조흐름_20260820.md`
 - `docs/2_reports/06_RPT_OCR_Office직접추출전환_20260820.md`
 
-현재 OCR은 실제 문서를 처리하며, 완료된 OCR Job의 기존 Chunk를 Gemini로 임베딩해 Neon `VECTOR(1024)`에 저장합니다. LLM 비교 영역은 실제 Ollama Gemma 3·Gemini와 네 개의 명시적 Mock 모델을 함께 사용합니다.
+현재 OCR은 실제 문서를 처리하며, 완료된 OCR Job의 기존 Chunk를 Gemini로 임베딩해 Neon `VECTOR(1024)`에 저장합니다. LLM 비교 영역은 Gemma, MedGemma 최종·데이터셋, Qwen, Llama의 실제 모델 5개를 사용하며 Gemini LLM은 사용하지 않습니다.
 
 원본 파일 저장소는 이번 범위에 포함하지 않습니다. `admin_documents.original_file_url`의 `NOT NULL` 계약을 지키기 위해 실제 파일 URL과 구분되는 `ocr-job://...` 추적 참조값을 저장합니다.
 
 ## 7. LLM Provider 설정
 
-Admin LLM의 첫 번째 비교 영역은 다음 실제 Provider를 호출합니다.
+Admin LLM은 Vast.ai의 2× Tesla V100 서버에 올린 다음 5개 모델을 호출합니다.
 
-- `ollama-gemma3`: 로컬 Ollama의 순정 `gemma3:1b`
-- `gemini`: Google Gemini API의 `gemini-3.5-flash-lite`
+- `gemma`: `ghddls7799/gemma-2-2b-med-ko-qlora`
+- `medgemma`: 최종 `gon-0130/medgemma-4b-lora-consultation-main-v2`
+- `medgemma-dataset`: 데이터셋 `gon-0130/medgemma-4b-lora-consultation`
+- `qwen`: `csj9630/qwen3-4b-medical-qlora`
+- `llama`: `csj9630/llama32-3b-medical-qlora`
 
-다른 비교 영역의 `medgemma`, `gemma`, `qwen`, `llama`는 현재 Mock입니다. Backend의 Model Registry에서 `provider_key`와 `provider_model`을 바꾸면 공통 API와 Frontend를 수정하지 않고 지원되는 실제 Provider로 전환할 수 있습니다.
-
-Ollama를 설치한 뒤 모델을 개발자가 직접 준비합니다. Backend는 모델을 자동으로 다운로드하지 않습니다.
-
-```powershell
-ollama --version
-ollama pull gemma3:1b
-ollama list
-```
+Vast.ai에서는 `scripts/vastai_medical_llm_server.ipynb`를 프로젝트 루트에서 실행합니다. 모델은 프로젝트의 `models/`에 저장되고 Git에서는 제외됩니다. GPU 0은 FP16 Gemma/Qwen/Llama, GPU 1은 FP32 MedGemma를 담당하며 MedGemma 두 LoRA는 하나의 base를 공유합니다.
 
 최상위 `.env`에서 Provider를 설정합니다.
 
 ```dotenv
-LLM_OLLAMA_ENABLED=true
-LLM_OLLAMA_BASE_URL=http://127.0.0.1:11434
-LLM_OLLAMA_MODEL=gemma3:1b
+LLM_REMOTE_ENABLED=true
+LLM_REMOTE_BASE_URL=http://Vast_호스트:공개포트
+LLM_REMOTE_API_KEY=Vast_서버와_공유한_Bearer_키
+LLM_REMOTE_GEMMA_MODEL=gemma
+LLM_REMOTE_MEDGEMMA_FINAL_MODEL=medgemma-final
+LLM_REMOTE_MEDGEMMA_DATASET_MODEL=medgemma-dataset
+LLM_REMOTE_QWEN_MODEL=qwen
+LLM_REMOTE_LLAMA_MODEL=llama
+LLM_REMOTE_MAX_CONCURRENCY=5
 
-LLM_GEMINI_ENABLED=true
-GEMINI_API_KEY=개발자별_API_KEY
-LLM_GEMINI_MODEL=gemini-3.5-flash-lite
-
+GEMINI_API_KEY=Embedding_전용_API_KEY
 EMBEDDING_MODEL=gemini-embedding-001
 EMBEDDING_PROVIDER=gemini
 EMBEDDING_DIMENSION=1024
 EMBEDDING_TIMEOUT_SECONDS=60
 ```
 
-`GEMINI_API_KEY`는 Backend에서만 사용하며 `VITE_` 접두사를 붙이지 않습니다. 실제 키는 Git에 커밋하지 말고 개발자별 최상위 `.env`에만 기록합니다. Gemini 무료 등급에 민감한 의료·개인정보를 전송하지 않습니다.
+`GEMINI_API_KEY`는 OCR Embedding에만, `LLM_REMOTE_API_KEY`는 Vast.ai LLM 인증에만 사용합니다. Backend 전용 키에는 `VITE_` 접두사를 붙이지 않고 Git에 커밋하지 않습니다.
 
 모델 목록과 가용성은 `GET /api/admin/llm/models`, 단일 실행은 `POST /api/admin/llm/run`에서 확인합니다.
 
@@ -277,10 +275,6 @@ cd ..
 
 기존에 실행 중인 Backend(8000) 또는 Frontend(5173) 프로세스를 종료한 뒤 `run.bat`을 다시 실행합니다.
 
-### Ollama Gemma 3 카드가 비활성화되는 경우
+### LLM 카드가 비활성화되는 경우
 
-Ollama가 실행 중인지, `ollama list`에 `.env`의 `LLM_OLLAMA_MODEL`과 정확히 같은 `gemma3:1b`가 있는지 확인합니다. `Ollama is running` 문구는 서버 실행 여부만 의미하며 모델 설치 여부를 보장하지 않습니다.
-
-### Gemini 카드가 비활성화되는 경우
-
-최상위 `.env`의 `GEMINI_API_KEY`와 Backend의 `google-genai` 패키지 설치 여부를 확인합니다. HTTP 429는 계정·프로젝트의 현재 무료 할당량을 확인해야 한다는 의미입니다.
+Vast.ai Notebook의 5개 모델 로드, 인증된 `GET /health`, 8000번 컨테이너 포트의 공개 포트 매핑, `.env`의 `LLM_REMOTE_BASE_URL`·`LLM_REMOTE_API_KEY`를 확인합니다. 브라우저에서 `/health`를 직접 열었을 때 401이 나오는 것은 Authorization 헤더가 없기 때문이며 정상입니다. 준비된 Notebook은 `scripts/vastai_medical_llm_server.ipynb`입니다.

@@ -106,7 +106,7 @@ class LlmModelDefinitionResponse(AdminSchema):
 
 class LlmCompareRequest(AdminSchema):
     prompt: str = Field(min_length=1, max_length=10_000)
-    model_ids: list[str] = Field(alias="modelIds", min_length=2, max_length=4)
+    model_ids: list[str] = Field(alias="modelIds", min_length=2, max_length=5)
     document_name: str | None = Field(default=None, alias="documentName", max_length=255)
     chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
     overlap: int = Field(default=50, ge=0)

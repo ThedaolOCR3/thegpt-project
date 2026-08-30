@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.paths import ROOT_ENV_FILE
+from app.core.paths import ENV_FILE
 
 
 class EmailSettings(BaseSettings):
@@ -16,7 +16,7 @@ class EmailSettings(BaseSettings):
     app_env: str = "local"
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_ENV_FILE,
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
     )

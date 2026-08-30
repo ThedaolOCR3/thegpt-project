@@ -3,6 +3,19 @@
 `ai/`(OCR/RAG/LLM 등 공용 로직)를 재사용해서 학습·평가를 돌리는 곳. 실제 서비스 코드는
 `backend/`, 재사용 로직은 `ai/`에 있고, 여기는 그걸 불러다 쓰는 "실행 스크립트"만 둔다.
 
+## vastai_medical_llm_server.ipynb
+
+Vast.ai의 2× Tesla V100 32GB에 Gemma, MedGemma 최종·데이터셋, Qwen, Llama의
+5개 의료 LoRA/QLoRA 모델을 로드하고 Backend가 호출할 Bearer 인증 FastAPI를 실행한다.
+모델은 프로젝트의 `models/`에 저장한다. 작은 모델을 GPU 사이에 분할하지 않고 GPU 0에는
+Gemma/Qwen/Llama를 FP16으로, GPU 1에는 MedGemma 공유 base를 FP32로 배치해 서로 다른
+GPU의 요청을 동시에 처리한다. MedGemma 두 카드는 같은 4B base를 공유하고 adapter만 전환한다.
+
+V100에서는 이 크기의 모델을 `fp16`으로 올리는 구성이 보통 4bit bitsandbytes 추론보다 빠르다.
+VRAM이 부족한 커스텀 입력 길이를 사용할 때만 Notebook의 `MODEL_PRECISION`을 `4bit`로
+바꾼다. 컨테이너 포트 8000은 Vast.ai의 공개 포트로 매핑하고 Uvicorn worker는 반드시
+1개만 사용한다.
+
 ## train_medgemma_lora.ipynb
 
 `google/medgemma-4b-it`를 Colab 무료 티어(T4 GPU)에서 QLoRA로 파인튜닝하는 노트북.
