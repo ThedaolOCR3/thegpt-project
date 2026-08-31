@@ -5,8 +5,9 @@
 - 대상 기능: 관리자 OCR 탭의 웹페이지 URL 입력·미리보기·본문 추출·내부 이미지 OCR·Chunk·Vector 저장
 - 주요 기술: React 19, TypeScript, FastAPI, Pydantic, HTTP Client, lxml, PaddleOCR, Gemini Embedding, PostgreSQL, pgvector
 - 문서 성격: 현재 코드 분석을 바탕으로 한 후속 구현 지시서
-- 구현 범위: 단일 공개 웹페이지 URL 수집, 정적 HTML 본문 추출, 제한된 내부 이미지 OCR, 기존 Admin OCR Job/저장 흐름 재사용
-- 1차 제외 범위: 전체 사이트 크롤링, 로그인 페이지, JavaScript 렌더링 전용 페이지, 동영상·SVG OCR, 예약 수집, URL 변경 감지
+- 구현 범위: OCR 탭의 파일/웹페이지 URL 입력 전환, 단일 공개 웹페이지 수집, 정적 HTML 본문 추출, 제한된 내부 이미지 OCR, 기존 Admin OCR Job·Gemini·Neon 저장 흐름 재사용
+- 고정 영역: `GeminiEmbeddingService`, `document_chunks.embedding VECTOR(1024)`, `/ocr/vector-save`, 기존 Embedding 검증·Transaction
+- 1차 제외 범위: 임베딩 모델 선정·교체, `chunk_embeddings`/RAG 수집 연결, Vector Schema 변경, 전체 사이트 크롤링, 로그인 페이지, JavaScript 렌더링 전용 페이지, 동영상·SVG OCR, 예약 수집, URL 변경 감지
 
 ---
 
@@ -51,6 +52,31 @@
 - `admin_documents`와 `document_chunks` Transaction 저장
 
 기존 파일 API 계약은 유지하고 URL 전용 JSON Endpoint를 추가하는 방식을 권장한다. 하나의 Endpoint에서 `multipart/form-data`와 JSON을 동시에 처리하려고 하면 Router와 Frontend Adapter가 불필요하게 복잡해지고 기존 파일 업로드 회귀 위험이 커진다.
+
+### 1.1 이번 작업의 범위 고정
+
+임베딩 모델은 팀 협의가 끝나지 않았으므로 이번 작업에서 변경하지 않는다.
+
+```text
+이번 작업에서 유지
+→ EMBEDDING_PROVIDER=gemini
+→ gemini-embedding-001
+→ 1024차원
+→ vector_db.document_chunks.embedding
+→ 기존 save_ocr_result_with_embeddings()
+→ 기존 DocumentRepository.save_with_chunks()
+
+이번 작업에서 제외
+→ RAG_EMBEDDING_PROVIDER 선정
+→ Sentence-Transformers 모델 연결
+→ hashing-placeholder 사용
+→ document_ingestion_service.ingest_document() 연결
+→ vector_db.chunk_embeddings 저장
+→ 기존 Gemini Vector 마이그레이션
+→ Embedding/Vector Schema 리팩터링
+```
+
+웹 URL은 파일과 다른 **입력·추출 경로**만 추가하고, `OcrDocumentResponse`를 만든 뒤부터는 기존 파일 OCR과 같은 Chunk·Gemini·Neon 저장 경로로 합류시킨다. 임베딩 구조의 문제를 URL 기능 구현 중 함께 해결하려고 하지 않는다.
 
 ---
 
@@ -150,7 +176,7 @@ Admin OCR 저장
 → rag_search_service.search()
 ```
 
-따라서 이 지시서에서 말하는 “기존 OCR처럼 Embedding 저장”은 **현재 Admin OCR과 같은 Gemini/`document_chunks.embedding` 저장**을 뜻한다. 저장 직후 상담 RAG 검색 대상이 되는 것까지 요구한다면 별도 작업으로 `document_ingestion_service.ingest_document()` 연결 또는 두 저장 파이프라인 통합이 필요하다. 이 차이를 숨긴 채 URL 기능이 RAG 검색까지 완성됐다고 보고하면 안 된다.
+따라서 이 지시서에서 말하는 “기존 OCR처럼 Embedding 저장”은 **현재 Admin OCR과 같은 Gemini/`document_chunks.embedding` 저장**을 뜻한다. 이번 범위에서는 `document_ingestion_service.ingest_document()`를 호출하거나 `chunk_embeddings`에 추가 저장하지 않는다. 저장 직후 상담 RAG 검색 대상이 되는 통합은 임베딩 모델 협의 후 별도 작업으로 진행한다. 이 차이를 숨긴 채 URL 기능이 RAG 검색까지 완성됐다고 보고하면 안 된다.
 
 ---
 
@@ -160,6 +186,8 @@ Admin OCR 저장
 
 - 사용자가 `http://` 또는 `https://` 단일 URL을 입력한다.
 - 파일 입력과 URL 입력은 동시에 활성화하지 않는다.
+- Admin의 상위 탭을 `파일 OCR`, `웹 OCR`로 다시 나누지 않고 기존 OCR 탭 안에서 입력 방식만 전환한다.
+- 화면 문구에서는 URL을 파일처럼 취급하는 `URL 업로드` 대신 `웹페이지 URL`, `웹페이지 가져오기`, `웹페이지 가져와 분석`을 사용한다.
 - 공개적으로 접근 가능한 정적 HTML 페이지를 대상으로 한다.
 - 한 URL에서 연결된 다른 문서 페이지로 이동하거나 사이트 전체를 순회하지 않는다.
 - HTML에 포함된 제한된 수의 Raster Image만 추가 다운로드해 OCR한다.
@@ -182,6 +210,8 @@ Admin OCR 저장
 - 허용된 이미지에만 기존 PaddleOCR가 실행된다.
 - URL Job 결과의 Chunk를 Frontend가 재전송하지 않고 기존 저장 API가 읽는다.
 - DB의 `original_file_url`에는 `ocr-job://...` 대신 검증된 최종 HTTP(S) URL이 저장된다.
+- 파일과 URL 모두 기존 Gemini 1024차원 Embedding과 `document_chunks.embedding` 저장 계약을 사용한다.
+- `chunk_embeddings`, RAG Provider, Embedding 모델 설정과 Vector Schema에는 변경이 없다.
 - 내부망·localhost·메타데이터 IP를 대상으로 한 서버 요청이 차단된다.
 - URL Job Endpoint는 Backend의 관리자 권한 검사를 통과한 사용자만 호출할 수 있다.
 - 정적 HTML 기준 테스트와 Frontend TypeScript Build가 통과한다.
@@ -357,22 +387,127 @@ type AnalyzeOcrRequest =
 - 진행률
 - 진행 중 `AbortController`
 
-### 6.2 OcrPanel
+### 6.2 입력 방식 분리 원칙과 OcrPanel
 
-`OcrPanel.tsx`의 입력 카드 상단에 `파일 업로드`, `웹 URL` 두 모드를 둔다.
+파일과 URL은 **입력 방식만 다르고 분석 이후의 검토·Chunk·Embedding·저장 목적은 같다.** 따라서 Admin의 상위 탭을 새로 만들지 말고 `OcrPanel.tsx` 입력 카드 안에 Segmented Control 형태의 전환 UI를 둔다.
+
+권장 Label은 다음과 같다.
 
 ```text
-[파일 업로드] [웹 URL]
-
-파일 모드: 기존 Dropzone → SelectedFile → OcrFilePreview
-URL 모드: URL Input → URL 확인 → OcrWebPreview
-
-공통: Chunk 설정 → 분석 버튼
+[ 파일 업로드 ] [ 웹페이지 URL ]
 ```
 
-두 모드에서 Chunk 설정과 결과 영역은 공유한다. 파일용 컴포넌트에 URL 분기를 계속 추가해 하나의 거대한 컴포넌트로 만들지 않는다.
+`웹 URL`, `URL 업로드`도 기술적으로는 이해할 수 있지만 사용자 화면에서는 `웹페이지 URL`이 무엇을 입력하는지 더 명확하다. URL은 서버에 파일을 올리는 동작이 아니므로 `URL 업로드`라는 표현은 사용하지 않는다.
 
-### 6.3 URL 입력 검증
+권장 화면 구조:
+
+```text
+문서 입력 방식
+
+[ 파일 업로드 ] [ 웹페이지 URL ]
+
+┌────────────────────────────────────────────┐
+│ 선택한 방식의 입력 영역                    │
+│                                            │
+│ 파일 모드                                  │
+│ Dropzone → 선택 파일 정보 → 파일 미리보기 │
+│                                            │
+│ 또는                                       │
+│                                            │
+│ 웹페이지 URL 모드                          │
+│ URL 입력 → 미리보기 확인 → Domain/링크     │
+└────────────────────────────────────────────┘
+
+공통 Chunk 설정
+→ 입력 방식에 맞는 분석 버튼
+→ 공통 분석 결과 영역
+→ 공통 VectorDB 저장 버튼
+```
+
+입력 방식별 표시 내용:
+
+| 선택 모드 | 입력 영역 | 보조 정보 | 분석 버튼 |
+|---|---|---|---|
+| 파일 업로드 | 기존 `OcrDropzone` | `SelectedFile`, `OcrFilePreview` | `문서 분석 테스트` |
+| 웹페이지 URL | 신규 `OcrUrlInput` | `OcrWebPreview`, Domain, 새 탭 링크 | `웹페이지 가져와 분석` |
+
+Chunk 설정과 결과 영역을 입력 방식별로 두 벌 만들지 않는다. 다음 컴포넌트는 두 모드가 공유한다.
+
+- `OcrChunkSettings`
+- 분석 진행률
+- `OcrResultSummary`
+- 추출 Text 미리보기
+- Chunk 목록
+- 품질 메모
+- VectorDB 저장 버튼과 저장 결과
+
+권장 컴포넌트 조립 구조:
+
+```text
+OcrPanel
+├─ OcrSourceSelector
+├─ 선택된 입력 영역
+│  ├─ FileInputPanel
+│  │  ├─ OcrDropzone
+│  │  ├─ SelectedFile
+│  │  └─ OcrFilePreview
+│  └─ WebUrlInputPanel
+│     ├─ OcrUrlInput
+│     └─ OcrWebPreview
+├─ OcrChunkSettings
+├─ 공통 분석 버튼
+└─ OcrResultSummary
+```
+
+현재 컴포넌트 수가 적다면 `FileInputPanel`, `WebUrlInputPanel` 파일을 반드시 새로 만들 필요는 없다. 다만 `OcrPanel.tsx` 안에서 파일과 URL의 조건부 Rendering 경계가 한눈에 보이게 하고, 파일용 `OcrDropzone`이나 `OcrFilePreview` 안에 URL 분기를 추가하지 않는다.
+
+다음 형태는 피한다.
+
+- Admin 상위 탭을 `파일 OCR`, `웹 OCR`로 다시 분리
+- 파일 Dropzone과 URL 입력창을 한 화면에 동시에 노출
+- 입력 방식별 Chunk 설정과 결과 컴포넌트를 중복 구현
+- URL 입력 중 매 Key 입력마다 외부 페이지를 자동 요청
+- URL 기능을 `URL 업로드`라고 표시
+- `OcrFilePreview`에 URL Preview 책임까지 추가
+
+### 6.3 입력 모드 전환 동작
+
+파일과 URL이 동시에 남지 않도록 `OcrSourceSelector` 변경을 하나의 명시적인 상태 전이로 처리한다.
+
+```text
+파일 → 웹페이지 URL 전환
+→ 선택 File과 Object URL 정리
+→ 이전 분석 결과·오류·저장 상태 초기화
+→ 빈 URL 입력 화면 표시
+
+웹페이지 URL → 파일 전환
+→ URL과 iframe Preview 정리
+→ 이전 분석 결과·오류·저장 상태 초기화
+→ 빈 Dropzone 표시
+```
+
+세부 정책:
+
+- 분석 중에는 입력 모드 전환을 비활성화하는 방식을 우선한다.
+- 전환을 허용한다면 현재 `AbortController`를 먼저 취소한 뒤 상태를 초기화한다.
+- 분석 완료 결과나 저장 전 결과가 있는 상태에서 모드를 바꾸면 즉시 초기화하되, 데이터 손실 안내가 필요하다고 판단되면 짧은 확인 Dialog를 사용할 수 있다.
+- 파일 Object URL은 기존처럼 `URL.revokeObjectURL()`로 해제한다.
+- URL iframe은 선택 모드가 바뀌면 DOM에서 제거한다.
+- Chunk Size와 Overlap은 입력 종류와 무관한 사용자 설정이므로 모드 전환 후에도 유지하는 것을 권장한다.
+- 저장 성공 상태는 Source가 바뀌면 반드시 초기화한다.
+
+`canAnalyze`도 Source 종류를 기준으로 계산한다.
+
+```typescript
+const canAnalyze =
+  source?.type === 'file'
+    ? Boolean(source.file) && status !== 'loading'
+    : source?.type === 'url'
+      ? isValidWebUrl(source.url) && status !== 'loading'
+      : false;
+```
+
+### 6.4 URL 입력 검증
 
 Frontend 검증은 사용자 경험을 위한 1차 검증일 뿐 보안 검증이 아니다.
 
@@ -385,7 +520,7 @@ Frontend 검증은 사용자 경험을 위한 1차 검증일 뿐 보안 검증�
 
 `localhost`, 사설 IP 차단은 Frontend 결과를 신뢰하지 말고 Backend에서 다시 수행한다.
 
-### 6.4 웹 미리보기
+### 6.5 웹 미리보기
 
 1차 구현에서는 브라우저 기반 미리보기를 **best effort**로 제공한다.
 
@@ -396,11 +531,26 @@ Frontend 검증은 사용자 경험을 위한 1차 검증일 뿐 보안 검증�
 - 외부 사이트의 `X-Frame-Options` 또는 CSP `frame-ancestors`로 표시가 차단될 수 있음을 안내한다.
 - iframe 성공 여부를 Backend 수집 가능 여부로 판단하지 않는다.
 
+URL 입력 영역은 다음과 같이 구성한다.
+
+```text
+웹페이지 URL
+
+[ https://example.com/article                     ]
+[미리보기]                         [입력 내용 지우기]
+
+example.com
+외부 사이트 정책에 따라 화면 미리보기가 제한될 수 있습니다.
+[새 탭에서 원본 열기]
+```
+
+미리보기가 차단되어도 URL 분석 버튼은 Backend URL 검증 결과와 별개로 동작해야 한다. 사용자에게는 iframe 자체보다 Domain, 정규화된 URL, 새 탭 링크, 분석 완료 후 페이지 제목과 추출 Text가 더 신뢰할 수 있는 확인 정보다.
+
 브라우저 iframe은 원본 페이지의 서버에 직접 요청하므로 관리자 IP와 접속 사실이 외부 사이트에 전달될 수 있다. 이를 허용할 수 없다면 자동 iframe을 제거하고 제목·Domain·새 탭 링크만 보여준 뒤, 2차 구현에서 서버가 만든 Sanitized Preview를 `srcDoc`으로 제공한다.
 
 원본 HTML을 그대로 `srcDoc`에 넣거나 `dangerouslySetInnerHTML`로 렌더링하면 안 된다.
 
-### 6.5 API Adapter
+### 6.6 API Adapter
 
 `apiAdminAiService.analyzeDocument()`는 Source에 따라 Job 생성 Endpoint만 분기하고 이후 Polling은 공유한다.
 
@@ -420,7 +570,7 @@ sourceType=url
 
 Polling Loop를 복사하지 말고 `pollOcrJob(jobId, signal, onProgress)`와 같은 내부 함수로 추출한다.
 
-### 6.6 결과 표시
+### 6.7 결과 표시
 
 `OcrDocumentPayload`에 다음 Source Meta를 추가한다.
 
@@ -592,7 +742,8 @@ DNS 검증 뒤 실제 연결 사이에 주소가 바뀌는 DNS Rebinding 위험�
 |---|---:|---|
 | `OCR_WEB_MAX_URL_LENGTH` | 500 | 현재 DB 컬럼과 일치 |
 | `OCR_WEB_MAX_HTML_SIZE_MB` | 5 | 메모리·파서 공격 제한 |
-| `OCR_WEB_MAX_TEXT_CHARS` | 500,000 | Job/Embedding 과부하 제한 |
+| `OCR_WEB_MAX_TEXT_CHARS` | 100,000 | Job/Gemini 과부하 제한 |
+| `OCR_WEB_MAX_CHUNKS` | 200 | Gemini 요청량·Neon 행 증가 제한 |
 | `OCR_WEB_MAX_REDIRECTS` | 3 | Redirect Loop·우회 방지 |
 | `OCR_WEB_CONNECT_TIMEOUT_SECONDS` | 5 | 연결 대기 제한 |
 | `OCR_WEB_READ_TIMEOUT_SECONDS` | 15 | 느린 응답 제한 |
@@ -733,16 +884,43 @@ Job 총량만 제한하면 하나의 URL이 Image 20개를 내려받는 동안 �
 
 ---
 
-## 11. Vector 저장 수정 지시
+## 11. 기존 Vector 저장 유지 지시
 
-`save_ocr_result_with_embeddings()`는 완료 Job의 `sourceType`과 `sourceUrl`을 읽어 Source Reference를 결정한다.
+이번 작업에서는 Embedding 생성과 Neon 저장 방식을 변경하지 않는다. 파일과 URL Job 모두 완료된 `OcrDocumentResponse.chunks`를 기존 `save_ocr_result_with_embeddings()`에 전달한다.
+
+```text
+변경하지 않는 저장 흐름
+
+POST /api/admin/ocr/vector-save { jobId }
+→ save_ocr_result_with_embeddings()
+→ embedding_service = GeminiEmbeddingService
+→ gemini-embedding-001
+→ RETRIEVAL_DOCUMENT, 1024차원
+→ DocumentRepository.save_with_chunks()
+→ admin_documents 1행
+→ document_chunks N행 + embedding VECTOR(1024)
+→ 기존 단일 Transaction Commit/Rollback
+```
+
+다음 파일과 계약은 이번 기능에서 수정하지 않는다.
+
+- `backend/app/services/embedding_service.py`
+- `backend/app/core/rag_embedding.py`
+- `backend/app/services/document_ingestion_service.py`
+- `backend/app/repositories/document_chunk.py`
+- `backend/app/models/generated.py`의 Vector 컬럼
+- `backend/migrations/versions/*`의 Vector Schema
+- `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`
+- `RAG_EMBEDDING_*`
+
+허용되는 저장 인접 변경은 URL Job의 Source Reference 결정뿐이다. `save_ocr_result_with_embeddings()`는 완료 Job의 `sourceType`과 `sourceUrl`을 읽어 `original_file_url` 값을 구분할 수 있다. 이 분기는 Embedding Provider, Vector 값, 차원 또는 저장 테이블을 변경하지 않는다.
 
 ```text
 파일 Job
 → 기존 ocr-job://{jobId}/{encodedName}
 
 URL Job
-→ 검증된 최종 https://... URL
+→ 검증된 최종 HTTP(S) URL
 ```
 
 Frontend가 저장 요청에 URL을 다시 보내게 하면 안 된다. 사용자가 저장 시점에 URL을 변조할 수 있고, 실제로 수집한 최종 URL과 달라질 수 있기 때문이다.
@@ -760,6 +938,8 @@ def build_source_reference(job_id: str, result: OcrDocumentResponse) -> str:
 
 현재 `admin_documents.original_file_url`은 `VARCHAR(500)`이다. 1차 구현에서는 입력과 Redirect 최종 URL을 500자 이하로 제한하면 Migration 없이 재사용할 수 있다. 500자를 넘는 URL도 제품 요구사항이라면 제한을 조용히 늘리지 말고 별도 Alembic Migration으로 컬럼을 `TEXT` 또는 합의된 길이로 변경하고 `generated.py` 모델도 실제 DB와 함께 갱신한다.
 
+이번 범위에서는 Migration을 만들지 않는 것을 우선하므로 500자를 넘는 최종 URL은 저장 전에 명시적으로 거부한다.
+
 동일 URL을 여러 번 저장하면 현재 구조에서는 새 문서가 중복 생성된다. 기존 파일 Job도 API 수준 Idempotency가 없으므로 1차 범위에서는 기존 동작을 유지하되, 화면과 문서에 중복 가능성을 표시한다. URL 최신화·Upsert·버전 관리는 후속 정책으로 분리한다.
 
 ---
@@ -771,7 +951,8 @@ def build_source_reference(job_id: str, result: OcrDocumentResponse) -> str:
 ```text
 OCR_WEB_MAX_URL_LENGTH=500
 OCR_WEB_MAX_HTML_SIZE_MB=5
-OCR_WEB_MAX_TEXT_CHARS=500000
+OCR_WEB_MAX_TEXT_CHARS=100000
+OCR_WEB_MAX_CHUNKS=200
 OCR_WEB_MAX_REDIRECTS=3
 OCR_WEB_CONNECT_TIMEOUT_SECONDS=5
 OCR_WEB_READ_TIMEOUT_SECONDS=15
@@ -780,6 +961,10 @@ OCR_WEB_MAX_IMAGE_SIZE_MB=5
 OCR_WEB_MAX_TOTAL_IMAGE_SIZE_MB=30
 OCR_WEB_IMAGE_CONCURRENCY=4
 ```
+
+Gemini 무료 사용량과 기존 Neon 저장 부하를 보호하기 위해 웹페이지 Text와 최종 Chunk 개수에 별도 상한을 둔다. `OCR_WEB_MAX_CHUNKS` 검사는 웹 Workflow에서 기존 `create_chunks()` 실행 직후, 저장 버튼을 누르기 전에 수행한다. Chunk를 조용히 앞부분만 잘라 저장하지 말고 Chunk Size를 늘리거나 더 작은 페이지를 입력하도록 오류를 반환한다.
+
+이 제한은 신규 웹 URL 입력에만 적용한다. 기존 파일 OCR의 Chunk 정책과 Embedding 코드는 이번 작업에서 변경하지 않는다.
 
 URL fetch에 사용하는 HTTP Client는 `backend/requirements.txt`에 직접 선언한다. TestClient 또는 다른 라이브러리의 전이 의존성으로 우연히 설치된 패키지에 기대지 않는다.
 
@@ -846,10 +1031,12 @@ queued 3
 2. 기존 Chunk 순서와 개수로 Gemini Embedding을 생성한다.
 3. 파일 Job은 계속 `ocr-job://` Reference를 저장한다.
 4. 파일/URL 모두 저장 실패 시 전체 Transaction이 Rollback되는지 확인한다.
+5. `embedding_service.py`, `chunk_embeddings`, RAG Provider와 Vector Schema에 Diff가 없는지 확인한다.
+6. 웹 URL 결과가 `OCR_WEB_MAX_CHUNKS`를 넘으면 Gemini 호출 전에 실패하는지 확인한다.
 
 ### Phase 6. 문서화
 
-구현 완료 후 실제 최종 코드 기준으로 `docs/2_reports`에 별도 RPT 문서를 작성한다. 이 FLW 지시서를 구현 완료 보고서처럼 수정하지 않는다.
+구현 완료 후 실제 최종 코드 기준으로 `docs/2_reports`에 별도 RPT 문서를 작성한다. 이 PRM 지시서를 구현 완료 보고서처럼 수정하지 않는다.
 
 ---
 
@@ -925,7 +1112,11 @@ queued 3
 
 ### 14.6 Frontend 검증
 
+- 기존 OCR 상위 탭 안에서 `파일 업로드`/`웹페이지 URL` 입력 방식만 전환되는지 확인
+- 파일 Dropzone과 URL 입력창이 동시에 표시되지 않는지 확인
 - 파일/URL 모드 전환 시 이전 상태 초기화
+- 모드 전환 후 Chunk Size와 Overlap은 유지되고 분석·저장 결과만 초기화되는지 확인
+- 파일 버튼은 `문서 분석 테스트`, URL 버튼은 `웹페이지 가져와 분석`으로 표시되는지 확인
 - URL 형식 오류와 버튼 비활성화
 - 분석 중 입력과 모드 전환 정책
 - Abort 시 Polling 중단
@@ -1019,6 +1210,12 @@ URL 입력
 - 페이지 변경 주기 감시와 자동 재수집
 - URL 중복 제거·Versioning·Upsert
 - Admin OCR Vector를 상담 RAG `chunk_embeddings`로 자동 이관
+- Gemini를 Sentence-Transformers 또는 다른 Embedding 모델로 교체
+- `document_chunks.embedding` 저장 중단 또는 Legacy 마이그레이션
+- `ai.rag.chunk_text()` 기반 RAG Chunk 정책으로 전환
+- `document_ingestion_service.ingest_document()` 연결
+- `chunk_embeddings` 생성·수정·삭제
+- Vector 차원 또는 Provider Registry 변경
 - 메모리 Job을 Redis/Celery/DB Queue로 전환
 
 이 항목들을 한 번에 포함하면 웹 수집, Browser Automation, Queue, RAG 통합이라는 서로 다른 작업이 결합되어 테스트와 장애 범위가 크게 늘어난다.
@@ -1058,10 +1255,22 @@ Browser Rendering이 필요하면 PaddleOCR가 실행되는 API 프로세스 안
 | `backend/app/services/web_ocr_workflow.py` | 전체 중심 흐름 | 위에서 아래로 단계 확인 |
 | `ai/ocr/extractors/web.py` | HTML 구조와 Image OCR 결합 | Backend Import 없음 |
 | `backend/app/services/ocr_workflow.py` | 공통 Response Builder 확장 | File/Web 중복 최소화 |
-| `backend/app/services/admin_ocr.py` | Source Reference 분기 | URL은 Job 결과만 신뢰 |
+| `backend/app/services/admin_ocr.py` | Source Reference만 분기 | Gemini·Vector 저장 로직 불변 |
 | `backend/app/core/config.py` | 웹 수집 한도 | `.env.example` 동기화 |
 | `backend/requirements.txt` | HTTP Client 명시 | 전이 의존성 미사용 |
 | Backend/AI Tests | 보안·계약·회귀 | 외부 Network 없는 자동 Test |
+
+이번 작업의 변경 금지 확인 목록:
+
+```text
+backend/app/services/embedding_service.py
+backend/app/core/rag_embedding.py
+backend/app/services/document_ingestion_service.py
+backend/app/repositories/document_chunk.py
+backend/app/models/generated.py의 Vector 정의
+backend/migrations/versions/*의 Vector Schema
+ai/rag/embeddings/*
+```
 
 ---
 
@@ -1135,5 +1344,6 @@ Browser Rendering이 필요하면 PaddleOCR가 실행되는 API 프로세스 안
 
 1. 파일 OCR 계약과 동작을 깨지 않는다.
 2. URL 네트워크 수집은 AI Core가 아니라 Backend Adapter에서 안전하게 수행한다.
-3. Image OCR, Chunk, Polling, Embedding, Repository는 기존 구현을 재사용한다.
-4. Admin Vector 저장과 실제 상담 RAG 검색의 현재 분리를 구현 완료 보고에서 명확히 밝힌다.
+3. Image OCR, 문자 Chunk, Polling, Gemini Embedding, `document_chunks` Repository는 기존 구현을 재사용한다.
+4. 임베딩 모델 선정·RAG 연결·`chunk_embeddings`는 수정하지 않는다.
+5. Admin Vector 저장과 실제 상담 RAG 검색의 현재 분리를 구현 완료 보고에서 명확히 밝힌다.
