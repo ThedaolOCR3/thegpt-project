@@ -82,7 +82,7 @@ export const apiAdminAiService: AdminAiService = {
       body: JSON.stringify({
         prompt: request.prompt,
         modelId: request.modelId,
-        documentName: request.file?.name ?? null,
+        documentNames: request.files?.map((file) => file.name) ?? [],
       }),
       signal: request.signal,
     });

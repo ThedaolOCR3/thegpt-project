@@ -1,20 +1,19 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Loader2, Plus, Send, X } from 'lucide-react';
 import { ModelSelect } from './ModelSelect';
+import {
+  describeFileMerge,
+  mergeSelectedFiles,
+  MESSAGE_UPLOAD_ACCEPT,
+  MESSAGE_UPLOAD_EXTENSIONS,
+} from '../../utils/uploadFiles';
 
-// .dcm/.dicom(DICOM)은 확장자만으로도 의료 영상임을 신뢰성 있게 판별할 수 있어 업로드 자체를 막는다.
-// 반면 일반 png/jpg 등은 확장자만으로 "이게 MRI/CT/X-Ray 사진인지, 그냥 사진인지" 구분이 불가능하다
-// (X-Ray를 촬영해서 jpg로 내보내는 경우도 흔함). 그래서 이쪽은 업로드는 허용하되 경고만 보여준다.
-// 실제로 MRI/CT/X-Ray 여부를 검증하려면 백엔드에서 이미지 내용을 보는 분류 모델이 필요하다 — 지금은 mock 단계.
-const BLOCKED_EXTENSIONS = ['dcm', 'dicom'];
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff'];
+// 일반 이미지가 의료 영상인지 확장자만으로 판별할 수 없으므로 업로드는 허용하되
+// 현재 분석 범위를 안내한다. DICOM은 공통 허용 확장자에 없으므로 선택 단계에서 제외된다.
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
 
 function getExtension(file: File) {
   return file.name.split('.').pop()?.toLowerCase() ?? '';
-}
-
-function isBlockedFile(file: File) {
-  return BLOCKED_EXTENSIONS.includes(getExtension(file));
 }
 
 function isImageFile(file: File) {
@@ -31,31 +30,30 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [imageWarning, setImageWarning] = useState(false);
+  const [fileError, setFileError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFilesSelected(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
 
-    const accepted: File[] = [];
-    let hasSoftWarning = false;
-
-    for (const file of Array.from(selected)) {
-      if (isBlockedFile(file)) {
-        continue; // DICOM 등은 아예 첨부 목록에 넣지 않음
-      }
-      if (isImageFile(file)) {
-        hasSoftWarning = true;
-      }
-      accepted.push(file);
-    }
-
-    setImageWarning(hasSoftWarning);
-    if (accepted.length > 0) setFiles((current) => [...current, ...accepted]);
+    const merged = mergeSelectedFiles(
+      files,
+      Array.from(selected),
+      MESSAGE_UPLOAD_EXTENSIONS,
+    );
+    setFiles(merged.files);
+    setImageWarning(merged.files.some(isImageFile));
+    setFileError(describeFileMerge(merged, 'PDF, PNG, JPG, DOCX, PPTX, TXT, CSV'));
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function removeFile(index: number) {
-    setFiles((current) => current.filter((_, i) => i !== index));
+    setFiles((current) => {
+      const next = current.filter((_, i) => i !== index);
+      setImageWarning(next.some(isImageFile));
+      return next;
+    });
+    setFileError('');
   }
 
   function handleSubmit(event: FormEvent) {
@@ -68,6 +66,7 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
     setText('');
     setFiles([]);
     setImageWarning(false);
+    setFileError('');
   }
 
   return (
@@ -76,6 +75,12 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
         <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
           이미지는 첨부되지만, MRI·CT·X-Ray 등 의료 영상은 아직 분석할 수 없어 해당 부분은 제외하고
           답변이 생성돼요. 증상은 최대한 글로 함께 적어주시면 더 정확한 답변을 드릴 수 있어요.
+        </div>
+      )}
+
+      {fileError && (
+        <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300" role="alert">
+          {fileError}
         </div>
       )}
 
@@ -122,6 +127,8 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
             ref={fileInputRef}
             type="file"
             multiple
+            accept={MESSAGE_UPLOAD_ACCEPT}
+            disabled={disabled}
             className="hidden"
             onChange={(e) => handleFilesSelected(e.target.files)}
           />
@@ -129,8 +136,9 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
             type="button"
             title="파일 첨부"
             aria-label="파일 첨부"
+            disabled={disabled}
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-neutral-200"
           >
             <Plus size={18} />
           </button>

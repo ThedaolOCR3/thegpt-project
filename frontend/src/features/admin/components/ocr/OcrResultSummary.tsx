@@ -6,16 +6,10 @@ export function OcrResultSummary({
   status,
   progress,
   result,
-  saveStatus,
-  saveMessage,
-  onSave,
 }: {
   status: AsyncStatus;
   progress: OcrProgressUpdate;
   result: OcrDocumentResult | null;
-  saveStatus: AsyncStatus;
-  saveMessage: string;
-  onSave: () => void;
 }) {
   if (status === "loading")
     return (
@@ -96,26 +90,6 @@ export function OcrResultSummary({
           ))}
         </ul>
       </div>
-      <button
-        className="admin-primary-button"
-        type="button"
-        onClick={onSave}
-        disabled={saveStatus === "loading" || saveStatus === "success"}
-      >
-        {saveStatus === "loading"
-          ? "VectorDB 저장 중..."
-          : saveStatus === "success"
-            ? "VectorDB 저장 완료"
-            : "VectorDB에 저장"}
-      </button>
-      {saveMessage && (
-        <p
-          className={saveStatus === "error" ? "admin-error" : "admin-success"}
-          role="status"
-        >
-          {saveMessage}
-        </p>
-      )}
     </div>
   );
 }
