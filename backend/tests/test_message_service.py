@@ -92,6 +92,36 @@ class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
 
         service.conversations.set_category_if_unset.assert_called_once_with(conversation, "내과")
 
+    async def test_no_department_result_sets_category_to_etc(self) -> None:
+        # 분류기가 진료과를 특정 못해도(department=None) 카테고리를 비워두지 않고
+        # "기타"로 채운다 — 사이드바 "진료과별" 그룹에서 미분류로 남지 않게 한다.
+        service = _bare_service(MagicMock())
+        fake_result = message_module.ConsultationResult(answer="답변", department=None, confidence="낮음")
+        conversation = MagicMock()
+        with (
+            patch.object(message_module, "consult", return_value=fake_result),
+            patch.object(message_module.rag_search_service, "search", return_value=[]),
+        ):
+            await service._generate_reply("질문", conversation=conversation)
+
+        service.conversations.set_category_if_unset.assert_called_once_with(conversation, "기타")
+
+    async def test_fallback_result_does_not_touch_category(self) -> None:
+        # LLM 호출 자체가 실패한 경우(is_fallback=True)는 실제 상담이 아니므로 카테고리를
+        # "기타"로 확정해버리면 안 된다 — 다음 정상 응답이 영영 반영 안 될 수 있다.
+        service = _bare_service(MagicMock())
+        fake_result = message_module.ConsultationResult(
+            answer="대체 응답", department=None, confidence="낮음", is_fallback=True
+        )
+        conversation = MagicMock()
+        with (
+            patch.object(message_module, "consult", return_value=fake_result),
+            patch.object(message_module.rag_search_service, "search", return_value=[]),
+        ):
+            await service._generate_reply("질문", conversation=conversation)
+
+        service.conversations.set_category_if_unset.assert_not_called()
+
 
 class LogConsultationTest(unittest.TestCase):
     def test_success_writes_log_via_repository(self) -> None:

@@ -20,9 +20,16 @@ def _load_system_prompt() -> str:
 
 
 def _department_block(result: DepartmentResult | None) -> str | None:
+    """진료과 참고정보를 "[진료과 분류 결과]" 같은 대괄호 라벨 블록이 아니라 괄호로 감싼
+    지시문 형태로 만든다 — 소형 모델이 대괄호 라벨을 데이터 헤더로 착각해서 답변에
+    그대로 되풀이하는 문제가 있었다(라벨을 없애니 재현되지 않음)."""
     if result is None or result.department is None:
         return None
-    return f"[진료과 분류 결과]\n추천 진료과: {result.department}\n신뢰도: {result.confidence}"
+    return (
+        f"(참고용 진료과 정보 — {result.department} 관련 가능성, 신뢰도 {result.confidence}. "
+        "이 정보는 답변 마지막에 자연스러운 문장으로 한 번만 녹여서 언급하고, "
+        "이 괄호 안 문장 자체는 절대 답변에 옮기지 마세요.)"
+    )
 
 
 def build_messages(

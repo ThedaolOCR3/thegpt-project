@@ -110,8 +110,14 @@ class MessageService:
             llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
         )
 
-        if result.department:
-            self.conversations.set_category_if_unset(conversation, result.department)
+        # LLM 호출 자체가 실패한 경우(is_fallback)는 실제 상담이 이뤄진 게 아니므로
+        # 카테고리를 아예 건드리지 않는다 — 여기서 "기타"로 확정해버리면, 다음에
+        # 같은 대화에서 정상 응답이 나와도 "이미 값이 있음" 취급돼(set_category_if_unset)
+        # 영영 "기타"로 잘못 고정된다.
+        if not result.is_fallback:
+            # 분류기가 진료과를 특정하지 못해도(department=None) 카테고리를 비워두지
+            # 않고 "기타"로 채운다 — 사이드바 "진료과별" 그룹에서 미분류로 안 남게 한다.
+            self.conversations.set_category_if_unset(conversation, result.department or "기타")
 
         return result.answer, result
 

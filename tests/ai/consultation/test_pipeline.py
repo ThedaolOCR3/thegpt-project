@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import dataclass
 
-from ai.consultation.pipeline import DISCLAIMER, FALLBACK_ANSWER, consult
+from ai.consultation.pipeline import FALLBACK_ANSWER, consult
 
 
 @dataclass
@@ -30,12 +30,14 @@ class FakeLlmApplication:
 
 
 class ConsultTest(unittest.IsolatedAsyncioTestCase):
-    async def test_normal_answer_gets_disclaimer_exactly_once(self) -> None:
+    async def test_normal_answer_has_no_disclaimer_text(self) -> None:
+        # 면책 문구는 이제 프론트엔드가 채팅 UI 배너로 보여준다 — 매 답변 텍스트에
+        # 반복해서 붙이지 않는다(MessageBubble.tsx 참고).
         app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
         result = await consult(app, "콧물이 나요")
 
-        self.assertTrue(result.answer.startswith("충분한 휴식을 취해보세요."))
-        self.assertEqual(result.answer.count(DISCLAIMER.strip()), 1)
+        self.assertEqual(result.answer, "충분한 휴식을 취해보세요.")
+        self.assertNotIn("※", result.answer)
 
     async def test_llm_failure_returns_fallback_without_disclaimer(self) -> None:
         app = FakeLlmApplication(raise_error=True)

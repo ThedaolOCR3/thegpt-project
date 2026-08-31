@@ -18,6 +18,14 @@ class KeywordDepartmentClassifierTest(unittest.TestCase):
         self.assertIsNotNone(result.department)
         self.assertIn(result.confidence, ("중간", "높음"))
 
+    def test_matches_keyword_without_spacing(self) -> None:
+        # 실제 사용자 입력에서 자주 관찰된 실패 사례 — "배가 아"(키워드)에는 공백이
+        # 있는데 "배가아파서"(실제 문장)는 붙여 써서 매칭이 안 됐다.
+        result = self.classifier.classify(
+            "배가아파서 화장실을 갔다왔는데, 그래도 계속 배가아프네.. 이런경우에는 어떤 진료과로 진료롤 봐야해?"
+        )
+        self.assertEqual(result.department, "내과")
+
     def test_no_match_returns_low_confidence_and_no_department(self) -> None:
         result = self.classifier.classify("안녕하세요")
         self.assertIsNone(result.department)
