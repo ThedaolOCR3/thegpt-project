@@ -9,12 +9,24 @@ COPY backend/requirements.txt backend/requirements.txt
 COPY ai/ocr/requirements.txt ai/ocr/requirements.txt
 COPY ai/llm/requirements-api.txt ai/llm/requirements-api.txt
 
+# PaddleX가 opencv-contrib-python(GUI)을 전이 설치하므로 공유 cv2 파일을
+# 제거한 뒤 단일 headless wheel만 재설치한다.
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r backend/requirements.txt
+    && pip install --no-cache-dir -r backend/requirements.txt \
+    && pip uninstall -y \
+        opencv-python \
+        opencv-contrib-python \
+        opencv-python-headless \
+        opencv-contrib-python-headless \
+    && pip install --no-cache-dir --no-deps \
+        "$(grep '^opencv-contrib-python-headless==' ai/ocr/requirements.txt)" \
+    && python -c "import cv2; print(cv2.__version__)"
 
 COPY backend/ .
 COPY ai/__init__.py ai/__init__.py
+COPY ai/consultation/ ai/consultation/
 COPY ai/ocr/ ai/ocr/
 COPY ai/llm/ ai/llm/
+COPY ai/rag/ ai/rag/
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8080}\""]
