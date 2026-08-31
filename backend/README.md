@@ -25,7 +25,7 @@ Admin LLM, 일반 LLM API, 메인 상담 채팅은 `ai/llm`의 공통 Provider
 - `medgemma`, `medgemma-dataset`: 하나의 MedGemma 4B base를 공유하는 최종·데이터셋 LoRA
 - `qwen`, `llama`: Vast.ai의 Qwen3 4B·Llama 3.2 3B 의료 QLoRA
 
-Admin의 5개 모델은 모두 `remote-http` Provider를 통해 Vast.ai 2× V100 서버를 호출합니다. Gemini LLM은 사용하지 않습니다. `GEMINI_API_KEY`는 OCR Chunk Embedding에만 사용하며, Vast.ai API 키는 `LLM_REMOTE_API_KEY`로 분리합니다. 두 키 모두 Frontend나 로그에 노출하지 않습니다.
+Admin의 5개 모델은 모두 `remote-http` Provider를 통해 Vast.ai 2× V100 서버를 호출합니다. Gemini LLM은 사용하지 않습니다. OCR과 RAG Embedding은 Vast.ai의 Jina v4·Medical BGE-M3를 호출하며 `EMBEDDING_API_KEY`를 별도로 사용합니다. Backend Key는 Frontend나 로그에 노출하지 않습니다.
 
 Backend의 `app/services/llm_runtime.py`가 환경변수를 공통 Model/Provider Registry로
 조립합니다. `app/services/admin_llm.py`는 Admin Schema를, `app/services/llm_service.py`는
