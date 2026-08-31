@@ -2,7 +2,7 @@
 
 의료 진료 상담 AI 서비스를 목표로 개발 중인 **React + FastAPI 기반 웹 프로젝트**입니다.
 
-관리자 페이지에서 문서 OCR, 청크 설정, Gemini Embedding 기반 VectorDB 저장, LLM 응답 비교 기능을 제공합니다. PDF와 이미지뿐 아니라 DOCX/PPTX도 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
+관리자 페이지에서 문서 OCR, 청크 설정, Gemini Embedding 기반 VectorDB 저장, LLM 응답 비교 기능을 제공합니다. 메인 페이지에서는 공통 Model Registry의 LLM을 선택해 RAG·의료 안전 처리가 포함된 상담 채팅을 사용할 수 있습니다. PDF와 이미지뿐 아니라 DOCX/PPTX도 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
 
 ## 1. 주요 기술 스택
 
@@ -211,13 +211,13 @@ OCR 전체 구조와 Office 직접 추출 전환 내용은 다음 문서를 참�
 - `docs/3_flow/05_FLW_OCR_전체구조흐름_20260820.md`
 - `docs/2_reports/06_RPT_OCR_Office직접추출전환_20260820.md`
 
-현재 OCR은 실제 문서를 처리하며, 완료된 OCR Job의 기존 Chunk를 Gemini로 임베딩해 Neon `VECTOR(1024)`에 저장합니다. LLM 비교 영역은 Gemma, MedGemma 최종·데이터셋, Qwen, Llama의 실제 모델 5개를 사용하며 Gemini LLM은 사용하지 않습니다.
+현재 OCR은 실제 문서를 처리하며, 완료된 OCR Job의 기존 Chunk를 Gemini로 임베딩해 Neon `VECTOR(1024)`에 저장합니다. 어드민 LLM 비교와 메인 상담 채팅은 Gemma, MedGemma 최종·데이터셋, Qwen, Llama의 실제 모델 5개를 공유하며 Gemini LLM은 사용하지 않습니다.
 
 원본 파일 저장소는 이번 범위에 포함하지 않습니다. `admin_documents.original_file_url`의 `NOT NULL` 계약을 지키기 위해 실제 파일 URL과 구분되는 `ocr-job://...` 추적 참조값을 저장합니다.
 
 ## 7. LLM Provider 설정
 
-Admin LLM은 Vast.ai의 2× Tesla V100 서버에 올린 다음 5개 모델을 호출합니다.
+어드민과 메인 상담 LLM은 Vast.ai의 2× Tesla V100 서버에 올린 다음 5개 모델을 공통으로 호출합니다.
 
 - `gemma`: `ghddls7799/gemma-2-2b-med-ko-qlora`
 - `medgemma`: 최종 `gon-0130/medgemma-4b-lora-consultation-main-v2`
@@ -249,7 +249,11 @@ EMBEDDING_TIMEOUT_SECONDS=60
 
 `GEMINI_API_KEY`는 OCR Embedding에만, `LLM_REMOTE_API_KEY`는 Vast.ai LLM 인증에만 사용합니다. Backend 전용 키에는 `VITE_` 접두사를 붙이지 않고 Git에 커밋하지 않습니다.
 
-모델 목록과 가용성은 `GET /api/admin/llm/models`, 단일 실행은 `POST /api/admin/llm/run`에서 확인합니다.
+모델 목록과 가용성은 `GET /api/admin/llm/models`, 어드민 단일 실행은
+`POST /api/admin/llm/run`에서 확인합니다. 메인 페이지는 `GET /api/llm/models`로
+Catalog를 읽고 `POST /api/conversations/{conversation_id}/messages`로 선택한
+`model_id`를 전달합니다. 자세한 연동 방법은
+`docs/3_flow/12_FLW_MainLLM_메인페이지연동가이드_20260831.md`를 참고합니다.
 
 ## 8. 자주 발생하는 문제
 

@@ -16,7 +16,7 @@ from ai.llm import (
     ProviderGenerateRequest,
     UnknownLlmModelError,
 )
-from app.services.admin_llm import llm_application
+from app.services.llm_runtime import llm_application
 
 logger = get_logger("services.llm")
 
