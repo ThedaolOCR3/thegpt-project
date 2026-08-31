@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Loader2, Plus, Send, X } from 'lucide-react';
 import { ModelSelect } from './ModelSelect';
 
@@ -27,11 +27,26 @@ type MessageInputProps = {
   placeholder?: string;
 };
 
+// 줄바꿈 없이 긴 텍스트를 쳐도(가로로만 길어짐) 한 줄 높이에 그대로 갇혀서 textarea
+// 자체 스크롤이 생기는 문제가 있었다 — rows={1}만으로는 내용에 따라 높이가 안
+// 늘어난다. 입력할 때마다 실제 콘텐츠 높이(scrollHeight)에 맞춰 직접 높이를
+// 갱신해야 진짜 "자라는 입력창"이 된다. MAX_TEXTAREA_HEIGHT_PX에 도달하면 CSS
+// max-height가 더 이상 못 늘어나게 막고, 그 다음부터는 textarea 내부 스크롤로 넘어간다.
+const MAX_TEXTAREA_HEIGHT_PX = 160;
+
 export function MessageInput({ onSend, disabled, placeholder = '메시지를 입력하세요' }: MessageInputProps) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [imageWarning, setImageWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+  }, [text]);
 
   function handleFilesSelected(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
@@ -104,6 +119,7 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
       {/* Claude 검색창 참고 레이아웃: 위쪽은 텍스트 입력 전용 줄, 아래쪽이 도구 모음 줄 */}
       <div className="flex flex-col gap-2.5 rounded-3xl border border-neutral-200 bg-white px-4 py-3 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -114,7 +130,8 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
           }}
           placeholder={disabled ? '전송 중이에요...' : placeholder}
           rows={1}
-          className="max-h-32 w-full resize-none bg-transparent text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          style={{ maxHeight: MAX_TEXTAREA_HEIGHT_PX }}
+          className="thin-scrollbar w-full resize-none overflow-y-auto bg-transparent text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
 
         <div className="flex items-center justify-between">

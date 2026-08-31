@@ -1,7 +1,12 @@
 import { useState } from 'react';
-import { Check, Copy, FileText } from 'lucide-react';
+import { AlertTriangle, Check, Copy, FileText } from 'lucide-react';
 import type { Message, MessageAttachment } from '../../api/types';
 import { formatMessageTime } from '../../utils/formatDate';
+
+// 예전엔 이 문구를 답변 생성 때마다 백엔드가 텍스트 끝에 붙였다 — 매 응답마다 같은
+// 문장이 반복되는 게 번잡해서, 이제 채팅 UI에서 답변과 분리된 경고 배너로 보여준다
+// (실제 답변 내용에는 더 이상 포함되지 않음 — ai/consultation/pipeline.py 참고).
+const MEDICAL_DISCLAIMER = '참고용으로만 사용하시기 바랍니다. 의학적인 자문이나 진단이 필요한 경우 전문가에게 문의하세요.';
 
 type MessageBubbleProps = {
   message: Message;
@@ -25,10 +30,16 @@ export function MessageBubble({ message, onPreviewAttachment }: MessageBubblePro
 
   return (
     <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+      {!isUser && message.content && (
+        <div className="mb-1.5 flex max-w-[70%] items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>{MEDICAL_DISCLAIMER}</span>
+        </div>
+      )}
       <div className="max-w-[70%]">
         {message.content && (
           <div
-            className={`whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ${
+            className={`whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm ${
               isUser
                 ? 'bg-blue-100 text-neutral-900 dark:bg-blue-900 dark:text-blue-50'
                 : 'border border-neutral-200 bg-white text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
