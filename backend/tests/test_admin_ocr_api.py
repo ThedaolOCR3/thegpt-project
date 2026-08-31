@@ -13,21 +13,9 @@ class AdminOcrApiTest(unittest.TestCase):
         cls.client = TestClient(app)
 
     def test_analyze_keeps_multipart_aliases_and_response_contract(self) -> None:
-        admin_result = OcrDocumentResponse(
-            documentName="sample.png",
-            pageCount=1,
-            characterCount=4,
-            estimatedChunks=1,
-            confidence=95.0,
-            extractedText="본문 텍스트",
-            chunks=["본문 텍스트"],
-            readiness="ready",
-            notes=["문서 유형: 이미지"],
-        )
-
         with patch(
             "app.api.admin.router.process_document",
-            new=AsyncMock(return_value=admin_result),
+            new=AsyncMock(return_value=_admin_result()),
         ) as processor:
             response = self.client.post(
                 "/api/admin/ocr/analyze",
@@ -41,6 +29,44 @@ class AdminOcrApiTest(unittest.TestCase):
         processor.assert_awaited_once()
         self.assertEqual(processor.await_args.kwargs["chunk_size"], 300)
         self.assertEqual(processor.await_args.kwargs["overlap"], 40)
+
+    def test_analyze_accepts_50_character_chunk_size(self) -> None:
+        with patch(
+            "app.api.admin.router.process_document",
+            new=AsyncMock(return_value=_admin_result()),
+        ) as processor:
+            response = self.client.post(
+                "/api/admin/ocr/analyze",
+                files={"file": ("sample.png", b"image", "image/png")},
+                data={"chunkSize": "50", "overlap": "5"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(processor.await_args.kwargs["chunk_size"], 50)
+        self.assertEqual(processor.await_args.kwargs["overlap"], 5)
+
+    def test_analyze_rejects_chunk_size_below_50(self) -> None:
+        response = self.client.post(
+            "/api/admin/ocr/analyze",
+            files={"file": ("sample.png", b"image", "image/png")},
+            data={"chunkSize": "49", "overlap": "0"},
+        )
+
+        self.assertEqual(response.status_code, 422)
+
+
+def _admin_result() -> OcrDocumentResponse:
+    return OcrDocumentResponse(
+        documentName="sample.png",
+        pageCount=1,
+        characterCount=4,
+        estimatedChunks=1,
+        confidence=95.0,
+        extractedText="본문 텍스트",
+        chunks=["본문 텍스트"],
+        readiness="ready",
+        notes=["문서 유형: 이미지"],
+    )
 
 
 if __name__ == "__main__":
