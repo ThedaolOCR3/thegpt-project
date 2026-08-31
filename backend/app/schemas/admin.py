@@ -34,6 +34,20 @@ class OcrDocumentResponse(AdminSchema):
     chunks: list[str]
     readiness: Literal["review", "ready"]
     notes: list[str]
+    source_type: Literal["file", "url"] = Field(default="file", alias="sourceType")
+    source_url: str | None = Field(default=None, alias="sourceUrl", max_length=500)
+
+
+class OcrUrlJobRequest(AdminSchema):
+    url: str = Field(min_length=1, max_length=500)
+    chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
+    overlap: int = Field(default=50, ge=0)
+
+    @model_validator(mode="after")
+    def validate_chunk_options(self) -> "OcrUrlJobRequest":
+        if self.overlap >= self.chunk_size:
+            raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
+        return self
 
 
 class OcrJobCreatedResponse(AdminSchema):

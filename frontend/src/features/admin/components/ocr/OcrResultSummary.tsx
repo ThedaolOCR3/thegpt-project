@@ -52,13 +52,18 @@ export function OcrResultSummary({
       </div>
     );
   const extension = result.documentName.split(".").pop()?.toLowerCase();
-  const unitLabel = extension === "pptx" ? "슬라이드" : "페이지";
+  const unitLabel = result.sourceType === "url" ? "출처" : extension === "pptx" ? "슬라이드" : "페이지";
   return (
     <div className="ocr-result">
       <div className="result-title-row">
         <div>
           <span>분석 완료</span>
           <h3>{result.documentName}</h3>
+          {result.sourceType === "url" && result.sourceUrl && (
+            <a className="result-source-link" href={result.sourceUrl} target="_blank" rel="noopener noreferrer">
+              원문 웹페이지 열기
+            </a>
+          )}
         </div>
         <span className={`readiness-badge ${result.readiness}`}>
           <Check size={13} />{" "}
@@ -68,7 +73,7 @@ export function OcrResultSummary({
       <dl className="metric-grid">
         <div>
           <dt>{unitLabel}</dt>
-          <dd>{result.pageCount ?? "계산 안 됨"}</dd>
+          <dd>{result.sourceType === "url" ? "WEB" : result.pageCount ?? "계산 안 됨"}</dd>
         </div>
         <div>
           <dt>추출 문자</dt>
@@ -134,8 +139,8 @@ function TextPreview({
       <h4>{title}</h4>
       {chunked ? (
         <div className="chunk-list">
-          {texts.map((text) => (
-            <p key={text}>{text}</p>
+          {texts.map((text, index) => (
+            <p key={`${index}-${text.slice(0, 24)}`}>{text}</p>
           ))}
         </div>
       ) : (

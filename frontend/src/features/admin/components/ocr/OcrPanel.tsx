@@ -4,6 +4,8 @@ import { OcrChunkSettings } from "./OcrChunkSettings";
 import { OcrDropzone } from "./OcrDropzone";
 import { OcrFilePreview } from "./OcrFilePreview";
 import { OcrResultSummary } from "./OcrResultSummary";
+import { OcrSourceSelector } from "./OcrSourceSelector";
+import { OcrWebUrlInput } from "./OcrWebUrlInput";
 import { SelectedFile } from "./SelectedFile";
 
 export function OcrPanel() {
@@ -23,20 +25,35 @@ export function OcrPanel() {
       </div>
       <div className="ocr-layout">
         <div className="admin-card ocr-input-card">
-          <OcrDropzone
+          <OcrSourceSelector
+            value={ocr.sourceType}
             disabled={ocr.status === "loading"}
-            onSelect={ocr.selectFile}
+            onChange={ocr.setSourceType}
           />
-          {ocr.file ? (
-            <SelectedFile
-              file={ocr.file}
-              disabled={ocr.status === "loading"}
-              onRemove={ocr.removeFile}
-            />
+          {ocr.sourceType === "file" ? (
+            <>
+              <OcrDropzone
+                disabled={ocr.status === "loading"}
+                onSelect={ocr.selectFile}
+              />
+              {ocr.file ? (
+                <SelectedFile
+                  file={ocr.file}
+                  disabled={ocr.status === "loading"}
+                  onRemove={ocr.removeFile}
+                />
+              ) : (
+                <div className="admin-empty-inline">
+                  아직 선택한 문서가 없습니다.
+                </div>
+              )}
+            </>
           ) : (
-            <div className="admin-empty-inline">
-              아직 선택한 문서가 없습니다.
-            </div>
+            <OcrWebUrlInput
+              value={ocr.url}
+              disabled={ocr.status === "loading"}
+              onChange={ocr.setUrl}
+            />
           )}
           <OcrChunkSettings
             chunkSize={ocr.chunkSize}
@@ -46,7 +63,7 @@ export function OcrPanel() {
             onChunkSizeChange={ocr.setChunkSize}
             onOverlapPercentChange={ocr.setOverlapPercent}
           />
-          {ocr.file && <OcrFilePreview file={ocr.file} />}
+          {ocr.sourceType === "file" && ocr.file && <OcrFilePreview file={ocr.file} />}
           {ocr.error && (
             <p className="admin-error" role="alert">
               {ocr.error}
@@ -63,7 +80,7 @@ export function OcrPanel() {
                 <RefreshCw className="spin" size={17} /> 분석 중...
               </>
             ) : (
-              "문서 분석 테스트"
+              ocr.sourceType === "file" ? "문서 분석 테스트" : "웹페이지 분석 테스트"
             )}
           </button>
         </div>

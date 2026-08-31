@@ -13,9 +13,19 @@ import type { OcrDocumentResult, OcrProgressUpdate } from '../types/ocr';
 const messageOf = (error: unknown) => error instanceof Error ? error.message : '문서 분석 테스트에 실패했습니다.';
 const INITIAL_PROGRESS: OcrProgressUpdate = { stage: 'idle', progress: 0, message: '분석 대기 중' };
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
+const isHttpUrl = (value: string) => {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 export function useOcrTest() {
+  const [sourceType, setSourceTypeState] = useState<'file' | 'url'>('file');
   const [file, setFile] = useState<File | null>(null);
+  const [url, setUrlState] = useState('');
   const [status, setStatus] = useState<AsyncStatus>('idle');
   const [result, setResult] = useState<OcrDocumentResult | null>(null);
   const [error, setError] = useState('');
@@ -41,17 +51,39 @@ export function useOcrTest() {
     setStatus('idle'); setSaveStatus('idle'); setProgress(INITIAL_PROGRESS);
   }
 
+  function resetAnalysis() {
+    analyzeController.current?.abort();
+    setResult(null); setError(''); setSaveMessage('');
+    setStatus('idle'); setSaveStatus('idle'); setProgress(INITIAL_PROGRESS);
+  }
+
+  function setSourceType(nextSourceType: 'file' | 'url') {
+    if (nextSourceType === sourceType) return;
+    resetAnalysis();
+    setSourceTypeState(nextSourceType);
+  }
+
+  function setUrl(nextUrl: string) {
+    resetAnalysis();
+    setUrlState(nextUrl);
+  }
+
   async function analyze() {
-    if (!file || status === 'loading') return;
+    const trimmedUrl = url.trim();
+    if (status === 'loading' || (sourceType === 'file' ? !file : !trimmedUrl)) return;
     const controller = new AbortController();
     analyzeController.current = controller;
     setStatus('loading'); setResult(null); setError(''); setSaveMessage('');
-    setProgress({ stage: 'uploading', progress: 0, message: '문서를 업로드하고 있습니다.' });
+    setProgress({
+      stage: sourceType === 'file' ? 'uploading' : 'validating_url',
+      progress: 0,
+      message: sourceType === 'file' ? '문서를 업로드하고 있습니다.' : '웹페이지 주소를 확인하고 있습니다.',
+    });
     try {
-      setResult(await adminAiService.analyzeDocument(
-        { file, chunkSize, overlap, signal: controller.signal },
-        setProgress,
-      ));
+      const request = sourceType === 'file'
+        ? { sourceType, file: file!, chunkSize, overlap, signal: controller.signal } as const
+        : { sourceType, url: trimmedUrl, chunkSize, overlap, signal: controller.signal } as const;
+      setResult(await adminAiService.analyzeDocument(request, setProgress));
       setProgress({ stage: 'completed', progress: 100, message: 'OCR 문서 분석이 완료되었습니다.' });
       setStatus('success');
     } catch (unknownError) {
@@ -74,7 +106,9 @@ export function useOcrTest() {
   }
 
   return {
+    sourceType,
     file,
+    url,
     status,
     result,
     error,
@@ -84,9 +118,11 @@ export function useOcrTest() {
     chunkSize,
     overlap,
     overlapPercent,
-    canAnalyze: Boolean(file) && status !== 'loading',
+    canAnalyze: (sourceType === 'file' ? Boolean(file) : isHttpUrl(url)) && status !== 'loading',
+    setSourceType,
     selectFile,
     removeFile,
+    setUrl,
     setChunkSize,
     setOverlapPercent,
     analyze,
