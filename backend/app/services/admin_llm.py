@@ -57,7 +57,7 @@ async def run_model(request: LlmRunRequest) -> LlmRunResponse:
         request.model_id,
         ProviderGenerateRequest.from_prompt(
             request.prompt.strip(),
-            document_name=request.document_name,
+            document_name=request.joined_document_names(),
         ),
     )
     logger.info(
@@ -97,7 +97,7 @@ async def compare_models(request: LlmCompareRequest) -> list[LlmModelResponse]:
                 model_id,
                 ProviderGenerateRequest.from_prompt(
                     request.prompt.strip(),
-                    document_name=request.document_name,
+                    document_name=request.joined_document_names(),
                 ),
             )
             for model_id in request.model_ids

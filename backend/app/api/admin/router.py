@@ -58,7 +58,7 @@ async def analyze_ocr(
     ],
     chunk_size: Annotated[
         int,
-        Form(alias="chunkSize", ge=100, le=4096),
+        Form(alias="chunkSize", ge=50, le=4096),
     ] = 512,
     overlap: Annotated[int, Form(ge=0)] = 50,
 ) -> OcrDocumentResponse:
@@ -103,7 +103,7 @@ async def create_ocr_job(
     ],
     chunk_size: Annotated[
         int,
-        Form(alias="chunkSize", ge=100, le=4096),
+        Form(alias="chunkSize", ge=50, le=4096),
     ] = 512,
     overlap: Annotated[int, Form(ge=0)] = 50,
 ) -> OcrJobCreatedResponse:
@@ -194,4 +194,3 @@ async def get_retrieval_evaluation() -> RetrievalEvalResponse:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except RetrievalEvalUnavailableError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-

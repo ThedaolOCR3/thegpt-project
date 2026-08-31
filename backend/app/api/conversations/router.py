@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.auth.dependencies import get_current_user
@@ -68,4 +68,24 @@ async def send_message(
 ) -> MessageResponse:
     return await MessageService(db).send_message(
         conversation_id, current_user, payload.content, payload.attachments, payload.model_id
+    )
+
+
+@router.post("/{conversation_id}/messages/upload", response_model=MessageResponse, status_code=201)
+async def send_message_with_uploads(
+    conversation_id: str,
+    current_user: Annotated[Users, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    files: Annotated[list[UploadFile], File(...)],
+    content: Annotated[str, Form(max_length=8_000)] = "",
+    model_id: Annotated[str | None, Form(alias="modelId", max_length=100)] = None,
+) -> MessageResponse:
+    """복수 원본 파일을 검증한 뒤 기존 메시지 저장·응답 생성 흐름을 실행합니다."""
+
+    return await MessageService(db).send_message_with_uploads(
+        conversation_id,
+        current_user,
+        content,
+        model_id,
+        files,
     )

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     guest_token_expire_minutes: int = 60 * 24 * 30  # 30일
     guest_message_limit: int = 30
     guest_attachment_limit: int = 5
+    # 메인·채팅 multipart 첨부 제한. 원본은 요청 동안 검증한 뒤 보관하지 않는다.
+    message_max_files_per_request: int = 5
+    message_max_file_size_mb: int = 20
 
     # Hybrid OCR(csj-ocr 브랜치에서 이식) 설정 — 이미지/PDF/Office 문서 처리 한도.
     ocr_max_file_size_mb: int = 20

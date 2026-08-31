@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY backend/ .
 COPY ai/__init__.py ai/__init__.py
 COPY ai/consultation/ ai/consultation/
+COPY ai/evaluation/ ai/evaluation/
 COPY ai/ocr/ ai/ocr/
 COPY ai/llm/ ai/llm/
 COPY ai/rag/ ai/rag/

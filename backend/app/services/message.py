@@ -1,7 +1,7 @@
 import asyncio
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ai.consultation import ConsultationResult, consult
@@ -16,6 +16,7 @@ from app.schemas.message import MessageAttachmentInput, MessageAttachmentRespons
 from app.services import rag_search_service
 from app.services.conversation import ConversationService
 from app.services.llm_runtime import llm_application
+from app.services.message_upload import validate_message_uploads
 
 logger = get_logger("services.message")
 
@@ -52,6 +53,25 @@ class MessageService:
         conversation = self.conversations_service.get_owned(conversation_id, user_id)
         messages = self.messages.list_by_conversation(conversation.id)
         return [to_message_response(m) for m in messages]
+
+    async def send_message_with_uploads(
+        self,
+        conversation_id: str,
+        current_user: Users,
+        content: str,
+        model_id: str | None,
+        files: list[UploadFile],
+    ) -> MessageResponse:
+        """업로드 원본을 검증하고 안전한 메타데이터만 기존 메시지 흐름에 전달합니다."""
+
+        attachments = await validate_message_uploads(files)
+        return await self.send_message(
+            conversation_id,
+            current_user,
+            content,
+            attachments,
+            model_id,
+        )
 
     async def send_message(
         self,
