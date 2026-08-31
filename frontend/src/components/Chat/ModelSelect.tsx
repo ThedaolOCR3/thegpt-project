@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useModelSelect } from './ModelSelectContext';
-import { MODEL_OPTIONS, getModelOption } from './modelOptions';
+import { getModelOption } from './modelOptions';
 
 const TIER_LABEL: Record<'recommended' | 'beta', string> = {
   recommended: '추천',
@@ -10,9 +10,9 @@ const TIER_LABEL: Record<'recommended' | 'beta', string> = {
 
 /** 입력창 하단 우측에 두는 LLM 모델 선택 드롭다운. */
 export function ModelSelect() {
-  const { modelId, setModelId } = useModelSelect();
+  const { modelId, modelOptions, setModelId } = useModelSelect();
   const [open, setOpen] = useState(false);
-  const current = getModelOption(modelId);
+  const current = getModelOption(modelId, modelOptions);
 
   return (
     <div className="relative">
@@ -32,7 +32,7 @@ export function ModelSelect() {
           {/* 바깥 클릭 시 닫기용 오버레이 */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute bottom-full right-0 z-20 mb-1.5 w-52 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
-            {MODEL_OPTIONS.map((option) => (
+            {modelOptions.map((option) => (
               <button
                 key={option.id}
                 type="button"
@@ -46,17 +46,7 @@ export function ModelSelect() {
                     : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700'
                 }`}
               >
-                <span className="flex items-center gap-1">
-                  {option.label}
-                  {option.disconnected && (
-                    <span
-                      title="아직 실제 모델에 연결되지 않았어요. 선택해도 기본 모델로 응답해요."
-                      className="text-[10px] text-neutral-400 dark:text-neutral-500"
-                    >
-                      (미연결)
-                    </span>
-                  )}
-                </span>
+                <span>{option.label}</span>
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                     option.tier === 'recommended'

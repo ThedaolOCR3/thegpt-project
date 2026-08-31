@@ -10,10 +10,11 @@ pwdlib[argon2]>=0.3,<1.0
 PyJWT>=2.10,<3.0
 boto3>=1.40,<2.0
 python-multipart>=0.0.20,<1.0
+google-genai>=1.0,<3.0  # OCR Chunk Gemini Embedding 전용
 
 # Image/PDF/DOCX/PPTX 공통 OCR 의존성의 단일 기준 파일입니다.
 # PaddleOCR가 무거우므로 리소스 제약 배포 환경에서는 별도 Worker도 고려합니다.
 -r ../ai/ocr/requirements.txt
 
-# Ollama/Gemini 공통 LLM Provider 의존성입니다. MedGemma GPU Runtime은 선택 설치합니다.
+# Vast.ai 원격 LLM Provider의 HTTP 의존성입니다.
 -r ../ai/llm/requirements-api.txt

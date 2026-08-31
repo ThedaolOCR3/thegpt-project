@@ -78,8 +78,8 @@ export function LlmResultGrid(props: Props) {
       >
         <div className="llm-group-heading">
           <span>REAL PROVIDERS</span>
-          <h3 id="main-model-comparison-title">실제 LLM 비교</h3>
-          <p>로컬 Ollama Gemma 3와 Gemini API의 실제 응답을 비교합니다.</p>
+          <h3 id="main-model-comparison-title">Gemma 계열</h3>
+          <p>한국어 의료 Gemma와 MedGemma 최종·데이터셋 LoRA를 비교합니다.</p>
         </div>
         <ModelGroup
           {...props}
@@ -93,11 +93,9 @@ export function LlmResultGrid(props: Props) {
         aria-labelledby="other-model-comparison-title"
       >
         <div className="llm-group-heading">
-          <span>MODEL FAMILY</span>
-          <h3 id="other-model-comparison-title">다른 LLM 비교</h3>
-          <p>
-            실제 Provider로 쉽게 교체할 수 있는 네 개의 명시적 Mock 모델입니다.
-          </p>
+          <span>VAST.AI · 2× V100</span>
+          <h3 id="other-model-comparison-title">원격 의료 LLM</h3>
+          <p>Vast.ai에서 실행하는 Qwen과 Llama QLoRA 모델입니다.</p>
         </div>
         <ModelGroup
           {...props}

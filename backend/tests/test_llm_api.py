@@ -5,17 +5,15 @@ from ai.llm import (
     LlmApplicationService,
     LlmModelDefinition,
     LlmProviderUnavailableError,
-    MEDGEMMA_MODEL_DEFINITIONS,
-    ModelRegistry,
     ProviderAvailability,
     ProviderGenerateResult,
     ProviderRegistry,
 )
-from app.services import llm_service
+from app.services import llm_runtime, llm_service
 
 
-class FakeMedGemmaProvider:
-    key = "medgemma"
+class FakeRemoteProvider:
+    key = "remote-http"
     is_mock = False
 
     def __init__(self, *, failing_model_id: str | None = None) -> None:
@@ -41,9 +39,9 @@ class LlmApiTest(unittest.TestCase):
         from app.api.auth.dependencies import get_current_user, require_admin
         from app.api.llm.router import router as llm_router
 
-        self.provider = FakeMedGemmaProvider()
+        self.provider = FakeRemoteProvider()
         self.application = LlmApplicationService(
-            ModelRegistry(MEDGEMMA_MODEL_DEFINITIONS),
+            llm_runtime.create_model_registry(),
             ProviderRegistry((self.provider,)),
         )
         app = FastAPI()
@@ -53,12 +51,13 @@ class LlmApiTest(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_models_keep_existing_snake_case_contract(self) -> None:
-        response = self.client.get("/api/llm/models")
+        with patch.object(llm_service, "llm_application", self.application):
+            response = self.client.get("/api/llm/models")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             [item["model_id"] for item in response.json()],
-            ["medgemma-screening", "medgemma-main"],
+            ["gemma", "medgemma", "medgemma-dataset", "qwen", "llama"],
         )
 
     def test_generate_keeps_message_roles_and_response_contract(self) -> None:
@@ -66,7 +65,7 @@ class LlmApiTest(unittest.TestCase):
             response = self.client.post(
                 "/api/llm/generate",
                 json={
-                    "model_id": "medgemma-main",
+                    "model_id": "medgemma",
                     "messages": [
                         {"role": "user", "content": "첫 질문"},
                         {"role": "assistant", "content": "첫 답변"},
@@ -78,7 +77,7 @@ class LlmApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            {"model_id": "medgemma-main", "content": "medgemma-main 응답"},
+            {"model_id": "medgemma", "content": "medgemma 응답"},
         )
         self.assertEqual(
             [message.role for message in self.provider.requests[0].messages],
@@ -102,7 +101,7 @@ class LlmApiTest(unittest.TestCase):
             response = self.client.post(
                 "/api/llm/generate",
                 json={
-                    "model_id": "medgemma-main",
+                    "model_id": "medgemma",
                     "messages": [{"role": "tool", "content": "잘못된 Role"}],
                 },
             )
@@ -111,23 +110,23 @@ class LlmApiTest(unittest.TestCase):
         self.assertEqual(self.provider.requests, [])
 
     def test_compare_isolates_one_model_failure(self) -> None:
-        provider = FakeMedGemmaProvider(failing_model_id="medgemma-main")
+        provider = FakeRemoteProvider(failing_model_id="qwen")
         application = LlmApplicationService(
-            ModelRegistry(MEDGEMMA_MODEL_DEFINITIONS),
+            llm_runtime.create_model_registry(),
             ProviderRegistry((provider,)),
         )
         with patch.object(llm_service, "llm_application", application):
             response = self.client.post(
                 "/api/llm/compare",
                 json={
-                    "model_ids": ["medgemma-screening", "medgemma-main"],
+                    "model_ids": ["gemma", "qwen"],
                     "messages": [{"role": "user", "content": "질문"}],
                 },
             )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload[0]["content"], "medgemma-screening 응답")
+        self.assertEqual(payload[0]["content"], "gemma 응답")
         self.assertIsNone(payload[0]["error"])
         self.assertIsNone(payload[1]["content"])
         self.assertIn("실행 실패", payload[1]["error"])

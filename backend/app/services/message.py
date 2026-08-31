@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ai.consultation import ConsultationResult, build_llm_application, consult
+from ai.consultation import ConsultationResult, consult
 from ai.rag import RetrievedChunk
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -14,21 +14,11 @@ from app.repositories.message import MessageRepository
 from app.schemas.message import MessageAttachmentInput, MessageAttachmentResponse, MessageResponse
 from app.services import rag_search_service
 from app.services.conversation import ConversationService
+from app.services.llm_runtime import llm_application
 
 logger = get_logger("services.message")
 
-# 프로세스당 하나만 유지 — 각 Provider는 내부적으로 ai.llm.engine의 base model별
-# 전역 싱글턴을 재사용하므로, 여기서 매 요청마다 새로 만들어도 모델을 중복
-# 로드하지는 않지만 그래도 가벼운 객체 하나로 고정해두는 게 낫다.
-_llm_application = build_llm_application(
-    hf_token=settings.hf_token,
-    medgemma_enabled=settings.llm_medgemma_enabled,
-    medgemma_max_concurrency=settings.llm_medgemma_max_concurrency,
-    qwen_enabled=settings.llm_qwen_enabled,
-    qwen_max_concurrency=settings.llm_qwen_max_concurrency,
-    llama_enabled=settings.llm_llama_enabled,
-    llama_max_concurrency=settings.llm_llama_max_concurrency,
-)
+# 채팅·일반 LLM API·Admin 비교 API가 공통 Runtime을 공유한다.
 
 
 def to_message_response(message: Messages) -> MessageResponse:
@@ -106,7 +96,7 @@ class MessageService:
 
         consult_kwargs = {"model_id": model_id} if model_id else {}
         result: ConsultationResult = await consult(
-            _llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
+            llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
         )
 
         if result.department:

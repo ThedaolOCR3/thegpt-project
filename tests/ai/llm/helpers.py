@@ -11,7 +11,7 @@ from ai.llm import (
 
 def model_definition(
     *,
-    model_id: str = "ollama-gemma3",
+    model_id: str = "gemma",
     provider_key: str = "ollama",
     provider_model: str = "gemma3:1b",
     group: str = "main",

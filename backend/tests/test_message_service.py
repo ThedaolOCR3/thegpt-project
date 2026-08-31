@@ -60,9 +60,9 @@ class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
             patch.object(message_module, "consult", return_value=fake_result) as mock_consult,
             patch.object(message_module.rag_search_service, "search", return_value=[]),
         ):
-            await service._generate_reply("질문", conversation=MagicMock(), model_id="qwen-medical")
+            await service._generate_reply("질문", conversation=MagicMock(), model_id="qwen")
 
-        self.assertEqual(mock_consult.call_args.kwargs.get("model_id"), "qwen-medical")
+        self.assertEqual(mock_consult.call_args.kwargs.get("model_id"), "qwen")
 
     async def test_no_model_id_does_not_pass_model_id_kwarg(self) -> None:
         # model_id를 안 보내면 consult()의 기본값(DEFAULT_MODEL_ID)이 그대로 적용돼야

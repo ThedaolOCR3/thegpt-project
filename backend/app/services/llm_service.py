@@ -2,7 +2,6 @@ import asyncio
 
 from fastapi import HTTPException, status
 
-from app.core.config import settings
 from app.core.logging import get_logger
 from app.schemas.llm import (
     LlmCompareResult,
@@ -11,17 +10,13 @@ from app.schemas.llm import (
     LlmModelResponse,
 )
 from ai.llm import (
-    LlmApplicationService,
     LlmMessage,
     LlmProviderUnavailableError,
     LlmServiceError,
-    MEDGEMMA_MODEL_DEFINITIONS,
-    ModelRegistry,
     ProviderGenerateRequest,
-    ProviderRegistry,
     UnknownLlmModelError,
 )
-from ai.llm.providers.medgemma import MedGemmaLlmProvider
+from app.services.llm_runtime import llm_application
 
 logger = get_logger("services.llm")
 
@@ -33,23 +28,8 @@ def list_available_models() -> list[LlmModelResponse]:
             label=definition.label,
             description=definition.description,
         )
-        for definition in MEDGEMMA_MODEL_DEFINITIONS
+        for definition in llm_application.model_registry.list()
     ]
-
-
-def create_llm_application() -> LlmApplicationService:
-    provider = MedGemmaLlmProvider(
-        enabled=settings.llm_medgemma_enabled,
-        hf_token=settings.hf_token,
-        max_concurrency=settings.llm_medgemma_max_concurrency,
-    )
-    return LlmApplicationService(
-        ModelRegistry(MEDGEMMA_MODEL_DEFINITIONS),
-        ProviderRegistry((provider,)),
-    )
-
-
-llm_application = create_llm_application()
 
 
 def _to_core_request(messages: list[LlmMessageInput]) -> ProviderGenerateRequest:
@@ -77,9 +57,7 @@ async def generate(model_id: str, messages: list[LlmMessageInput]) -> LlmGenerat
 
 
 async def compare(model_ids: list[str], messages: list[LlmMessageInput]) -> list[LlmCompareResult]:
-    """여러 어댑터에 같은 프롬프트를 넣어 나란히 비교한다 — 관리자 페이지 LLM 탭용.
-    하나가 실패해도(예: 어댑터 repo 접근 불가) 나머지는 계속 진행하고, 그 모델의
-    결과에만 error를 채워 반환한다."""
+    """여러 Vast.ai 모델을 비교하며 한 모델의 실패를 다른 결과와 격리합니다."""
     request = _to_core_request(messages)
     executions = await asyncio.gather(
         *(llm_application.run(model_id, request) for model_id in model_ids),
