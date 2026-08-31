@@ -5,12 +5,18 @@ import {
   type OcrOverlapPercent,
 } from "../../constants/adminOptions";
 
-const CHUNK_LABELS: Record<OcrChunkSize, string> = {
+const CHUNK_LABELS: Partial<Record<OcrChunkSize, string>> = {
+  50: "50자 · 최소",
+  100: "100자 · 짧은 문맥",
   256: "256자 · 세밀",
   512: "512자 · 기본",
   1024: "1,024자 · 긴 문맥",
   2048: "2,048자 · 매우 긴 문맥",
 };
+
+function chunkLabel(value: OcrChunkSize) {
+  return CHUNK_LABELS[value] ?? `${value.toLocaleString()}자`;
+}
 
 const OVERLAP_LABELS: Record<OcrOverlapPercent, string> = {
   0: "없음",
@@ -52,7 +58,7 @@ export function OcrChunkSettings({
           >
             {OCR_CHUNK_SIZE_OPTIONS.map((value) => (
               <option key={value} value={value}>
-                {CHUNK_LABELS[value]}
+                {chunkLabel(value)}
               </option>
             ))}
           </select>

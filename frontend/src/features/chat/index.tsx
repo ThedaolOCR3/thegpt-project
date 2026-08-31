@@ -45,7 +45,9 @@ export function ChatPage() {
 
     async function load() {
       const state = location.state as LocationState;
-      const hasPending = Boolean(state?.pendingMessage) && handledPendingFor.current !== conversationId;
+      const hasPending = Boolean(
+        state && (state.pendingMessage || state.pendingFiles?.length),
+      ) && handledPendingFor.current !== conversationId;
 
       if (hasPending) {
         handledPendingFor.current = conversationId!;
@@ -59,7 +61,7 @@ export function ChatPage() {
         try {
           const existing = await getMessages(conversationId!);
           setMessages(existing);
-          await sendUserMessage(state!.pendingMessage!, state!.pendingFiles ?? []);
+          await sendUserMessage(state!.pendingMessage ?? '', state!.pendingFiles ?? []);
         } finally {
           pendingSendInFlightFor.current = null;
         }
@@ -96,7 +98,7 @@ export function ChatPage() {
       role: 'user',
       content,
       createdAt: new Date().toISOString(),
-      // 원본 파일은 서버에 안 올라가므로(메타데이터만 저장) blob: URL로 이 세션
+      // 서버는 원본을 요청 중 검증한 뒤 보관하지 않으므로 blob: URL로 이 세션
       // 안에서만 원본 미리보기를 보여준다 — DocumentPreviewPanel 참고.
       attachments: files.length
         ? files.map((f) => ({ name: f.name, type: f.type, size: f.size, url: URL.createObjectURL(f) }))

@@ -31,14 +31,14 @@ export function LlmPanel() {
 
       <LlmTestForm
         prompt={llm.prompt}
-        file={llm.file}
+        files={llm.files}
         isRunningAll={llm.isRunningAll}
         hasRunningModels={llm.hasRunningModels}
         isLoadingModels={llm.isLoadingModels}
         hasRunnableModels={llm.hasRunnableModels}
         error={llm.error}
         onPromptChange={llm.setPrompt}
-        onFileChange={llm.setFile}
+        onFilesChange={llm.setFiles}
         onRunAll={() => void llm.runAllModels()}
         onReset={llm.reset}
       />

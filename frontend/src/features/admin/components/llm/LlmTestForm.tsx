@@ -1,26 +1,50 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, LoaderCircle, RotateCcw, X } from "lucide-react";
+import {
+  describeFileMerge,
+  mergeSelectedFiles,
+  MESSAGE_UPLOAD_ACCEPT,
+  MESSAGE_UPLOAD_EXTENSIONS,
+} from "../../../../utils/uploadFiles";
 
 type Props = {
   prompt: string;
-  file: File | null;
+  files: File[];
   isRunningAll: boolean;
   hasRunningModels: boolean;
   isLoadingModels: boolean;
   hasRunnableModels: boolean;
   error: string;
   onPromptChange: (value: string) => void;
-  onFileChange: (file: File | null) => void;
+  onFilesChange: (files: File[]) => void;
   onRunAll: () => void;
   onReset: () => void;
 };
 
 export function LlmTestForm(props: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fileError, setFileError] = useState("");
 
   useEffect(() => {
-    if (!props.file && fileRef.current) fileRef.current.value = "";
-  }, [props.file]);
+    if (props.files.length === 0 && fileRef.current) fileRef.current.value = "";
+  }, [props.files.length]);
+
+  function selectFiles(selected: FileList | null) {
+    if (!selected?.length) return;
+    const merged = mergeSelectedFiles(
+      props.files,
+      Array.from(selected),
+      MESSAGE_UPLOAD_EXTENSIONS,
+    );
+    props.onFilesChange(merged.files);
+    setFileError(describeFileMerge(merged, "PDF, PNG, JPG, DOCX, PPTX, TXT, CSV"));
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function removeFile(index: number) {
+    props.onFilesChange(props.files.filter((_, currentIndex) => currentIndex !== index));
+    setFileError("");
+  }
 
   return (
     <div className="admin-card llm-form-card">
@@ -41,34 +65,35 @@ export function LlmTestForm(props: Props) {
             type="button"
             onClick={() => fileRef.current?.click()}
           >
-            <FileText size={16} /> RAG 참고 문서 선택
+            <FileText size={16} /> RAG 참고 파일 선택
           </button>
           <input
             ref={fileRef}
             className="admin-visually-hidden"
             type="file"
-            aria-label="LLM 비교 RAG 참고 문서 선택"
-            onChange={(event) =>
-              props.onFileChange(event.target.files?.[0] ?? null)
-            }
+            multiple
+            accept={MESSAGE_UPLOAD_ACCEPT}
+            aria-label="LLM 비교 RAG 참고 파일 선택"
+            onChange={(event) => selectFiles(event.target.files)}
           />
-          {props.file && (
-            <span className="file-chip">
-              {props.file.name}
+          {props.files.map((file, index) => (
+            <span className="file-chip" key={`${file.name}-${file.size}-${file.lastModified}`}>
+              {file.name}
               <button
                 type="button"
-                aria-label="참고 문서 제거"
-                onClick={() => props.onFileChange(null)}
+                aria-label={`${file.name} 제거`}
+                onClick={() => removeFile(index)}
               >
                 <X size={13} />
               </button>
             </span>
-          )}
+          ))}
         </div>
         <small>
-          파일 내용은 아직 업로드되지 않습니다. 모든 모델에는 파일명 조건만
-          동일하게 전달됩니다.
+          최대 5개를 선택할 수 있습니다. 파일 내용은 아직 업로드되지 않으며,
+          모든 모델에는 선택한 파일명 조건만 동일하게 전달됩니다.
         </small>
+        {fileError && <p className="admin-error" role="alert">{fileError}</p>}
       </div>
 
       {props.error && (

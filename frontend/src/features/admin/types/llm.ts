@@ -25,7 +25,7 @@ export type LlmModelDefinition = {
 export type RunLlmModelRequest = {
   prompt: string;
   modelId: string;
-  file?: File;
+  files?: File[];
   signal?: AbortSignal;
 };
 

@@ -3,3 +3,4 @@ kiwipiepy>=0.18,<1.0
 tantivy>=0.22,<1.0
 numpy>=1.26,<3.0
 tiktoken>=0.7,<1.0
+httpx>=0.28,<1.0

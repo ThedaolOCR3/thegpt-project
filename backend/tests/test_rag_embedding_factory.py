@@ -1,8 +1,15 @@
 import unittest
 
-from ai.rag import HashingEmbeddingProvider, SentenceTransformerEmbeddingProvider
+from ai.rag import (
+    HashingEmbeddingProvider,
+    RemoteEmbeddingProvider,
+    SentenceTransformerEmbeddingProvider,
+)
 from app.core.config import Settings
-from app.core.rag_embedding import build_rag_embedding_provider
+from app.core.rag_embedding import (
+    build_rag_embedding_provider,
+    build_rag_embedding_providers,
+)
 
 
 def _settings(**overrides) -> Settings:
@@ -11,8 +18,18 @@ def _settings(**overrides) -> Settings:
 
 
 class BuildRagEmbeddingProviderTest(unittest.TestCase):
-    def test_hashing_is_the_default(self) -> None:
-        provider = build_rag_embedding_provider(_settings())
+    def test_remote_dual_is_the_default(self) -> None:
+        providers = build_rag_embedding_providers(_settings())
+
+        self.assertEqual(len(providers), 2)
+        self.assertTrue(all(isinstance(item, RemoteEmbeddingProvider) for item in providers))
+        self.assertEqual([item.name for item in providers], ["jina-v4", "medical-bgem3"])
+        self.assertTrue(all(item.dimension == 1024 for item in providers))
+
+    def test_hashing_remains_available_for_local_development(self) -> None:
+        provider = build_rag_embedding_provider(
+            _settings(rag_embedding_provider="hashing")
+        )
         self.assertIsInstance(provider, HashingEmbeddingProvider)
 
     def test_sentence_transformer_selected_by_name(self) -> None:

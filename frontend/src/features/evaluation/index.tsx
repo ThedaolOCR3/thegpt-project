@@ -1,4 +1,10 @@
-export function EvaluationPage() {
-  return <h1>평가</h1>;
-}
+import { EvaluationPanel } from "../admin/components/evaluation/EvaluationPanel";
+import "../admin/admin.css";
 
+export function EvaluationPage() {
+  return (
+    <div className="admin-page">
+      <EvaluationPanel />
+    </div>
+  );
+}

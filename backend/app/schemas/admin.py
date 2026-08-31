@@ -1,5 +1,5 @@
 """Admin OCR·LLM API가 Frontend와 공유하는 Request/Response 계약입니다."""
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -9,12 +9,15 @@ class AdminSchema(BaseModel):
     """Frontend의 camelCase와 Backend의 snake_case를 함께 허용합니다."""
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+ReferenceDocumentName = Annotated[str, Field(min_length=1, max_length=255)]
       
 class OcrAnalyzeRequest(AdminSchema):
     document_name: str = Field(alias="documentName", min_length=1, max_length=255)
     file_size: int = Field(alias="fileSize", ge=0)
     content_type: str | None = Field(default=None, alias="contentType", max_length=100)
-    chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
+    chunk_size: int = Field(default=512, alias="chunkSize", ge=50, le=4096)
     overlap: int = Field(default=50, ge=0)
 
     @model_validator(mode="after")
@@ -68,12 +71,23 @@ class LlmRunRequest(AdminSchema):
     prompt: str = Field(min_length=1, max_length=10_000)
     model_id: str = Field(alias="modelId", min_length=1, max_length=100)
     document_name: str | None = Field(default=None, alias="documentName", max_length=255)
+    document_names: list[ReferenceDocumentName] = Field(
+        default_factory=list,
+        alias="documentNames",
+        max_length=5,
+    )
 
     @model_validator(mode="after")
     def validate_prompt(self) -> "LlmRunRequest":
         if not self.prompt.strip():
             raise ValueError("Prompt를 입력해 주세요.")
+        if len(set(self.document_names)) != len(self.document_names):
+            raise ValueError("동일한 참고 문서를 중복해서 선택할 수 없습니다.")
         return self
+
+    def joined_document_names(self) -> str | None:
+        names = self.document_names or ([self.document_name] if self.document_name else [])
+        return ", ".join(names) or None
 
 
 class LlmRunResponse(AdminSchema):
@@ -108,7 +122,12 @@ class LlmCompareRequest(AdminSchema):
     prompt: str = Field(min_length=1, max_length=10_000)
     model_ids: list[str] = Field(alias="modelIds", min_length=2, max_length=5)
     document_name: str | None = Field(default=None, alias="documentName", max_length=255)
-    chunk_size: int = Field(default=512, alias="chunkSize", ge=100, le=4096)
+    document_names: list[ReferenceDocumentName] = Field(
+        default_factory=list,
+        alias="documentNames",
+        max_length=5,
+    )
+    chunk_size: int = Field(default=512, alias="chunkSize", ge=50, le=4096)
     overlap: int = Field(default=50, ge=0)
 
     @model_validator(mode="after")
@@ -117,9 +136,15 @@ class LlmCompareRequest(AdminSchema):
             raise ValueError("Prompt를 입력해 주세요.")
         if len(set(self.model_ids)) != len(self.model_ids):
             raise ValueError("동일한 모델을 중복해서 선택할 수 없습니다.")
+        if len(set(self.document_names)) != len(self.document_names):
+            raise ValueError("동일한 참고 문서를 중복해서 선택할 수 없습니다.")
         if self.overlap >= self.chunk_size:
             raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
         return self
+
+    def joined_document_names(self) -> str | None:
+        names = self.document_names or ([self.document_name] if self.document_name else [])
+        return ", ".join(names) or None
 
 
 class LlmModelResponse(AdminSchema):

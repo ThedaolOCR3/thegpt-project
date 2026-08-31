@@ -20,109 +20,27 @@ from app.services.admin_ocr import (
     save_ocr_result_with_embeddings,
 )
 from app.services.embedding_service import (
+    EmbeddingBatch,
     EmbeddingGenerationError,
-    EmbeddingUnavailableError,
     EmbeddingValidationError,
-    GeminiEmbeddingService,
+    RemoteDualEmbeddingService,
     create_embedding_service,
 )
 
 
-class GeminiEmbeddingServiceTest(unittest.TestCase):
-    def test_configured_provider_factory_selects_gemini(self) -> None:
-        service = create_embedding_service(
-            _embedding_settings(embedding_provider="gemini")
-        )
+class RemoteDualEmbeddingServiceTest(unittest.TestCase):
+    def test_settings_create_jina_and_bge_service(self) -> None:
+        service = create_embedding_service(_embedding_settings())
 
-        self.assertIsInstance(service, GeminiEmbeddingService)
-        self.assertEqual(service.provider, "gemini")
-        self.assertEqual(service.model, "gemini-embedding-001")
+        self.assertIsInstance(service, RemoteDualEmbeddingService)
+        self.assertEqual(service.provider, "remote-dual")
+        self.assertEqual(service.models, ("jina-v4", "medical-bgem3"))
         self.assertEqual(service.dimension, 1024)
 
-    def test_unknown_provider_is_rejected_clearly(self) -> None:
-        with self.assertRaises(EmbeddingUnavailableError) as raised:
-            # 실제 BGE-M3 Provider가 등록되기 전에는 설정만 바꿔 우연히 실행되지 않아야 합니다.
-            create_embedding_service(_embedding_settings(embedding_provider="bge-m3"))
-        self.assertIn("bge-m3", str(raised.exception))
-        self.assertIn("gemini", str(raised.exception))
-
-    def test_batch_embedding_keeps_count_order_and_dimension(self) -> None:
-        async def scenario() -> None:
-            response = SimpleNamespace(
-                embeddings=[
-                    SimpleNamespace(values=[0.1] * 1024),
-                    SimpleNamespace(values=[0.2] * 1024),
-                ]
-            )
-            embed_content = AsyncMock(return_value=response)
-            async_client = SimpleNamespace(
-                models=SimpleNamespace(embed_content=embed_content),
-                aclose=AsyncMock(),
-            )
-            client = SimpleNamespace(aio=async_client, close=Mock())
-            service = _embedding_service(lambda _api_key: client)
-
-            vectors = await service.embed_chunks(["첫 Chunk", "둘째 Chunk"])
-
-            self.assertEqual(len(vectors), 2)
-            self.assertEqual(len(vectors[0]), 1024)
-            self.assertEqual((vectors[0][0], vectors[1][0]), (0.1, 0.2))
-            embed_content.assert_awaited_once_with(
-                model="gemini-embedding-001",
-                contents=["첫 Chunk", "둘째 Chunk"],
-                config={
-                    "task_type": "RETRIEVAL_DOCUMENT",
-                    "output_dimensionality": 1024,
-                },
-            )
-            async_client.aclose.assert_awaited_once()
-            client.close.assert_called_once()
-
-        asyncio.run(scenario())
-
-    def test_empty_chunk_is_rejected_before_provider_call(self) -> None:
-        service = _embedding_service(Mock())
+    def test_empty_chunk_is_rejected_before_remote_call(self) -> None:
+        service = create_embedding_service(_embedding_settings())
         with self.assertRaises(EmbeddingValidationError):
             asyncio.run(service.embed_chunks(["정상", "  "]))
-
-    def test_wrong_vector_count_is_rejected(self) -> None:
-        async def scenario() -> None:
-            response = SimpleNamespace(
-                embeddings=[SimpleNamespace(values=[0.1] * 1024)]
-            )
-            service = _embedding_service(_client_factory(response))
-            with self.assertRaises(EmbeddingValidationError):
-                await service.embed_chunks(["첫 Chunk", "둘째 Chunk"])
-
-        asyncio.run(scenario())
-
-    def test_wrong_vector_dimension_is_rejected(self) -> None:
-        async def scenario() -> None:
-            response = SimpleNamespace(
-                embeddings=[SimpleNamespace(values=[0.1] * 128)]
-            )
-            service = _embedding_service(_client_factory(response))
-            with self.assertRaises(EmbeddingValidationError):
-                await service.embed_chunks(["Chunk"])
-
-        asyncio.run(scenario())
-
-    def test_provider_failure_is_mapped_without_leaking_details(self) -> None:
-        async def scenario() -> None:
-            embed_content = AsyncMock(side_effect=RuntimeError("secret upstream detail"))
-            client = SimpleNamespace(
-                aio=SimpleNamespace(
-                    models=SimpleNamespace(embed_content=embed_content),
-                    aclose=AsyncMock(),
-                ),
-                close=Mock(),
-            )
-            service = _embedding_service(lambda _api_key: client)
-            with self.assertRaises(EmbeddingGenerationError) as raised:
-                await service.embed_chunks(["Chunk"])
-            self.assertNotIn("secret", str(raised.exception))
-
-        asyncio.run(scenario())
 
 
 class DocumentRepositoryTest(unittest.TestCase):
@@ -135,7 +53,10 @@ class DocumentRepositoryTest(unittest.TestCase):
             original_file_url="ocr-job://job/sample.pdf",
             extracted_text="전체 텍스트",
             chunks=["첫 Chunk", "둘째 Chunk"],
-            embeddings=[[0.1] * 1024, [0.2] * 1024],
+            embeddings_by_provider={
+                "jina-v4": [[0.1] * 1024, [0.2] * 1024],
+                "medical-bgem3": [[0.3] * 1024, [0.4] * 1024],
+            },
         )
 
         self.assertEqual(saved, SavedDocument(document_id=document_id, chunk_count=2))
@@ -144,7 +65,13 @@ class DocumentRepositoryTest(unittest.TestCase):
         self.assertEqual([row.chunk_index for row in db.chunk_rows], [0, 1])
         self.assertTrue(all(row.document_id == document_id for row in db.chunk_rows))
         self.assertEqual([row.chunk_text for row in db.chunk_rows], ["첫 Chunk", "둘째 Chunk"])
-        self.assertTrue(all(len(row.embedding) == 1024 for row in db.chunk_rows))
+        self.assertEqual(len(db.embedding_rows), 4)
+        self.assertEqual(
+            {row.provider_name for row in db.embedding_rows},
+            {"jina-v4", "medical-bgem3"},
+        )
+        self.assertTrue(all(row.dimension == 1024 for row in db.embedding_rows))
+        self.assertTrue(all(len(row.embedding) == 2048 for row in db.embedding_rows))
 
     def test_db_failure_rolls_back_whole_save(self) -> None:
         db = FakeSession(document_id=uuid4(), fail_commit=True)
@@ -155,7 +82,10 @@ class DocumentRepositoryTest(unittest.TestCase):
                 original_file_url="ocr-job://job/sample.pdf",
                 extracted_text="전체 텍스트",
                 chunks=["Chunk"],
-                embeddings=[[0.1] * 1024],
+                embeddings_by_provider={
+                    "jina-v4": [[0.1] * 1024],
+                    "medical-bgem3": [[0.2] * 1024],
+                },
             )
 
         self.assertFalse(db.committed)
@@ -187,7 +117,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
             self.assertEqual(repository.saved["chunks"], ["첫 Chunk", "둘째 Chunk"])
             self.assertEqual(response.document_id, document_id)
             self.assertEqual(response.chunk_count, 2)
-            self.assertEqual(response.embedding_provider, "fake")
+            self.assertEqual(response.embedding_provider, "remote-dual")
             self.assertEqual(response.embedding_dimension, 1024)
 
         asyncio.run(scenario())
@@ -300,9 +230,9 @@ class OcrVectorSaveApiTest(unittest.TestCase):
             "message": "저장 완료",
             "documentId": document_id,
             "chunkCount": 2,
-            "embeddingProvider": "gemini",
+            "embeddingProvider": "remote-dual",
             "embeddingDimension": 1024,
-            "embeddingModel": "gemini-embedding-001",
+            "embeddingModel": "jina-v4 + medical-bgem3",
         }
         with patch(
             "app.api.admin.router.save_ocr_result_with_embeddings",
@@ -315,7 +245,7 @@ class OcrVectorSaveApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["documentId"], str(document_id))
-        self.assertEqual(response.json()["embeddingProvider"], "gemini")
+        self.assertEqual(response.json()["embeddingProvider"], "remote-dual")
         self.assertEqual(response.json()["embeddingDimension"], 1024)
 
     def test_embedding_failure_is_not_reported_as_success(self) -> None:
@@ -351,8 +281,10 @@ class FakeSession:
         self.fail_commit = fail_commit
         self.document: Any | None = None
         self.chunk_rows = []
+        self.embedding_rows = []
         self.committed = False
         self.rolled_back = False
+        self.flush_count = 0
 
     def add(self, value) -> None:
         self.document = value
@@ -360,10 +292,19 @@ class FakeSession:
     def flush(self) -> None:
         if self.document is None:
             raise AssertionError("flush 전에 document가 추가되어야 합니다.")
-        self.document.id = self.document_id
+        self.flush_count += 1
+        if self.flush_count == 1:
+            self.document.id = self.document_id
+            return
+        for row in self.chunk_rows:
+            row.id = uuid4()
 
     def add_all(self, values) -> None:
-        self.chunk_rows = list(values)
+        rows = list(values)
+        if not self.chunk_rows:
+            self.chunk_rows = rows
+        else:
+            self.embedding_rows = rows
 
     def commit(self) -> None:
         if self.fail_commit:
@@ -375,8 +316,9 @@ class FakeSession:
 
 
 class FakeEmbedder:
-    provider = "fake"
-    model = "fake-embedding"
+    provider = "remote-dual"
+    model = "jina-v4 + medical-bgem3"
+    models = ("jina-v4", "medical-bgem3")
 
     def __init__(
         self,
@@ -394,10 +336,16 @@ class FakeEmbedder:
         self.received_chunks = chunks
         if self.error:
             raise self.error
-        return [
+        vectors = [
             [float(index)] * self.vector_dimension
             for index, _chunk in enumerate(chunks)
         ]
+        return EmbeddingBatch(
+            vectors_by_provider={
+                "jina-v4": vectors,
+                "medical-bgem3": [vector.copy() for vector in vectors],
+            }
+        )
 
 
 class FakeRepository:
@@ -410,37 +358,17 @@ class FakeRepository:
         return self.result
 
 
-def _embedding_service(client_factory) -> GeminiEmbeddingService:
-    return GeminiEmbeddingService(
-        api_key="test-api-key",
-        model="gemini-embedding-001",
-        dimension=1024,
-        timeout_seconds=5,
-        client_factory=client_factory,
-    )
-
-
-def _embedding_settings(*, embedding_provider: str) -> Settings:
+def _embedding_settings() -> Settings:
     return Settings(
-        embedding_provider=embedding_provider,
-        embedding_model="gemini-embedding-001",
+        _env_file=None,
+        embedding_remote_base_url="https://embedding.test",
+        embedding_api_key="test-api-key",
+        embedding_jina_model="jina-v4",
+        embedding_bge_model="medical-bgem3",
         embedding_dimension=1024,
         embedding_timeout_seconds=5,
-        gemini_api_key="test-api-key",
+        embedding_batch_size=32,
     )
-
-
-def _client_factory(response):
-    def create(_api_key):
-        return SimpleNamespace(
-            aio=SimpleNamespace(
-                models=SimpleNamespace(embed_content=AsyncMock(return_value=response)),
-                aclose=AsyncMock(),
-            ),
-            close=Mock(),
-        )
-
-    return create
 
 
 def _ocr_result() -> OcrDocumentResponse:

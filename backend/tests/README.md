@@ -12,6 +12,11 @@
 - `test_ocr_workflow.py`: 공통 Core Thread 호출과 Admin Chunk·응답 조립을 검증한다.
 - `test_ocr_jobs.py`: OCR 작업 생성과 상태 전이를 검증한다.
 - `test_ocr_vector_save.py`: OCR Chunk Embedding 검증과 문서·Chunk Transaction 저장을 검증한다.
+- `test_remote_embedding_provider.py`: Vast.ai query/passage HTTP 계약·인증·응답 검증을 검증한다.
+- `test_rag_embedding_factory.py`: 기본 Jina/BGE 이중 Provider 조립을 검증한다.
+- `test_rag_search_service.py`: 두 pgvector 순위의 Chunk UUID 기반 RRF 합성을 검증한다.
+- `test_message_upload.py`: 메인·채팅 복수 파일의 개수·형식·크기와 multipart API를 검증한다.
+- `test_evaluation_api.py`: 정답 데이터 파일·텍스트 파싱과 답변 성능지표 API를 검증한다.
 - `__init__.py`: 이 폴더를 Python 패키지로 인식시킨다.
 - `__pycache__`: Python 실행 중 자동 생성되는 캐시이며 소스 파일이 아니다.
 

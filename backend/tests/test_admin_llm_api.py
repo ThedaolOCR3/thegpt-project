@@ -66,7 +66,11 @@ class AdminLlmApiTest(unittest.TestCase):
             catalog_response = self.client.get("/api/admin/llm/models")
             run_response = self.client.post(
                 "/api/admin/llm/run",
-                json={"prompt": "질문", "modelId": "gemma", "documentName": None},
+                json={
+                    "prompt": "질문",
+                    "modelId": "gemma",
+                    "documentNames": ["first.pdf", "second.png"],
+                },
             )
 
         self.assertEqual(catalog_response.status_code, 200)
@@ -90,6 +94,7 @@ class AdminLlmApiTest(unittest.TestCase):
         request = self.providers[0].generate.await_args.args[0]  # type: ignore[union-attr]
         self.assertEqual(request.messages[0].role, "user")
         self.assertEqual(request.messages[0].content, "질문")
+        self.assertEqual(request.document_name, "first.pdf, second.png")
 
     def test_unknown_model_returns_422(self) -> None:
         with patch.object(admin_llm, "llm_application", self.application):

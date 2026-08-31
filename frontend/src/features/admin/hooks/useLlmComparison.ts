@@ -23,7 +23,7 @@ export function useLlmComparison() {
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [modelLoadError, setModelLoadError] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [modelRuns, setModelRuns] = useState<LlmModelRunMap>({});
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [error, setError] = useState("");
@@ -92,7 +92,7 @@ export function useLlmComparison() {
   );
 
   const executeModel = useCallback(
-    async (modelId: string, runPrompt: string, referenceFile: File | null) => {
+    async (modelId: string, runPrompt: string, referenceFiles: File[]) => {
       controllersRef.current.get(modelId)?.abort();
       const requestVersion = (requestVersionsRef.current.get(modelId) ?? 0) + 1;
       requestVersionsRef.current.set(modelId, requestVersion);
@@ -108,7 +108,7 @@ export function useLlmComparison() {
         const result = await adminAiService.runLlmModel({
           prompt: runPrompt,
           modelId,
-          file: referenceFile ?? undefined,
+          files: referenceFiles,
           signal: controller.signal,
         });
         if (requestVersionsRef.current.get(modelId) !== requestVersion) return;
@@ -153,7 +153,7 @@ export function useLlmComparison() {
   );
 
   const runModel = useCallback(
-    async (modelId: string, sharedPrompt = prompt, sharedFile: File | null = file) => {
+    async (modelId: string, sharedPrompt = prompt, sharedFiles: File[] = files) => {
       const model = models.find((candidate) => candidate.id === modelId);
       if (!model?.enabled || !model.available) {
         setError(model?.availabilityMessage ?? "현재 실행할 수 없는 모델입니다.");
@@ -165,9 +165,9 @@ export function useLlmComparison() {
         return;
       }
       setError("");
-      await executeModel(modelId, runPrompt, sharedFile);
+      await executeModel(modelId, runPrompt, sharedFiles);
     },
-    [executeModel, file, models, prompt],
+    [executeModel, files, models, prompt],
   );
 
   const runAllModels = useCallback(async () => {
@@ -187,13 +187,13 @@ export function useLlmComparison() {
     setError("");
     setIsRunningAll(true);
     await Promise.allSettled(
-      runnableModels.map((model) => runModel(model.id, runPrompt, file)),
+      runnableModels.map((model) => runModel(model.id, runPrompt, files)),
     );
     if (allRunVersionRef.current === allRunVersion) {
       allRunActiveRef.current = false;
       setIsRunningAll(false);
     }
-  }, [file, hasRunningModels, prompt, runModel, runnableModels]);
+  }, [files, hasRunningModels, prompt, runModel, runnableModels]);
 
   const cancelModel = useCallback((modelId: string) => {
     const controller = controllersRef.current.get(modelId);
@@ -227,7 +227,7 @@ export function useLlmComparison() {
     });
     controllersRef.current.clear();
     setPrompt("");
-    setFile(null);
+    setFiles([]);
     setModelRuns(createInitialModelRuns(models));
     setError("");
     setIsRunningAll(false);
@@ -240,8 +240,8 @@ export function useLlmComparison() {
     reloadModels: loadModels,
     prompt,
     setPrompt,
-    file,
-    setFile,
+    files,
+    setFiles,
     modelRuns,
     isRunningAll,
     hasRunningModels,

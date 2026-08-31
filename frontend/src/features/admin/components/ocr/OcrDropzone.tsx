@@ -7,15 +7,15 @@ export function OcrDropzone({
   onSelect,
 }: {
   disabled: boolean;
-  onSelect: (file: File) => void;
+  onSelect: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   function drop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (file) onSelect(file);
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length) onSelect(files);
   }
   return (
     <div
@@ -29,8 +29,8 @@ export function OcrDropzone({
       onDrop={drop}
     >
       <UploadCloud aria-hidden="true" size={32} />
-      <strong>문서를 끌어 놓거나 직접 선택하세요</strong>
-      <span>PDF, PNG, JPG, DOCX, PPTX</span>
+      <strong>문서를 여러 개 끌어 놓거나 직접 선택하세요</strong>
+      <span>PDF, PNG, JPG, DOCX, PPTX · 최대 5개</span>
       <button
         className="admin-secondary-button"
         type="button"
@@ -43,12 +43,13 @@ export function OcrDropzone({
         ref={inputRef}
         className="admin-visually-hidden"
         type="file"
+        multiple
         accept={OCR_ACCEPT}
         aria-label="OCR 테스트 파일 선택"
         disabled={disabled}
         onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) onSelect(file);
+          const files = Array.from(event.target.files ?? []);
+          if (files.length) onSelect(files);
           event.target.value = "";
         }}
       />

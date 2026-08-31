@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.repositories.document_repository import DocumentRepository, SavedDocument
 from app.schemas.admin import OcrVectorSaveRequest, OcrVectorSaveResponse
 from app.services.embedding_service import (
+    EmbeddingBatch,
     EmbeddingService,
     EmbeddingValidationError,
     embedding_service,
@@ -32,7 +33,7 @@ class DocumentSaver(Protocol):
         original_file_url: str,
         extracted_text: str,
         chunks: list[str],
-        embeddings: list[list[float]],
+        embeddings_by_provider: dict[str, list[list[float]]],
     ) -> SavedDocument: ...
 
 
@@ -69,7 +70,7 @@ async def save_ocr_result_with_embeddings(
         original_file_url=_build_job_file_reference(request.job_id, job.result.document_name),
         extracted_text=job.result.extracted_text,
         chunks=job.result.chunks,
-        embeddings=embeddings,
+        embeddings_by_provider=embeddings.vectors_by_provider,
     )
     return OcrVectorSaveResponse(
         message=f"OCR 문서와 Chunk {saved.chunk_count}개를 VectorDB에 저장했습니다.",
@@ -94,24 +95,27 @@ def _build_job_file_reference(job_id: str, document_name: str) -> str:
 def _validate_embeddings_before_storage(
     *,
     chunks: list[str],
-    embeddings: list[list[float]],
+    embeddings: EmbeddingBatch,
     configured_dimension: int,
 ) -> None:
-    """Neon Repository 호출 직전에 실제 Vector가 VECTOR(1024) 계약과 같은지 재검증합니다."""
+    """Neon 저장 직전에 Jina/BGE 실제 Vector가 1024차원 계약과 같은지 재검증합니다."""
 
     if configured_dimension != NEON_VECTOR_DIMENSION:
         raise EmbeddingValidationError(
-            "Embedding 설정 차원은 Neon document_chunks.embedding의 "
+            "Embedding 설정 차원은 Jina/BGE 실제 Vector 계약인 "
             f"VECTOR({NEON_VECTOR_DIMENSION})와 같아야 합니다. "
             f"현재 설정: {configured_dimension}"
         )
-    if len(chunks) != len(embeddings):
-        raise EmbeddingValidationError(
-            f"OCR Chunk는 {len(chunks)}개지만 저장할 Embedding은 {len(embeddings)}개입니다."
-        )
-    for index, vector in enumerate(embeddings):
-        if len(vector) != NEON_VECTOR_DIMENSION:
+    if len(embeddings.vectors_by_provider) != 2:
+        raise EmbeddingValidationError("Jina/BGE 두 Provider의 Embedding이 모두 필요합니다.")
+    for provider_name, vectors in embeddings.vectors_by_provider.items():
+        if len(chunks) != len(vectors):
             raise EmbeddingValidationError(
-                f"Chunk {index}의 Embedding 차원은 {len(vector)}입니다. "
-                f"Neon 저장에는 정확히 {NEON_VECTOR_DIMENSION}차원이 필요합니다."
+                f"OCR Chunk는 {len(chunks)}개지만 {provider_name} Vector는 {len(vectors)}개입니다."
             )
+        for index, vector in enumerate(vectors):
+            if len(vector) != NEON_VECTOR_DIMENSION:
+                raise EmbeddingValidationError(
+                    f"{provider_name} Chunk {index}의 Embedding 차원은 {len(vector)}입니다. "
+                    f"Neon 저장에는 정확히 {NEON_VECTOR_DIMENSION}차원이 필요합니다."
+                )
