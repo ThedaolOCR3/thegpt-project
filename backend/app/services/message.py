@@ -9,6 +9,7 @@ from ai.rag import RetrievedChunk
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.generated import Conversations, Messages, Users
+from app.repositories.consultation_log import ConsultationLogRepository
 from app.repositories.conversation import ConversationRepository
 from app.repositories.message import MessageRepository
 from app.schemas.message import MessageAttachmentInput, MessageAttachmentResponse, MessageResponse
@@ -45,6 +46,7 @@ class MessageService:
         self.conversations_service = ConversationService(db)
         self.conversations = ConversationRepository(db)
         self.messages = MessageRepository(db)
+        self.consultation_logs = ConsultationLogRepository(db)
 
     def list_messages(self, conversation_id: str, user_id: UUID) -> list[MessageResponse]:
         conversation = self.conversations_service.get_owned(conversation_id, user_id)
@@ -78,19 +80,28 @@ class MessageService:
         if is_first_message and not conversation.is_title_custom:
             self.conversations.set_auto_title(conversation, content or attachments[0].name)
 
-        reply_content = await self._generate_reply(content, conversation, model_id)
+        reply_content, result = await self._generate_reply(content, conversation, model_id)
 
         assistant_message = self.messages.create(conversation.id, "assistant", reply_content)
         self.conversations.touch(conversation)
+
+        # 첨부파일만 온 경우(result가 None)는 실제 상담이 아니라서 로그를 안 남긴다.
+        if result is not None:
+            self._log_consultation(current_user.id, conversation.id, assistant_message.id, result)
+
         return to_message_response(assistant_message)
 
     async def _generate_reply(
         self, content: str, conversation: Conversations, model_id: str | None = None
-    ) -> str:
+    ) -> tuple[str, ConsultationResult | None]:
         # 텍스트가 없고 첨부파일만 있는 경우(OCR 미연동 상태라 첨부 내용을 알 수 없음)엔
-        # LLM 호출 자체가 의미 없어서 안내 문구만 반환한다.
+        # LLM 호출 자체가 의미 없어서 안내 문구만 반환한다 — 실제 상담이 아니므로
+        # 대시보드 로그도 안 남긴다(호출부가 result=None으로 판단).
         if not content:
-            return "첨부해주신 파일은 확인했어요. 증상이나 궁금하신 점을 글로도 함께 적어주시면 더 정확히 답변드릴 수 있어요."
+            return (
+                "첨부해주신 파일은 확인했어요. 증상이나 궁금하신 점을 글로도 함께 적어주시면 더 정확히 답변드릴 수 있어요.",
+                None,
+            )
 
         reference_chunks = await asyncio.to_thread(self._search_reference_chunks, content)
 
@@ -102,7 +113,21 @@ class MessageService:
         if result.department:
             self.conversations.set_category_if_unset(conversation, result.department)
 
-        return result.answer
+        return result.answer, result
+
+    def _log_consultation(
+        self, user_id: UUID, conversation_id: UUID, message_id: UUID, result: ConsultationResult
+    ) -> None:
+        """관리자 대시보드용 로그를 남긴다. 로깅 자체가 실패해도(DB 오류 등) 채팅
+        응답은 이미 사용자에게 나갈 값이 정해진 뒤라 — RAG 검색 실패 때와 같은
+        이유로 절대 요청을 죽이지 않는다. 실패하면 조용히 로깅만 건너뛴다."""
+        try:
+            self.consultation_logs.create(
+                user_id=user_id, conversation_id=conversation_id, message_id=message_id, result=result
+            )
+        except Exception:
+            logger.exception("consultation_logs 저장 실패 — 응답 자체는 정상 처리됨: message_id=%s", message_id)
+            self.db.rollback()
 
     def _search_reference_chunks(self, query: str) -> list[RetrievedChunk]:
         """RAG 검색 결과를 consult()의 참고 의료 정보로 넘긴다. RAG 데이터셋이 아직

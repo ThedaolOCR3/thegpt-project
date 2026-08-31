@@ -1,4 +1,5 @@
 import unittest
+from uuid import uuid4
 from unittest.mock import MagicMock, patch
 
 from app.services import message as message_module
@@ -12,6 +13,7 @@ def _bare_service(db) -> MessageService:
     service = MessageService.__new__(MessageService)
     service.db = db
     service.conversations = MagicMock()
+    service.consultation_logs = MagicMock()
     return service
 
 
@@ -47,9 +49,10 @@ class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
             patch.object(message_module, "consult") as mock_consult,
             patch.object(message_module.rag_search_service, "search") as mock_search,
         ):
-            reply = await service._generate_reply("", conversation=MagicMock())
+            reply, result = await service._generate_reply("", conversation=MagicMock())
 
         self.assertIn("첨부해주신 파일", reply)
+        self.assertIsNone(result)  # 실제 상담이 아니므로 대시보드 로그 대상이 아님
         mock_consult.assert_not_called()
         mock_search.assert_not_called()
 
@@ -88,6 +91,36 @@ class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
             await service._generate_reply("질문", conversation=conversation)
 
         service.conversations.set_category_if_unset.assert_called_once_with(conversation, "내과")
+
+
+class LogConsultationTest(unittest.TestCase):
+    def test_success_writes_log_via_repository(self) -> None:
+        db = MagicMock()
+        service = _bare_service(db)
+        result = message_module.ConsultationResult(answer="답변", department="내과", confidence="높음")
+        user_id, conversation_id, message_id = uuid4(), uuid4(), uuid4()
+
+        service._log_consultation(user_id, conversation_id, message_id, result)
+
+        service.consultation_logs.create.assert_called_once_with(
+            user_id=user_id, conversation_id=conversation_id, message_id=message_id, result=result
+        )
+        db.rollback.assert_not_called()
+
+    def test_failure_is_swallowed_and_rolls_back_without_raising(self) -> None:
+        # 대시보드 로그 저장이 실패해도(DB 오류 등) 이미 사용자에게 나갈 응답은
+        # 정해진 뒤라 — 절대 예외를 밖으로 던지면 안 된다(채팅 자체가 깨짐).
+        db = MagicMock()
+        service = _bare_service(db)
+        service.consultation_logs.create.side_effect = RuntimeError("DB unavailable")
+        result = message_module.ConsultationResult(answer="답변", department=None, confidence="낮음")
+
+        try:
+            service._log_consultation(uuid4(), uuid4(), uuid4(), result)
+        except Exception:  # noqa: BLE001 - 여기서 예외가 나오면 테스트 자체가 실패해야 함
+            self.fail("_log_consultation이 예외를 밖으로 던지면 안 됨")
+
+        db.rollback.assert_called_once()
 
 
 if __name__ == "__main__":

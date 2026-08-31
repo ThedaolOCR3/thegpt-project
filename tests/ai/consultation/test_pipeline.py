@@ -58,6 +58,56 @@ class ConsultTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("[안전 안내]", result.answer)
 
+    async def test_success_populates_dashboard_metadata(self) -> None:
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        result = await consult(app, "콧물이 나요", model_id="qwen-medical")
+
+        self.assertEqual(result.model_id, "qwen-medical")
+        self.assertFalse(result.is_fallback)
+        self.assertFalse(result.is_emergency)
+        self.assertIsNone(result.error_type)
+        self.assertIsNotNone(result.response_time_ms)
+        self.assertGreaterEqual(result.response_time_ms, 0)
+
+    async def test_reference_chunks_set_rag_hit_count(self) -> None:
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        chunks = [object(), object(), object()]
+        result = await consult(app, "콧물이 나요", reference_chunks=chunks)
+
+        self.assertEqual(result.rag_hit_count, 3)
+
+    async def test_no_reference_chunks_means_zero_rag_hit_count(self) -> None:
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        result = await consult(app, "콧물이 나요")
+
+        self.assertEqual(result.rag_hit_count, 0)
+
+    async def test_llm_failure_sets_fallback_flag_and_error_type(self) -> None:
+        app = FakeLlmApplication(raise_error=True)
+        result = await consult(app, "콧물이 나요")
+
+        self.assertTrue(result.is_fallback)
+        self.assertEqual(result.error_type, "RuntimeError")
+
+    async def test_emergency_short_circuit_sets_emergency_flag(self) -> None:
+        app = FakeLlmApplication()
+        result = await consult(app, "갑자기 숨쉬기 힘들어요")
+
+        self.assertTrue(result.is_emergency)
+        self.assertFalse(result.is_fallback)
+        self.assertIsNone(result.model_id)  # LLM을 아예 안 불렀으므로 model_id도 없음
+
+    async def test_execution_without_provider_or_tokens_leaves_them_none(self) -> None:
+        # 테스트 stub(FakeExecution)처럼 provider/토큰 필드가 없는 llm_application도
+        # 로깅 메타데이터 때문에 깨지면 안 된다 — 조용히 None으로 빠져야 한다.
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        result = await consult(app, "콧물이 나요")
+
+        self.assertIsNone(result.provider_key)
+        self.assertIsNone(result.input_tokens)
+        self.assertIsNone(result.output_tokens)
+        self.assertIsNone(result.total_tokens)
+
 
 if __name__ == "__main__":
     unittest.main()
