@@ -18,7 +18,8 @@ Copy-Item ..\.env.example ..\.env
 
 ## LLM Provider
 
-Admin LLM과 일반 LLM API는 `ai/llm`의 공통 Provider 계약과 Model Registry를 사용합니다.
+Admin LLM, 일반 LLM API, 메인 상담 채팅은 `ai/llm`의 공통 Provider
+계약과 Model Registry를 사용합니다.
 
 - `gemma`: Vast.ai의 Gemma 2 2B 한국어 의료 QLoRA
 - `medgemma`, `medgemma-dataset`: 하나의 MedGemma 4B base를 공유하는 최종·데이터셋 LoRA
@@ -26,12 +27,20 @@ Admin LLM과 일반 LLM API는 `ai/llm`의 공통 Provider 계약과 Model Regis
 
 Admin의 5개 모델은 모두 `remote-http` Provider를 통해 Vast.ai 2× V100 서버를 호출합니다. Gemini LLM은 사용하지 않습니다. `GEMINI_API_KEY`는 OCR Chunk Embedding에만 사용하며, Vast.ai API 키는 `LLM_REMOTE_API_KEY`로 분리합니다. 두 키 모두 Frontend나 로그에 노출하지 않습니다.
 
-Backend의 `app/services/admin_llm.py`는 환경변수를 공통 Core 설정으로 변환하고 Admin
-Schema를 조립합니다. `app/services/llm_service.py`는 기존 `/api/llm/*` 계약을 공통
-Core에 연결합니다. Provider 구현과 실행 순서는 `ai/llm`에만 존재합니다.
+Backend의 `app/services/llm_runtime.py`가 환경변수를 공통 Model/Provider Registry로
+조립합니다. `app/services/admin_llm.py`는 Admin Schema를, `app/services/llm_service.py`는
+`/api/llm/*` Schema를 조립하며, `app/services/message.py`는 메인 대화 저장·RAG·상담
+흐름에 공통 Runtime을 연결합니다. Provider 구현과 실행 순서는 `ai/llm`에
+존재합니다.
 
 Backend에는 `ai/llm/requirements-api.txt`의 HTTP 의존성만 필요합니다. CUDA와 모델 파일은
-Vast.ai 서버에만 있으며, Backend의 모델 목록 조회는 원격 `/health`만 확인합니다.
+Vast.ai 서버에만 있습니다. Admin 모델 가용성 조회는 원격 `/health`만
+확인하며, 메인 Catalog 조회는 로컬 Registry만 읽습니다.
+
+메인 페이지는 `GET /api/llm/models`로 모델 Catalog를 읽고,
+`POST /api/conversations/{conversation_id}/messages`로 선택한 `model_id`를 전달합니다.
+자세한 요청 계약과 실행 흐름은
+`docs/3_flow/12_FLW_MainLLM_메인페이지연동가이드_20260831.md`를 참고합니다.
 
 ## OCR 문서 처리
 

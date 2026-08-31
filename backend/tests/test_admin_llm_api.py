@@ -10,7 +10,7 @@ from ai.llm import (
     ProviderGenerateResult,
     ProviderRegistry,
 )
-from app.services import admin_llm
+from app.services import admin_llm, llm_runtime
 
 
 class FakeProvider:
@@ -54,7 +54,7 @@ class AdminLlmApiTest(unittest.TestCase):
 
         self.providers = (FakeProvider("remote-http", is_mock=False),)
         self.application = LlmApplicationService(
-            admin_llm.create_admin_model_registry(),
+            llm_runtime.create_model_registry(),
             ProviderRegistry(self.providers),
         )
         app = FastAPI()
@@ -105,7 +105,7 @@ class AdminLlmApiTest(unittest.TestCase):
             (FakeProvider("remote-http", is_mock=False, failing_model_id="qwen"),)
         )
         application = LlmApplicationService(
-            admin_llm.create_admin_model_registry(),
+            llm_runtime.create_model_registry(),
             providers,
         )
 

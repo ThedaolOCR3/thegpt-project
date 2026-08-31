@@ -14,12 +14,12 @@ from app.repositories.conversation import ConversationRepository
 from app.repositories.message import MessageRepository
 from app.schemas.message import MessageAttachmentInput, MessageAttachmentResponse, MessageResponse
 from app.services import rag_search_service
-from app.services.admin_llm import llm_application as _llm_application
 from app.services.conversation import ConversationService
+from app.services.llm_runtime import llm_application
 
 logger = get_logger("services.message")
 
-# 채팅·RAG와 Admin 비교 API가 같은 Vast.ai Provider/Model Registry를 공유한다.
+# 채팅·일반 LLM API·Admin 비교 API가 공통 Runtime을 공유한다.
 
 
 def to_message_response(message: Messages) -> MessageResponse:
@@ -107,7 +107,7 @@ class MessageService:
 
         consult_kwargs = {"model_id": model_id} if model_id else {}
         result: ConsultationResult = await consult(
-            _llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
+            llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
         )
 
         if result.department:

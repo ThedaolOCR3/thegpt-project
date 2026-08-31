@@ -9,7 +9,7 @@ from ai.llm import (
     ProviderGenerateResult,
     ProviderRegistry,
 )
-from app.services import admin_llm, llm_service
+from app.services import llm_runtime, llm_service
 
 
 class FakeRemoteProvider:
@@ -41,7 +41,7 @@ class LlmApiTest(unittest.TestCase):
 
         self.provider = FakeRemoteProvider()
         self.application = LlmApplicationService(
-            admin_llm.create_admin_model_registry(),
+            llm_runtime.create_model_registry(),
             ProviderRegistry((self.provider,)),
         )
         app = FastAPI()
@@ -112,7 +112,7 @@ class LlmApiTest(unittest.TestCase):
     def test_compare_isolates_one_model_failure(self) -> None:
         provider = FakeRemoteProvider(failing_model_id="qwen")
         application = LlmApplicationService(
-            admin_llm.create_admin_model_registry(),
+            llm_runtime.create_model_registry(),
             ProviderRegistry((provider,)),
         )
         with patch.object(llm_service, "llm_application", application):

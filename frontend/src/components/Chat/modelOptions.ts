@@ -1,3 +1,5 @@
+import type { LlmModel } from '../../api/llm';
+
 export type ModelTier = 'recommended' | 'beta';
 
 export type ModelOption = {
@@ -6,9 +8,11 @@ export type ModelOption = {
   tier: ModelTier;
 };
 
-// Backend의 Vast.ai 원격 모델 Registry와 동일한 ID를 사용한다.
-// 메인으로 쓸 모델 하나만 recommended로 두고, 나머지는 전부 beta로 표기한다.
-export const MODEL_OPTIONS: ModelOption[] = [
+export const DEFAULT_MODEL_ID = 'medgemma';
+
+// Backend가 아직 실행 중이 아니거나 모델 목록 조회가 실패해도 입력창은 계속 쓸 수
+// 있어야 한다. 정상 실행 시에는 ModelSelectContext가 /api/llm/models 결과로 교체한다.
+export const FALLBACK_MODEL_OPTIONS: ModelOption[] = [
   { id: 'medgemma', label: 'MedGemma 최종', tier: 'recommended' },
   { id: 'medgemma-dataset', label: 'MedGemma 데이터셋', tier: 'beta' },
   { id: 'gemma', label: 'Gemma Medical', tier: 'beta' },
@@ -16,6 +20,14 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { id: 'llama', label: 'Llama', tier: 'beta' },
 ];
 
-export function getModelOption(id: string): ModelOption {
-  return MODEL_OPTIONS.find((option) => option.id === id) ?? MODEL_OPTIONS[0];
+export function toModelOptions(models: LlmModel[]): ModelOption[] {
+  return models.map((model) => ({
+    id: model.id,
+    label: model.label,
+    tier: model.id === DEFAULT_MODEL_ID ? 'recommended' : 'beta',
+  }));
+}
+
+export function getModelOption(id: string, options: ModelOption[]): ModelOption {
+  return options.find((option) => option.id === id) ?? options[0] ?? FALLBACK_MODEL_OPTIONS[0];
 }
