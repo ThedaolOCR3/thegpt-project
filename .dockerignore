@@ -5,10 +5,11 @@
 .vscode
 
 # 로컬 가상환경, 캐시와 Build 산출물을 제외합니다.
-**/.venv
+**/.venv*
 **/__pycache__
 **/*.py[cod]
 **/.pytest_cache
+**/local.db
 frontend/node_modules
 frontend/dist
 
@@ -19,4 +20,3 @@ scripts
 tests
 backend/tests
 ai/evaluation
-ai/rag
