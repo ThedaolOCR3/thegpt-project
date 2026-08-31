@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar, SidebarProvider } from '../Sidebar';
 import { ThemeToggle } from '../Theme/ThemeToggle';
 import { AdminNav } from '../Admin/AdminNav';
@@ -22,10 +22,14 @@ export function MainLayout() {
 
 function MainLayoutBody() {
   const { preview, setPreviewIndex, closePreview } = useDocumentPreview();
+  const { pathname } = useLocation();
+  // 관리자 페이지/대시보드는 채팅 기록·진료과 필터 등 상담용 사이드바가 의미가
+  // 없어서, 로고만 있는 얇은 레일로 대신한다.
+  const isAdminArea = pathname.startsWith('/admin') || pathname.startsWith('/dashboard');
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white dark:bg-neutral-950">
-      <Sidebar />
+      {isAdminArea ? <LogoOnlyRail /> : <Sidebar />}
       <main className="relative flex min-w-0 flex-1 flex-col">
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
           <AdminNav />
@@ -42,5 +46,22 @@ function MainLayoutBody() {
         />
       )}
     </div>
+  );
+}
+
+function LogoOnlyRail() {
+  const navigate = useNavigate();
+  return (
+    <aside className="flex h-full w-14 shrink-0 flex-col items-center border-r border-neutral-200 bg-neutral-50 py-3 dark:border-neutral-800 dark:bg-neutral-900">
+      <button
+        type="button"
+        title="상담 화면으로 이동"
+        aria-label="상담 화면으로 이동"
+        onClick={() => navigate('/')}
+        className="rounded-lg p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+      >
+        <img src="/logo-mark.png" alt="MediSense" className="h-5 w-5" />
+      </button>
+    </aside>
   );
 }

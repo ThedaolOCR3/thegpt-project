@@ -6,6 +6,7 @@ import { ApiError } from "../../../services/apiClient";
 import { KpiCard } from "../components/KpiCard";
 import { TrendLineChart } from "../components/TrendLineChart";
 import { HorizontalBarChart } from "../components/HorizontalBarChart";
+import { FALLBACK_MODEL_OPTIONS, getModelOption } from "../../../components/Chat/modelOptions";
 import "../../admin/admin.css";
 import "../dashboard.css";
 
@@ -48,7 +49,7 @@ export function DashboardPage() {
         <div>
           <span className="admin-eyebrow">DASHBOARD</span>
           <h2>관리자 대시보드</h2>
-          <p>서비스 운영 지표를 한눈에 봅니다. consultation_logs에 실제 상담이 쌓일수록 채워집니다.</p>
+          <p>서비스 운영 지표를 한눈에 봅니다. 실제 상담이 쌓일수록 지표가 채워집니다.</p>
         </div>
         <button
           type="button"
@@ -114,10 +115,10 @@ export function DashboardPage() {
           <div className="dashboard-charts">
             <div className="dashboard-chart-card">
               <h3>모델별 사용/성공률</h3>
-              <p className="chart-note">is_fallback=false 비율 — GPU 없거나 승인 대기 중이면 낮게 나올 수 있음</p>
+              <p className="chart-note">정상 응답한 비율 — 모델 서버가 꺼져있거나 준비 중이면 낮게 나올 수 있어요</p>
               <HorizontalBarChart
                 items={data.modelUsage.map((m) => ({
-                  label: m.modelId,
+                  label: getModelOption(m.modelId, FALLBACK_MODEL_OPTIONS).label,
                   value: Math.round(m.successRate * 100),
                   tooltipValue: `${Math.round(m.successRate * 100)}% (${m.success}/${m.total})`,
                 }))}
@@ -126,7 +127,7 @@ export function DashboardPage() {
             </div>
             <div className="dashboard-chart-card">
               <h3>응급 안내 발생 추이</h3>
-              <p className="chart-note">갑자기 늘면 risk_detector 오탐 가능성도 같이 확인</p>
+              <p className="chart-note">갑자기 늘면 응급 판단이 잘못됐을 가능성도 함께 확인해보세요</p>
               <TrendLineChart data={data.emergencyTrend} />
             </div>
           </div>

@@ -13,7 +13,7 @@ export function OcrPanel() {
       <div className="admin-section-heading">
         <div>
           <span className="admin-eyebrow">RAG DOCUMENT LAB</span>
-          <h2 id="ocr-panel-title">문서 OCR 준비 테스트</h2>
+          <h2 id="ocr-panel-title">문서 OCR</h2>
           <p>
             문서가 RAG 지식으로 등록되기 전에 추출 품질과 예상 chunk 구성을
             확인합니다.
