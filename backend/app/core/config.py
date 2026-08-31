@@ -59,20 +59,19 @@ class Settings(BaseSettings):
     llm_remote_timeout_seconds: float = 300.0
     llm_remote_max_concurrency: int = 5
 
-    # Gemini는 LLM으로 호출하지 않고 OCR Chunk Embedding에만 사용합니다.
-    gemini_api_key: str | None = None
-    embedding_provider: str = "gemini"
-    embedding_model: str = "gemini-embedding-001"
+    # OCR 저장과 메인 RAG가 공통으로 사용하는 Vast.ai 이중 Embedding API.
+    embedding_remote_base_url: str = ""
+    embedding_api_key: str | None = None
+    embedding_jina_model: str = "jina-v4"
+    embedding_bge_model: str = "medical-bgem3"
     embedding_dimension: int = 1024
     embedding_timeout_seconds: float = 60.0
+    embedding_batch_size: int = 32
 
-    # ai/rag의 EmbeddingProvider 선택 설정. 위 embedding_*(OCR→Gemini 임베딩,
-    # document_chunks.embedding 컬럼용)와는 완전히 별개다 — 혼동 금지. 팀원이
-    # RAG용 임베딩 모델을 정하기 전까지는 "hashing"(자리 채우기용, GPU 불필요)이
-    # 기본값이고, 결정되면 "sentence_transformer"로 바꾸고 모델 이름만 채우면 된다
-    # (코드 변경 없음). rag_embedding_dimension/truncate_dim을 안 채우면
-    # sentence-transformers가 모델에서 자동으로 알아낸다.
-    rag_embedding_provider: str = "hashing"
+    # remote_dual은 위 Jina/BGE 설정을 OCR과 RAG에 공통 적용합니다.
+    # 필요한 개발 환경에서만 hashing 또는 sentence_transformer로 바꿀 수 있습니다.
+    # rag_embedding_dimension/truncate_dim을 비우면 로컬 모델이 자동 판별합니다.
+    rag_embedding_provider: str = "remote_dual"
     rag_embedding_model_name: str | None = None
     rag_embedding_dimension: int | None = None
     rag_embedding_truncate_dim: int | None = None

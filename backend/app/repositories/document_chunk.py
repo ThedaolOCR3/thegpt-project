@@ -9,7 +9,7 @@ from app.models.generated import ChunkEmbeddings, DocumentChunks
 EMBEDDING_COLUMN_WIDTH = 2048
 
 
-def _pad(vector: list[float]) -> list[float]:
+def pad_embedding(vector: list[float]) -> list[float]:
     """모든 provider의 벡터를 같은 폭의 컬럼에 저장하기 위해 0으로 채운다 — 코사인
     유사도는 두 벡터를 같은 자리만큼 0으로 패딩해도 값이 바뀌지 않는다(내적/노름
     둘 다 0 기여)."""
@@ -44,7 +44,7 @@ class DocumentChunkRepository:
                 chunk_id=chunk_id,
                 provider_name=provider_name,
                 dimension=dimension,
-                embedding=_pad(vector),
+                embedding=pad_embedding(vector),
             )
         )
         self.db.commit()
@@ -60,7 +60,7 @@ class DocumentChunkRepository:
     ) -> list[tuple[DocumentChunks, float]]:
         """지정한 provider로 저장된 임베딩만 대상으로 코사인 거리 기준 상위 top_k를
         반환한다. 반환값은 (청크, 코사인_거리) — 거리가 작을수록 더 유사하다."""
-        padded_query = _pad(query_vector)
+        padded_query = pad_embedding(query_vector)
         stmt = (
             select(DocumentChunks, ChunkEmbeddings.embedding.cosine_distance(padded_query).label("distance"))
             .join(ChunkEmbeddings, ChunkEmbeddings.chunk_id == DocumentChunks.id)
