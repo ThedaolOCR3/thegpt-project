@@ -23,3 +23,19 @@ class OfficeExtractionError(DocumentProcessingError):
 
 class OcrUnavailableError(OcrError):
     """PaddleOCR 의존성이나 모델을 사용할 수 없을 때 발생합니다."""
+
+
+class WebUrlValidationError(DocumentValidationError):
+    """웹 문서 URL이 형식 또는 네트워크 보안 기준을 위반할 때 발생합니다."""
+
+
+class WebContentTooLargeError(DocumentTooLargeError):
+    """웹페이지나 내부 이미지가 설정된 수집 한도를 넘을 때 발생합니다."""
+
+
+class WebFetchError(DocumentProcessingError):
+    """검증된 웹 리소스를 제한 시간 안에 가져오지 못할 때 발생합니다."""
+
+
+class WebUnsupportedContentError(DocumentValidationError):
+    """웹 URL 응답이 HTML 또는 지원 이미지 형식이 아닐 때 발생합니다."""

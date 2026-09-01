@@ -210,6 +210,37 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
         self.assertTrue(reference.startswith("ocr-job://job-id/"))
         self.assertLessEqual(len(reference), 500)
 
+    def test_url_job_keeps_existing_embedding_flow_and_saves_final_url(self) -> None:
+        async def scenario() -> None:
+            job_manager = Mock()
+            url_result = _ocr_result().model_copy(
+                update={
+                    "source_type": "url",
+                    "source_url": "https://example.com/final",
+                }
+            )
+            job_manager.get_job.return_value = SimpleNamespace(
+                status="completed", result=url_result
+            )
+            embedder = FakeEmbedder()
+            repository = FakeRepository()
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="url-job"),
+                Mock(spec=Session),
+                job_manager=job_manager,
+                embedder=embedder,  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(embedder.received_chunks, ["첫 Chunk", "둘째 Chunk"])
+            self.assertEqual(
+                repository.saved["original_file_url"],
+                "https://example.com/final",
+            )
+
+        asyncio.run(scenario())
+
 
 class OcrVectorSaveApiTest(unittest.TestCase):
     def setUp(self) -> None:
