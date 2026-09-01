@@ -47,7 +47,11 @@ export function Sidebar() {
     // 첫 메시지로 제목이 자동으로 바뀌는 경우처럼, conversationId는 안 바뀌어도
     // 목록이 갱신돼야 하는 경우를 위한 별도 알림 채널 (ChatPage 참고).
     return onConversationsChanged(refresh);
-  }, [conversationId]);
+    // isLoggedIn도 의존성에 넣는다 — Sidebar는 라우트 전체를 감싸는 MainLayout 안에
+    // 있어서 로그인해도(같은 SPA 세션 안에서 /login → / 로 navigate) 언마운트되지
+    // 않는다. conversationId만 보고 있으면 로그인 직후 여전히 로그인 전(게스트/빈)
+    // 목록이 그대로 남아 "카테고리(대화 내역)가 로드 안 된 것"처럼 보인다.
+  }, [conversationId, isLoggedIn]);
 
   async function handleRename(id: string, title: string) {
     setConversations((current) => current.map((c) => (c.id === id ? { ...c, title, isTitleCustom: true } : c)));
@@ -195,7 +199,24 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2">
-        {grouped.map((group) => {
+        {!isLoggedIn && conversations.length === 0 ? (
+          // 게스트는 대화 기록이 로그인한 사용자처럼 계속 보관된다는 보장이 없다 —
+          // 첫 대화를 시작하기 전에 로그인을 유도한다.
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              로그인하면 상담 기록을 계속 보관하고
+              <br />
+              이어서 확인할 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={goToProfile}
+              className="rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
+            >
+              로그인하기
+            </button>
+          </div>
+        ) : grouped.map((group) => {
           const isCollapsed = group.label ? collapsedCategories.has(group.label) : false;
           return (
             <div key={group.label ?? 'all'} className="mb-2">

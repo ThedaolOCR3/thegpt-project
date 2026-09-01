@@ -32,7 +32,9 @@ def create_model_registry() -> ModelRegistry:
             ),
             LlmModelDefinition(
                 id="medgemma",
-                label="MedGemma (최종)",
+                # "최종"이라는 내부 개발 용어 대신 사용자에게는 버전 번호로 노출한다 —
+                # 데이터셋 LoRA(1.0)보다 나중 단계인 최종 상담 LoRA라 2.0으로 표기.
+                label="MedGemma 2.0",
                 family="MedGemma LoRA",
                 training_stage="의료 상담 최종 LoRA",
                 description="Vast.ai V100에서 MedGemma 4B base에 최종 상담 LoRA를 적용한 모델입니다.",
@@ -42,7 +44,9 @@ def create_model_registry() -> ModelRegistry:
             ),
             LlmModelDefinition(
                 id="medgemma-dataset",
-                label="MedGemma (데이터셋)",
+                # 최종 모델과 비교/스크리닝용으로 남겨둔 이전 단계 모델 — "데이터셋"이라는
+                # 내부 용어 대신 1.0으로 표기해 사용자에게는 버전 차이로만 보이게 한다.
+                label="MedGemma 1.0",
                 family="MedGemma LoRA",
                 training_stage="의료 상담 데이터셋 LoRA",
                 description="최종 모델과 같은 MedGemma 4B base에 데이터셋 LoRA를 적용한 비교 모델입니다.",

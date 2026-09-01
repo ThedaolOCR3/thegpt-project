@@ -134,7 +134,10 @@ export function ChatPage() {
   return (
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex-1 overflow-y-auto">
+        {/* scrollbar-gutter:stable — 스크롤바가 나타나거나 사라질 때(예: 복사 버튼
+            클릭으로 버튼 폭이 살짝 바뀔 때) 콘텐츠 폭이 스크롤바 두께만큼 갑자기
+            바뀌면서 깜빡이는 현상을 막기 위해 스크롤바 자리를 항상 미리 확보해둔다. */}
+        <div className="thin-scrollbar flex-1 overflow-y-auto [scrollbar-gutter:stable]">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
             {messages.length > 0 && (
               <div className="mb-1 flex justify-end">

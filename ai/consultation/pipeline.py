@@ -1,4 +1,8 @@
-"""RAG/분류 결과를 프롬프트로 조립해 LLM을 호출하고 면책 문구를 붙입니다.
+"""RAG/분류 결과를 프롬프트로 조립해 LLM을 호출하고 응답을 검증합니다.
+
+면책 문구는 더 이상 여기서 답변 텍스트에 붙이지 않는다 — 매 답변마다 반복되는 문구라
+프론트엔드가 채팅 UI에 별도 경고 배너로 보여준다(MessageBubble.tsx 참고). 이 파일은
+검증된 LLM 원문 그대로를 answer로 반환한다.
 
 흐름:
     사용자 질문
@@ -7,7 +11,7 @@
         -> 참고 의료 정보 조립
         -> 프롬프트 조립
         -> 주입받은 LlmApplicationService 호출
-        -> 응답 검증과 면책 문구 후처리
+        -> 응답 검증(response_validator)
 
 이 모듈은 DB 세션과 Backend 설정을 모른다. Backend는 Admin·일반 API·채팅이
 공유하는 Vast.ai 원격 LLM Application을 만들어 consult()에 주입한다.
@@ -28,11 +32,6 @@ from .prompt_builder import build_messages
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_ID = "medgemma"
-
-DISCLAIMER = (
-    "\n\n※ 본 답변은 참고용 정보이며 의학적 진단을 대체하지 않습니다. "
-    "정확한 진단은 반드시 의료진과 상담하세요."
-)
 
 FALLBACK_ANSWER = (
     "죄송합니다, 지금은 AI 상담 응답을 생성할 수 없습니다. 잠시 후 다시 시도해주시거나, "
@@ -74,7 +73,7 @@ async def consult(
     # LLM 호출 전 하드 필터 — 프롬프트 지시 준수 여부와 무관하게 작동하는 이중 안전장치.
     if risk_detector.detect_emergency(user_question):
         return ConsultationResult(
-            answer=risk_detector.EMERGENCY_RESPONSE + DISCLAIMER,
+            answer=risk_detector.EMERGENCY_RESPONSE,
             department=None,
             confidence="낮음",
             is_emergency=True,
@@ -100,8 +99,7 @@ async def consult(
 
     try:
         execution = await llm_application.run(model_id, ProviderGenerateRequest(messages=messages))
-        validated = response_validator.validate(execution.result.answer.strip())
-        answer = validated + DISCLAIMER
+        answer = response_validator.validate(execution.result.answer.strip())
         # execution/result는 호출하는 쪽이 넘겨준 llm_application 구현에 달려있어서
         # (테스트에서는 최소 stub을 쓴다), 없는 필드는 조용히 None으로 둔다 —
         # 로깅 메타데이터 때문에 LLM 호출 계약을 더 무겁게 만들지 않기 위함.

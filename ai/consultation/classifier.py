@@ -9,6 +9,7 @@
 나중에 임베딩 유사도 기반이나 파인튜닝된 분류 모델로 교체하려면 `BaseQueryClassifier`
 Protocol만 만족하면 된다 — 호출하는 쪽(`pipeline.py`)은 구현체를 몰라도 된다.
 """
+import re
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -58,6 +59,13 @@ _DEPARTMENT_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _normalize(text: str) -> str:
+    """공백을 없애고 매칭한다 — "배가 아"(키워드)가 "배가아파서"(실제 입력, 띄어쓰기
+    없이 쓰는 경우가 많다)에도 걸리게 하기 위함. 원래 클래스 docstring은 "공백을
+    무시한다"고 되어있었지만 실제로는 그냥 substring 매칭이라 안 걸리는 버그가 있었다."""
+    return re.sub(r"\s+", "", text)
+
+
 class KeywordDepartmentClassifier:
     """공백/조사를 무시한 단순 부분 문자열 매칭. 형태소 분석 없이 최소 구현으로 시작한다."""
 
@@ -66,9 +74,10 @@ class KeywordDepartmentClassifier:
         if not text:
             return DepartmentResult(department=None, confidence="낮음")
 
+        normalized_text = _normalize(text)
         scores: dict[str, list[str]] = {}
         for department, keywords in _DEPARTMENT_KEYWORDS.items():
-            hits = [kw for kw in keywords if kw in text]
+            hits = [kw for kw in keywords if _normalize(kw) in normalized_text]
             if hits:
                 scores[department] = hits
 
