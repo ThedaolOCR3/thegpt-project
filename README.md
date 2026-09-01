@@ -2,7 +2,7 @@
 
 의료 진료 상담 AI 서비스를 목표로 개발 중인 **React + FastAPI 기반 웹 프로젝트**입니다.
 
-관리자 페이지에서 문서 OCR, 청크 설정, Jina v4·Medical BGE-M3 이중 Embedding 기반 VectorDB 저장, LLM 응답 비교 기능을 제공합니다. 메인 페이지에서는 두 Dense 검색 순위를 RRF로 합친 의료 RAG와 공통 Model Registry의 LLM을 사용합니다. PDF와 이미지뿐 아니라 DOCX/PPTX도 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
+관리자 페이지에서 문서 OCR, 청크 설정, Jina v4·Medical BGE-M3 이중 Embedding 기반 VectorDB 저장, LLM 응답 비교 기능을 제공합니다. 메인 페이지에서는 두 Dense 검색 순위를 RRF로 합친 의료 RAG와 공통 Model Registry의 LLM을 사용합니다. PDF·이미지·DOCX/PPTX와 JSON·JSONL·CSV·TXT를 처리하며, Office 문서는 LibreOffice 없이 OOXML을 직접 추출합니다.
 
 ## 1. 주요 기술 스택
 

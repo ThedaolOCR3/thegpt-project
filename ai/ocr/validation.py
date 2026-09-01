@@ -9,9 +9,11 @@ from PIL import Image, UnidentifiedImageError
 
 from .contracts import OcrDocumentInput, OcrProcessingConfig, ValidatedDocument
 from .errors import DocumentTooLargeError, DocumentValidationError
+from .extractors.structured_text import extract_structured_text
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 SUPPORTED_OFFICE_EXTENSIONS = {".docx", ".pptx"}
+SUPPORTED_TEXT_EXTENSIONS = {".json", ".jsonl", ".csv", ".txt"}
 SUPPORTED_PDF_MIME_TYPES = {"application/pdf", "application/octet-stream"}
 SUPPORTED_IMAGE_MIME_TYPES = {
     "image/png",
@@ -31,6 +33,31 @@ SUPPORTED_OFFICE_MIME_TYPES = {
         "application/zip",
         "application/x-zip-compressed",
     },
+}
+SUPPORTED_TEXT_MIME_TYPES = {
+    ".json": {
+        "application/json",
+        "text/json",
+        "text/plain",
+        "application/octet-stream",
+    },
+    ".jsonl": {
+        "application/json",
+        "application/jsonl",
+        "application/ndjson",
+        "application/x-ndjson",
+        "text/plain",
+        "application/octet-stream",
+    },
+    ".csv": {
+        "text/csv",
+        "text/comma-separated-values",
+        "application/csv",
+        "application/vnd.ms-excel",
+        "text/plain",
+        "application/octet-stream",
+    },
+    ".txt": {"text/plain", "application/octet-stream"},
 }
 OFFICE_REQUIRED_PARTS = {
     ".docx": {"[Content_Types].xml", "_rels/.rels", "word/document.xml"},
@@ -54,12 +81,16 @@ def validate_document(
         .lower()
     )
     supported_extensions = (
-        SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_OFFICE_EXTENSIONS | {".pdf"}
+        SUPPORTED_IMAGE_EXTENSIONS
+        | SUPPORTED_OFFICE_EXTENSIONS
+        | SUPPORTED_TEXT_EXTENSIONS
+        | {".pdf"}
     )
 
     if not file_name or extension not in supported_extensions:
         raise DocumentValidationError(
-            "PDF, PNG, JPG, DOCX, PPTX 파일만 업로드할 수 있습니다."
+            "PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT 파일만 "
+            "업로드할 수 있습니다."
         )
     if not document.content:
         raise DocumentValidationError("빈 파일은 분석할 수 없습니다.")
@@ -74,6 +105,9 @@ def validate_document(
         file_type = "pdf"
     elif extension in SUPPORTED_OFFICE_EXTENSIONS:
         _validate_office_document(document.content, extension, content_type, config)
+        file_type = extension.removeprefix(".")
+    elif extension in SUPPORTED_TEXT_EXTENSIONS:
+        _validate_text_document(document.content, extension, content_type)
         file_type = extension.removeprefix(".")
     else:
         _validate_image(
@@ -90,6 +124,22 @@ def validate_document(
         file_type=file_type,
         content=document.content,
     )
+
+
+def _validate_text_document(
+    content: bytes,
+    extension: str,
+    content_type: str,
+) -> None:
+    """Text 기반 파일의 MIME과 Encoding/형식을 검증합니다."""
+
+    if content_type not in SUPPORTED_TEXT_MIME_TYPES[extension]:
+        raise DocumentValidationError(
+            f"{extension.removeprefix('.').upper()} 파일의 MIME Type이 올바르지 않습니다."
+        )
+
+    # 파싱을 통해 Binary 위장과 손상된 JSON/CSV를 저장 전에 거부합니다.
+    extract_structured_text(content, extension)
 
 
 def validate_pdf_content(content: bytes, content_type: str, max_pages: int) -> None:

@@ -28,6 +28,10 @@ DOCUMENT_TYPE_LABELS = {
     "scanned_pdf": "스캔 PDF",
     "docx_direct": "DOCX 직접 추출",
     "pptx_direct": "PPTX 직접 추출",
+    "json_direct": "JSON 직접 추출",
+    "jsonl_direct": "JSONL 직접 추출",
+    "csv_direct": "CSV 직접 추출",
+    "txt_direct": "TXT 직접 추출",
 }
 
 CoreAnalyzer = Callable[
@@ -132,6 +136,8 @@ def build_admin_ocr_response(
         notes.insert(0, "원본 형식: DOCX")
     elif result.document_type.startswith("pptx"):
         notes.insert(0, "원본 형식: PPTX")
+    elif result.document_type.endswith("_direct"):
+        notes.insert(0, f"원본 형식: {result.document_type.removesuffix('_direct').upper()}")
 
     review_warning_keywords = (
         "실패",

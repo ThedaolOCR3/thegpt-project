@@ -54,7 +54,7 @@ router = APIRouter()
 async def analyze_ocr(
     file: Annotated[
         UploadFile,
-        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+        File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV 또는 TXT 파일"),
     ],
     chunk_size: Annotated[
         int,
@@ -99,7 +99,7 @@ async def analyze_ocr(
 async def create_ocr_job(
     file: Annotated[
         UploadFile,
-        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+        File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV 또는 TXT 파일"),
     ],
     chunk_size: Annotated[
         int,

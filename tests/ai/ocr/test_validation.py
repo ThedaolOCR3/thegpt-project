@@ -74,6 +74,40 @@ class OcrValidationTest(unittest.TestCase):
                 self.config,
             )
 
+    def test_text_based_rag_extensions_are_accepted(self) -> None:
+        cases = [
+            ("data.json", "application/json", b'{"title": "sample"}', "json"),
+            ("data.jsonl", "application/x-ndjson", b'{"id": 1}\n', "jsonl"),
+            ("data.csv", "text/csv", b"name,value\nsample,1\n", "csv"),
+            ("data.txt", "text/plain", "텍스트 문서".encode(), "txt"),
+        ]
+
+        for file_name, content_type, content, expected_type in cases:
+            with self.subTest(file_name=file_name):
+                validated = validate_document(
+                    OcrDocumentInput(file_name, content_type, content),
+                    self.config,
+                )
+                self.assertEqual(validated.file_type, expected_type)
+
+    def test_invalid_json_is_rejected(self) -> None:
+        with self.assertRaisesRegex(DocumentValidationError, "JSON 문법"):
+            validate_document(
+                OcrDocumentInput("broken.json", "application/json", b'{"missing": }'),
+                self.config,
+            )
+
+    def test_invalid_jsonl_reports_line_number(self) -> None:
+        with self.assertRaisesRegex(DocumentValidationError, "2번 줄"):
+            validate_document(
+                OcrDocumentInput(
+                    "broken.jsonl",
+                    "application/x-ndjson",
+                    b'{"id": 1}\nnot-json\n',
+                ),
+                self.config,
+            )
+
 
 def _make_png() -> bytes:
     output = BytesIO()
