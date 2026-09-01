@@ -1,4 +1,4 @@
-import { Check, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { AsyncStatus } from "../../types/common";
 import type { OcrDocumentResult, OcrProgressUpdate } from "../../types/ocr";
 
@@ -65,10 +65,6 @@ export function OcrResultSummary({
             </a>
           )}
         </div>
-        <span className={`readiness-badge ${result.readiness}`}>
-          <Check size={13} />{" "}
-          {result.readiness === "ready" ? "등록 가능" : "검토 필요"}
-        </span>
       </div>
       <dl className="metric-grid">
         <div>
@@ -94,7 +90,7 @@ export function OcrResultSummary({
       />
       <TextPreview title="Chunked Text" texts={result.chunks} chunked />
       <div className="quality-note">
-        <strong>품질 확인 메모</strong>
+        <strong>처리 정보 및 확인사항</strong>
         <ul>
           {result.notes.map((note) => (
             <li key={note}>{note}</li>

@@ -579,7 +579,6 @@
   overflow-wrap: anywhere;
   font-size: 17px;
 }
-.readiness-badge,
 .model-status {
   display: inline-flex;
   flex: none;
@@ -590,23 +589,13 @@
   font-size: 11px;
   font-weight: 800;
 }
-.readiness-badge.ready,
 .model-status.success {
   color: #047857;
   background: #dff8ee;
 }
-.readiness-badge.review {
-  color: #b45309;
-  background: #fff4d6;
-}
-.dark .readiness-badge.ready,
 .dark .model-status.success {
   color: #6ee7b7;
   background: rgb(5 150 105 / 17%);
-}
-.dark .readiness-badge.review {
-  color: #fcd34d;
-  background: rgb(217 119 6 / 17%);
 }
 .metric-grid {
   display: grid;
