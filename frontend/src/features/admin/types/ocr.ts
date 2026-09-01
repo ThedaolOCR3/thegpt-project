@@ -1,9 +1,12 @@
-export type AnalyzeDocumentRequest = {
-  file: File;
+type AnalyzeOptions = {
   chunkSize: number;
   overlap: number;
   signal?: AbortSignal;
 };
+export type AnalyzeDocumentRequest = AnalyzeOptions & (
+  | { sourceType: 'file'; file: File }
+  | { sourceType: 'url'; url: string }
+);
 export type SaveDocumentRequest = { jobId: string };
 export type SaveDocumentResult = {
   message: string;
@@ -44,6 +47,8 @@ export type OcrDocumentPayload = {
   chunks: string[];
   readiness: 'review' | 'ready';
   notes: string[];
+  sourceType: 'file' | 'url';
+  sourceUrl: string | null;
 };
 
 export type OcrDocumentResult = OcrDocumentPayload & { jobId: string };

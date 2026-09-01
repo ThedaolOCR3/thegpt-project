@@ -67,7 +67,11 @@ async def save_ocr_result_with_embeddings(
 
     document_repository = repository or DocumentRepository(db)
     saved = document_repository.save_with_chunks(
-        original_file_url=_build_job_file_reference(request.job_id, job.result.document_name),
+        original_file_url=(
+            job.result.source_url
+            if job.result.source_type == "url" and job.result.source_url
+            else _build_job_file_reference(request.job_id, job.result.document_name)
+        ),
         extracted_text=job.result.extracted_text,
         chunks=job.result.chunks,
         embeddings_by_provider=embeddings.vectors_by_provider,

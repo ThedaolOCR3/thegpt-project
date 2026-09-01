@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     ocr_max_office_archive_entries: int = 5_000
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
+    ocr_web_max_url_length: int = 500
+    ocr_web_max_html_size_mb: int = 5
+    ocr_web_max_text_chars: int = 100_000
+    ocr_web_max_chunks: int = 200
+    ocr_web_max_redirects: int = 3
+    ocr_web_connect_timeout_seconds: float = 5
+    ocr_web_read_timeout_seconds: float = 15
+    ocr_web_max_images: int = 20
+    ocr_web_max_image_size_mb: int = 5
+    ocr_web_max_total_image_size_mb: int = 30
+    ocr_web_image_concurrency: int = 4
 
     # 모든 LLM은 Vast.ai의 공통 원격 추론 서버에서 실행합니다.
     llm_remote_enabled: bool = False

@@ -1,4 +1,5 @@
 import { apiClient } from '../../../services/apiClient';
+import { authStorage } from '../../auth/authStorage';
 import type { LlmModelDefinition, LlmModelResult, RunLlmModelRequest } from '../types/llm';
 import type {
   AnalyzeDocumentRequest,
@@ -35,16 +36,9 @@ function waitForNextPoll(signal?: AbortSignal): Promise<void> {
 /** Admin UI와 FastAPI 사이의 HTTP 변환 경계입니다. */
 export const apiAdminAiService: AdminAiService = {
   async analyzeDocument(request: AnalyzeDocumentRequest, onProgress?: OcrProgressListener) {
-    const formData = new FormData();
-    formData.append('file', request.file);
-    formData.append('chunkSize', String(request.chunkSize));
-    formData.append('overlap', String(request.overlap));
-
-    const job = await apiClient<OcrJobCreated>('/admin/ocr/jobs', {
-      method: 'POST',
-      body: formData,
-      signal: request.signal,
-    });
+    const job = request.sourceType === 'file'
+      ? await createFileJob(request)
+      : await createUrlJob(request);
     onProgress?.({ stage: 'queued', progress: 0, message: 'OCR 작업이 대기열에 등록되었습니다.' });
 
     while (true) {
@@ -88,3 +82,32 @@ export const apiAdminAiService: AdminAiService = {
     });
   },
 };
+
+async function createFileJob(
+  request: Extract<AnalyzeDocumentRequest, { sourceType: 'file' }>,
+): Promise<OcrJobCreated> {
+  const formData = new FormData();
+  formData.append('file', request.file);
+  formData.append('chunkSize', String(request.chunkSize));
+  formData.append('overlap', String(request.overlap));
+  return apiClient<OcrJobCreated>('/admin/ocr/jobs', {
+    method: 'POST',
+    body: formData,
+    signal: request.signal,
+  });
+}
+
+async function createUrlJob(
+  request: Extract<AnalyzeDocumentRequest, { sourceType: 'url' }>,
+): Promise<OcrJobCreated> {
+  return apiClient<OcrJobCreated>('/admin/ocr/url-jobs', {
+    method: 'POST',
+    body: JSON.stringify({
+      url: request.url,
+      chunkSize: request.chunkSize,
+      overlap: request.overlap,
+    }),
+    signal: request.signal,
+    token: authStorage.getToken(),
+  });
+}

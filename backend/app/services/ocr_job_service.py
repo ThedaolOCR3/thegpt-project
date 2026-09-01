@@ -21,6 +21,8 @@ from app.schemas.admin import (
     OcrJobStatusResponse,
 )
 from app.services.ocr_workflow import process_document
+from app.services.web_document_fetcher import normalize_web_url
+from app.services.web_ocr_workflow import process_web_url
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,10 @@ class OcrJobCapacityError(Exception):
 
 OcrProcessor = Callable[
     [UploadFile, int, int, ProgressCallback | None],
+    Awaitable[OcrDocumentResponse],
+]
+UrlOcrProcessor = Callable[
+    [str, int, int, ProgressCallback | None],
     Awaitable[OcrDocumentResponse],
 ]
 
@@ -60,11 +66,13 @@ class OcrJobManager:
         max_file_bytes: int,
         max_pending_jobs: int,
         ttl_minutes: int,
+        url_processor: UrlOcrProcessor | None = None,
     ) -> None:
         self.processor = processor
         self.max_file_bytes = max_file_bytes
         self.max_pending_jobs = max_pending_jobs
         self.ttl = timedelta(minutes=ttl_minutes)
+        self.url_processor = url_processor
         self._jobs: dict[str, OcrJobRecord] = {}
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = RLock()
@@ -85,28 +93,7 @@ class OcrJobManager:
                 f"파일 크기는 {max_size_mb}MB 이하여야 합니다."
             )
 
-        now = datetime.now(UTC)
-        job_id = uuid4().hex
-        with self._lock:
-            self._remove_expired_jobs(now)
-            active_job_count = sum(
-                job.status in {"queued", "processing"}
-                for job in self._jobs.values()
-            )
-            if active_job_count >= self.max_pending_jobs:
-                raise OcrJobCapacityError(
-                    "동시에 처리할 수 있는 OCR 작업 수를 초과했습니다. 잠시 후 다시 시도해 주세요."
-                )
-
-            self._jobs[job_id] = OcrJobRecord(
-                job_id=job_id,
-                status="queued",
-                stage="queued",
-                progress=3,
-                message="OCR 작업이 대기열에 등록되었습니다.",
-                created_at=now,
-                updated_at=now,
-            )
+        job_id = self._register_job()
 
         task = asyncio.create_task(
             self._run_job(
@@ -122,6 +109,26 @@ class OcrJobManager:
             self._tasks[job_id] = task
         task.add_done_callback(lambda _task: self._discard_task(job_id))
 
+        return OcrJobCreatedResponse(jobId=job_id, status="queued")
+
+    async def create_url_job(
+        self,
+        url: str,
+        chunk_size: int,
+        overlap: int,
+    ) -> OcrJobCreatedResponse:
+        """검증된 URL을 파일 Job과 같은 메모리 대기열에서 처리합니다."""
+
+        if self.url_processor is None:
+            raise RuntimeError("웹 URL OCR Processor가 설정되지 않았습니다.")
+        normalized_url = normalize_web_url(url, settings.ocr_web_max_url_length)
+        job_id = self._register_job()
+        task = asyncio.create_task(
+            self._run_url_job(job_id, normalized_url, chunk_size, overlap)
+        )
+        with self._lock:
+            self._tasks[job_id] = task
+        task.add_done_callback(lambda _task: self._discard_task(job_id))
         return OcrJobCreatedResponse(jobId=job_id, status="queued")
 
     def get_job(self, job_id: str) -> OcrJobStatusResponse:
@@ -178,6 +185,62 @@ class OcrJobManager:
             self._complete_job(job_id, result)
         finally:
             await upload_file.close()
+
+    async def _run_url_job(
+        self,
+        job_id: str,
+        url: str,
+        chunk_size: int,
+        overlap: int,
+    ) -> None:
+        self._update_progress(
+            job_id,
+            stage="validating_url",
+            progress=5,
+            message="웹페이지 URL 형식을 확인했습니다.",
+        )
+        try:
+            assert self.url_processor is not None
+            result = await self.url_processor(
+                url,
+                chunk_size,
+                overlap,
+                lambda stage, progress, message: self._update_progress(
+                    job_id, stage, progress, message
+                ),
+            )
+        except OcrError as exc:
+            logger.warning("Web OCR Job 실패: job_id=%s, error=%s", job_id, exc)
+            self._fail_job(job_id, str(exc))
+        except Exception:
+            logger.exception("예상하지 못한 Web OCR Job 오류: job_id=%s", job_id)
+            self._fail_job(job_id, "웹페이지 분석 중 예상하지 못한 오류가 발생했습니다.")
+        else:
+            self._complete_job(job_id, result)
+
+    def _register_job(self) -> str:
+        now = datetime.now(UTC)
+        job_id = uuid4().hex
+        with self._lock:
+            self._remove_expired_jobs(now)
+            active_job_count = sum(
+                job.status in {"queued", "processing"}
+                for job in self._jobs.values()
+            )
+            if active_job_count >= self.max_pending_jobs:
+                raise OcrJobCapacityError(
+                    "동시에 처리할 수 있는 OCR 작업 수를 초과했습니다. 잠시 후 다시 시도해 주세요."
+                )
+            self._jobs[job_id] = OcrJobRecord(
+                job_id=job_id,
+                status="queued",
+                stage="queued",
+                progress=3,
+                message="OCR 작업이 대기열에 등록되었습니다.",
+                created_at=now,
+                updated_at=now,
+            )
+        return job_id
 
     def _update_progress(
         self,
@@ -250,4 +313,5 @@ ocr_job_manager = OcrJobManager(
     max_file_bytes=settings.ocr_max_file_size_mb * 1024 * 1024,
     max_pending_jobs=settings.ocr_max_pending_jobs,
     ttl_minutes=settings.ocr_job_ttl_minutes,
+    url_processor=process_web_url,
 )

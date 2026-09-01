@@ -6,7 +6,8 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.schemas.admin import OcrDocumentResponse
+from app.api.auth.dependencies import require_admin
+from app.schemas.admin import OcrDocumentResponse, OcrJobCreatedResponse
 
 
 class AdminOcrApiTest(unittest.TestCase):
@@ -99,6 +100,37 @@ class AdminOcrApiTest(unittest.TestCase):
         self.assertEqual(payload["documentName"], "knowledge.zip")
         self.assertIn("압축 파일의 RAG 텍스트", payload["extractedText"])
         self.assertIn("원본 형식: ZIP", payload["notes"])
+
+    def test_url_job_requires_admin_authentication(self) -> None:
+        response = self.client.post(
+            "/api/admin/ocr/url-jobs",
+            json={"url": "https://example.com", "chunkSize": 300, "overlap": 40},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_url_job_accepts_camel_case_contract_for_admin(self) -> None:
+        app.dependency_overrides[require_admin] = lambda: object()
+        try:
+            with patch(
+                "app.api.admin.router.ocr_job_manager.create_url_job",
+                new=AsyncMock(
+                    return_value=OcrJobCreatedResponse(jobId="url-job", status="queued")
+                ),
+            ) as creator:
+                response = self.client.post(
+                    "/api/admin/ocr/url-jobs",
+                    json={
+                        "url": "https://example.com/article",
+                        "chunkSize": 300,
+                        "overlap": 40,
+                    },
+                )
+        finally:
+            app.dependency_overrides.pop(require_admin, None)
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json(), {"jobId": "url-job", "status": "queued"})
+        creator.assert_awaited_once_with("https://example.com/article", 300, 40)
 
 
 def _admin_result() -> OcrDocumentResponse:

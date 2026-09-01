@@ -33,6 +33,7 @@ DOCUMENT_TYPE_LABELS = {
     "csv_direct": "CSV 직접 추출",
     "txt_direct": "TXT 직접 추출",
     "zip_archive": "ZIP 압축 문서",
+    "web_page": "웹페이지",
 }
 
 CoreAnalyzer = Callable[
@@ -123,10 +124,16 @@ def build_admin_ocr_response(
     file_name: str,
     result: OcrDocumentResult,
     chunks: list[str],
+    source_type: str = "file",
+    source_url: str | None = None,
 ) -> OcrDocumentResponse:
     """Framework 독립 Core 결과를 기존 Admin Response로 변환합니다."""
 
-    safe_file_name = Path(file_name.replace("\\", "/")).name
+    safe_file_name = (
+        file_name.strip()[:255]
+        if source_type == "url"
+        else Path(file_name.replace("\\", "/")).name
+    )
     confidence_percent = round(result.average_confidence * 100, 1)
     notes = [
         f"문서 유형: {DOCUMENT_TYPE_LABELS.get(result.document_type, result.document_type)}",
@@ -170,6 +177,8 @@ def build_admin_ocr_response(
         chunks=chunks,
         readiness="review" if needs_review else "ready",
         notes=notes,
+        sourceType=source_type,
+        sourceUrl=source_url,
     )
 
 
