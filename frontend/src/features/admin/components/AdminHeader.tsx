@@ -8,7 +8,7 @@ export function AdminHeader() {
       </div>
       <div>
         <span className="admin-eyebrow">ADMIN EXPERIMENT SPACE</span>
-        <h1>Dashboard</h1>
+        <h1>관리자 페이지</h1>
         <p>
           RAG 문서 준비 상태를 시험하고 여러 LLM의 응답을 같은 조건에서
           비교합니다.

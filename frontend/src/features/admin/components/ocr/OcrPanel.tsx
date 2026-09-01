@@ -14,11 +14,11 @@ export function OcrPanel() {
     <section className="admin-workspace" aria-labelledby="ocr-panel-title">
       <div className="admin-section-heading">
         <div>
-          <span className="admin-eyebrow">RAG DOCUMENT LAB</span>
-          <h2 id="ocr-panel-title">문서 OCR 준비 테스트</h2>
+          <span className="admin-eyebrow">RAG CONTENT INGESTION</span>
+          <h2 id="ocr-panel-title">RAG 자료 추출 및 등록</h2>
           <p>
-            문서가 RAG 지식으로 등록되기 전에 추출 품질과 예상 chunk 구성을
-            확인합니다.
+            문서 파일 또는 공개 웹페이지에서 텍스트와 이미지 내용을 추출하고,
+            RAG 지식으로 저장하기 전에 추출 품질과 예상 chunk 구성을 확인합니다.
           </p>
         </div>
         {/* <span className="mock-badge">프론트엔드 Mock</span> */}
@@ -63,7 +63,9 @@ export function OcrPanel() {
             onChunkSizeChange={ocr.setChunkSize}
             onOverlapPercentChange={ocr.setOverlapPercent}
           />
-          {ocr.sourceType === "file" && ocr.file && <OcrFilePreview file={ocr.file} />}
+          {ocr.sourceType === "file" && ocr.file && (
+            <OcrFilePreview file={ocr.file} />
+          )}
           {ocr.error && (
             <p className="admin-error" role="alert">
               {ocr.error}
@@ -79,8 +81,10 @@ export function OcrPanel() {
               <>
                 <RefreshCw className="spin" size={17} /> 분석 중...
               </>
+            ) : ocr.sourceType === "file" ? (
+              "문서 분석 테스트"
             ) : (
-              ocr.sourceType === "file" ? "문서 분석 테스트" : "웹페이지 분석 테스트"
+              "웹페이지 분석 테스트"
             )}
           </button>
         </div>
