@@ -52,6 +52,7 @@ Vast.ai 서버에만 있습니다. Admin 모델 가용성 조회는 원격 `/hea
 - PPTX: `python-pptx` 기반 슬라이드·도형·표·이미지·발표자 노트 직접 추출
 - JSON/JSONL: UTF-8·UTF-16·CP949 디코딩과 JSON 문법 검증 후 직접 추출
 - CSV/TXT: UTF-8·UTF-16·CP949 Text 직접 추출
+- ZIP: 내부의 지원 문서를 디스크에 풀지 않고 순서대로 통합 추출
 
 DOCX/PPTX 처리를 위해 LibreOffice를 설치하거나 실행 경로를 설정할 필요가 없습니다.
 정확한 Office 페이지 미리보기 또는 페이지 번호가 필요하면 원본 프로그램에서 PDF로

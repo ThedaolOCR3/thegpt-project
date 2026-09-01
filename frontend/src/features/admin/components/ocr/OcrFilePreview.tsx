@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg"]);
 const OFFICE_EXTENSIONS = new Set(["docx", "pptx"]);
 const TEXT_EXTENSIONS = new Set(["json", "jsonl", "csv", "txt"]);
+const ARCHIVE_EXTENSIONS = new Set(["zip"]);
 
 const extensionOf = (fileName: string) =>
   fileName.split(".").pop()?.toLowerCase() ?? "";
@@ -17,10 +18,11 @@ export function OcrFilePreview({ file }: { file: File }) {
     file.type.startsWith("image/") || IMAGE_EXTENSIONS.has(extension);
   const isOffice = OFFICE_EXTENSIONS.has(extension);
   const isText = TEXT_EXTENSIONS.has(extension);
+  const isArchive = ARCHIVE_EXTENSIONS.has(extension);
   const previewUrl = preview?.file === file ? preview.url : "";
 
   useEffect(() => {
-    if (isOffice || isText) {
+    if (isOffice || isText || isArchive) {
       setPreview(null);
       return;
     }
@@ -29,20 +31,24 @@ export function OcrFilePreview({ file }: { file: File }) {
     setPreview({ file, url: objectUrl });
 
     return () => URL.revokeObjectURL(objectUrl);
-  }, [file, isOffice, isText]);
+  }, [file, isOffice, isText, isArchive]);
 
-  if (!isPdf && !isImage && !isOffice && !isText) return null;
+  if (!isPdf && !isImage && !isOffice && !isText && !isArchive) return null;
 
-  if (isOffice || isText) {
+  if (isOffice || isText || isArchive) {
     return (
       <section className="ocr-file-preview" aria-label={`${file.name} 분석 안내`}>
         <div className="ocr-preview-header">
           <strong>파일 미리보기</strong>
         </div>
         <div className="ocr-preview-loading">
-          {extension.toUpperCase()}의 {isText ? "내용을 텍스트로" : "텍스트·표·이미지 구조를"} 직접
-          분석합니다.
-          {!isText && " 정확한 페이지 미리보기가 필요하면 PDF로 업로드해 주세요."}
+          {extension.toUpperCase()}의 {isArchive
+            ? "내부 지원 문서를 순서대로"
+            : isText
+              ? "내용을 텍스트로"
+              : "텍스트·표·이미지 구조를"} 직접 분석합니다.
+          {!isText && !isArchive
+            && " 정확한 페이지 미리보기가 필요하면 PDF로 업로드해 주세요."}
         </div>
       </section>
     );

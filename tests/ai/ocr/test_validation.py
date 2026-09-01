@@ -108,10 +108,70 @@ class OcrValidationTest(unittest.TestCase):
                 self.config,
             )
 
+    def test_zip_with_supported_documents_is_accepted(self) -> None:
+        validated = validate_document(
+            OcrDocumentInput(
+                "knowledge.zip",
+                "application/zip",
+                _make_zip({"nested/notes.txt": "RAG 문서"}),
+            ),
+            self.config,
+        )
+
+        self.assertEqual(validated.file_type, "zip")
+
+    def test_zip_path_traversal_is_rejected(self) -> None:
+        with self.assertRaisesRegex(DocumentValidationError, "안전하지 않은"):
+            validate_document(
+                OcrDocumentInput(
+                    "unsafe.zip",
+                    "application/zip",
+                    _make_zip({"../outside.txt": "unsafe"}),
+                ),
+                self.config,
+            )
+
+    def test_zip_without_supported_documents_is_rejected(self) -> None:
+        with self.assertRaisesRegex(DocumentValidationError, "지원하는 문서"):
+            validate_document(
+                OcrDocumentInput(
+                    "empty.zip",
+                    "application/zip",
+                    _make_zip({"image.gif": b"GIF89a"}),
+                ),
+                self.config,
+            )
+
+    def test_zip_uncompressed_size_limit_is_enforced(self) -> None:
+        tiny_archive_config = OcrProcessingConfig(
+            **{
+                **self.config.__dict__,
+                "max_office_uncompressed_bytes": 10,
+            }
+        )
+
+        with self.assertRaisesRegex(DocumentValidationError, "압축 해제 크기"):
+            validate_document(
+                OcrDocumentInput(
+                    "large.zip",
+                    "application/zip",
+                    _make_zip({"large.txt": "x" * 11}),
+                ),
+                tiny_archive_config,
+            )
+
 
 def _make_png() -> bytes:
     output = BytesIO()
     Image.new("RGB", (100, 60), "white").save(output, format="PNG")
+    return output.getvalue()
+
+
+def _make_zip(files: dict[str, bytes | str]) -> bytes:
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
     return output.getvalue()
 
 

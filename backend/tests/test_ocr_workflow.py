@@ -119,6 +119,25 @@ class OcrWorkflowServiceTest(unittest.TestCase):
         self.assertIn("원본 형식: JSONL", response.notes)
         self.assertIn("문서 유형: JSONL 직접 추출", response.notes)
 
+    def test_zip_document_has_readable_admin_notes(self) -> None:
+        response = build_admin_ocr_response(
+            file_name="knowledge.zip",
+            result=OcrDocumentResult(
+                raw_text="압축 텍스트",
+                cleaned_text="압축 텍스트",
+                lines=[],
+                page_count=None,
+                document_type="zip_archive",
+                ocr_image_count=0,
+                average_confidence=1.0,
+                warnings=[],
+            ),
+            chunks=["압축 텍스트"],
+        )
+
+        self.assertIn("원본 형식: ZIP", response.notes)
+        self.assertIn("문서 유형: ZIP 압축 문서", response.notes)
+
 
 def _upload() -> UploadFile:
     return UploadFile(

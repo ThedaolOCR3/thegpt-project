@@ -1,4 +1,4 @@
-"""Image/PDF/Office/Text 기반 문서를 하나의 순서로 처리하는 Pipeline입니다."""
+"""Image/PDF/Office/Text/ZIP 문서를 하나의 순서로 처리하는 Pipeline입니다."""
 
 import logging
 from collections.abc import Callable
@@ -19,6 +19,7 @@ from .contracts import (
 )
 from .engine import get_paddle_ocr_service
 from .errors import DocumentProcessingError
+from .extractors.archive import process_zip_document
 from .extractors.office import OfficeDocumentParser, process_office_document
 from .extractors.pdf import process_pdf_document
 from .extractors.structured_text import process_structured_text_document
@@ -142,6 +143,19 @@ def _extract_document(
             "Text 기반 문서를 직접 추출했습니다.",
         )
         return process_structured_text_document(document)
+    if document.file_type == "zip":
+        return process_zip_document(
+            document,
+            config,
+            lambda member, callback: analyze_document(
+                member,
+                config,
+                callback,
+                ocr_service_factory=ocr_service_factory,
+                office_parser=office_parser,
+            ),
+            progress_callback,
+        )
     return process_office_document(
         document,
         config,

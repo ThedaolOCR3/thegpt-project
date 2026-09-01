@@ -88,7 +88,7 @@ export function useOcrTest() {
     setActiveId((current) => current ?? nextItems[0]?.id ?? null);
     setSelectionError(describeFileMerge(
       merged,
-      'PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT',
+      'PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT, ZIP',
     ));
   }
 

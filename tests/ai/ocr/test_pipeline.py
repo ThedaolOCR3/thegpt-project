@@ -1,5 +1,7 @@
 import unittest
+from io import BytesIO
 from unittest.mock import patch
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from PIL import Image
 
@@ -250,6 +252,27 @@ class OcrPipelineTest(unittest.TestCase):
 
         self.assertEqual(self.ocr_engine.call_count, 0)
 
+    def test_zip_combines_supported_members_without_disk_extraction(self) -> None:
+        result = self._process(
+            _make_zip(
+                {
+                    "notes/guide.txt": "두통이 있으면 안정을 취하세요.",
+                    "data.json": '{"department": "신경과"}',
+                    "ignored.gif": b"GIF89a",
+                }
+            ),
+            "knowledge.zip",
+            "application/zip",
+        )
+
+        self.assertEqual(result.document_type, "zip_archive")
+        self.assertIn("## ZIP 내부 파일: notes/guide.txt", result.cleaned_text)
+        self.assertIn("두통이 있으면 안정을 취하세요.", result.cleaned_text)
+        self.assertIn('"department": "신경과"', result.cleaned_text)
+        self.assertTrue(any("건너뛰" in warning for warning in result.warnings))
+        self.assertEqual(result.average_confidence, 1.0)
+        self.assertEqual(self.ocr_engine.call_count, 0)
+
     def test_large_image_is_resized_before_ocr(self) -> None:
         image = _make_png(width=2000, height=1000)
 
@@ -382,6 +405,14 @@ class OcrPipelineTest(unittest.TestCase):
             self.config,
             ocr_service_factory=lambda: self.ocr_engine,
         )
+
+
+def _make_zip(files: dict[str, bytes | str]) -> bytes:
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
+    return output.getvalue()
 
 
 if __name__ == "__main__":
