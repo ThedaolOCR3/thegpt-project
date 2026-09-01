@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.services.rag_search_service import search
 
 
@@ -38,6 +39,40 @@ class RagSearchServiceTest(unittest.TestCase):
         self.assertEqual([result.text for result in results], ["B", "A", "C"])
         self.assertEqual(repository.requested_limits, [20, 20])
         self.assertEqual(repository.query_heads, [0.1, 0.2])
+
+    def test_search_candidate_count_follows_setting(self) -> None:
+        # EMBEDDING_SEARCH_CANDIDATES는 예전엔 코드에 하드코딩된 상수였다 — 설정으로
+        # 뺀 뒤에도 실제로 반영되는지 확인.
+        repository = FakeRepository({"jina-v4": [_chunk(uuid4(), "A")]})
+
+        with (
+            patch("app.services.rag_search_service.DocumentChunkRepository", return_value=repository),
+            patch.object(settings, "embedding_search_candidates", 5),
+        ):
+            search(Mock(spec=Session), "질문", top_k=1, providers=[FakeProvider("jina-v4", 0.1)])
+
+        self.assertEqual(repository.requested_limits, [5])
+
+    def test_rrf_k_follows_setting(self) -> None:
+        chunk_a, chunk_b = _chunk(uuid4(), "A"), _chunk(uuid4(), "B")
+        repository = FakeRepository(
+            {"jina-v4": [chunk_a, chunk_b], "medical-bgem3": [chunk_b, chunk_a]}
+        )
+
+        with (
+            patch("app.services.rag_search_service.DocumentChunkRepository", return_value=repository),
+            patch("app.services.rag_search_service.hybrid.reciprocal_rank_fusion") as mock_rrf,
+        ):
+            mock_rrf.return_value = [(chunk_a.id, 1.0)]
+            with patch.object(settings, "embedding_rrf_k", 5):
+                search(
+                    Mock(spec=Session),
+                    "질문",
+                    top_k=1,
+                    providers=[FakeProvider("jina-v4", 0.1), FakeProvider("medical-bgem3", 0.2)],
+                )
+
+        self.assertEqual(mock_rrf.call_args.kwargs.get("k"), 5)
 
 
 class FakeProvider:

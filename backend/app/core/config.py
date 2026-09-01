@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     embedding_dimension: int = 1024
     embedding_timeout_seconds: float = 60.0
     embedding_batch_size: int = 32
+    # RAG 검색 튜닝값 — rag_search_service.py에서 사용(ai/rag는 Backend 설정을
+    # 모르므로 여기서만 읽는다). candidates: provider별로 우선 넉넉히 뽑아둘 후보 수
+    # (top_k*4와 비교해 더 큰 쪽을 씀). rrf_k: RRF 결합 공식의 상수 — 값이 클수록
+    # 순위 차이가 점수에 덜 반영된다(더 완만하게 합쳐짐).
+    embedding_search_candidates: int = 20
+    embedding_rrf_k: int = 60
 
     # remote_dual은 위 Jina/BGE 설정을 OCR과 RAG에 공통 적용합니다.
     # 필요한 개발 환경에서만 hashing 또는 sentence_transformer로 바꿀 수 있습니다.
