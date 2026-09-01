@@ -1,5 +1,7 @@
 import unittest
+from io import BytesIO
 from unittest.mock import AsyncMock, patch
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -53,6 +55,50 @@ class AdminOcrApiTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_analyze_accepts_json_for_rag_chunking(self) -> None:
+        response = self.client.post(
+            "/api/admin/ocr/analyze",
+            files={
+                "file": (
+                    "knowledge.json",
+                    '{"symptom": "두통", "guide": "안정을 취하세요"}'.encode(),
+                    "application/json",
+                )
+            },
+            data={"chunkSize": "100", "overlap": "10"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["documentName"], "knowledge.json")
+        self.assertIn('"symptom": "두통"', payload["extractedText"])
+        self.assertEqual(payload["confidence"], 100.0)
+        self.assertIn("원본 형식: JSON", payload["notes"])
+
+    def test_analyze_accepts_zip_for_rag_chunking(self) -> None:
+        archive_content = BytesIO()
+        with ZipFile(archive_content, "w", ZIP_DEFLATED) as archive:
+            archive.writestr("guide.txt", "압축 파일의 RAG 텍스트")
+            archive.writestr("data.json", '{"department": "내과"}')
+
+        response = self.client.post(
+            "/api/admin/ocr/analyze",
+            files={
+                "file": (
+                    "knowledge.zip",
+                    archive_content.getvalue(),
+                    "application/zip",
+                )
+            },
+            data={"chunkSize": "100", "overlap": "10"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["documentName"], "knowledge.zip")
+        self.assertIn("압축 파일의 RAG 텍스트", payload["extractedText"])
+        self.assertIn("원본 형식: ZIP", payload["notes"])
 
 
 def _admin_result() -> OcrDocumentResponse:

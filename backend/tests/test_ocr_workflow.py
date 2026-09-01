@@ -9,7 +9,7 @@ from starlette.datastructures import Headers
 from ai.ocr import OcrDocumentResult, OcrLine, OcrProcessingConfig
 from ai.ocr.errors import DocumentValidationError
 from app.services.ocr_chunk_service import create_chunks
-from app.services.ocr_workflow import OcrWorkflowService
+from app.services.ocr_workflow import OcrWorkflowService, build_admin_ocr_response
 
 
 class OcrWorkflowServiceTest(unittest.TestCase):
@@ -97,6 +97,46 @@ class OcrWorkflowServiceTest(unittest.TestCase):
         self.assertGreater(len(chunks), 1)
         self.assertTrue(all(chunks))
         self.assertTrue(all(len(chunk) <= 120 for chunk in chunks))
+
+    def test_direct_text_document_has_readable_admin_notes(self) -> None:
+        response = build_admin_ocr_response(
+            file_name="knowledge.jsonl",
+            result=OcrDocumentResult(
+                raw_text='{"text": "샘플"}',
+                cleaned_text='{"text": "샘플"}',
+                lines=[],
+                page_count=None,
+                document_type="jsonl_direct",
+                ocr_image_count=0,
+                average_confidence=1.0,
+                warnings=[],
+            ),
+            chunks=['{"text": "샘플"}'],
+        )
+
+        self.assertEqual(response.readiness, "ready")
+        self.assertEqual(response.confidence, 100.0)
+        self.assertIn("원본 형식: JSONL", response.notes)
+        self.assertIn("문서 유형: JSONL 직접 추출", response.notes)
+
+    def test_zip_document_has_readable_admin_notes(self) -> None:
+        response = build_admin_ocr_response(
+            file_name="knowledge.zip",
+            result=OcrDocumentResult(
+                raw_text="압축 텍스트",
+                cleaned_text="압축 텍스트",
+                lines=[],
+                page_count=None,
+                document_type="zip_archive",
+                ocr_image_count=0,
+                average_confidence=1.0,
+                warnings=[],
+            ),
+            chunks=["압축 텍스트"],
+        )
+
+        self.assertIn("원본 형식: ZIP", response.notes)
+        self.assertIn("문서 유형: ZIP 압축 문서", response.notes)
 
 
 def _upload() -> UploadFile:

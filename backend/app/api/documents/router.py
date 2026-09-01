@@ -25,7 +25,7 @@ async def extract_text(
     file: UploadFile,
     current_user: Annotated[Users, Depends(get_current_user)],
 ) -> OcrResponse:
-    """업로드한 문서에서 텍스트를 추출한다 (채팅 첨부파일 미리보기 패널에서 호출).
+    """업로드한 문서/ZIP에서 텍스트를 추출한다 (채팅 첨부파일 미리보기 패널에서 호출).
 
     파일을 저장하지는 않는다 — OCR 결과만 즉시 반환하고 끝. 원본을 서버에 남겨야
     하면 Object Storage(R2) 연동 후 여기서 업로드까지 같이 처리하면 된다.

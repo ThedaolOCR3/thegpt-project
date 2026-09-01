@@ -1,1 +1,1 @@
-"""Image, PDF, Office 형식별 OCR 추출기입니다."""
+"""Image, PDF, Office, Text, ZIP 형식별 OCR/직접 추출기입니다."""
