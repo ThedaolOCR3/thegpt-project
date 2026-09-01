@@ -267,7 +267,15 @@ export function Sidebar() {
               : <User size={16} />}
           </span>
           <span className="min-w-0 truncate text-sm text-neutral-700 dark:text-neutral-200">
-            {isLoading ? '로그인 확인 중...' : user ? user.email : '로그인 / 회원가입'}
+            {isLoading
+              ? '로그인 확인 중...'
+              : user
+                ? user.email
+                // 게스트라도 대화가 생기기 전(=아직 채팅을 시작 안 함)에는 로그인
+                // 유도 문구를 그대로 보여주고, 대화가 인식되면 게스트 식별 표시로 바꾼다.
+                : conversations.length > 0
+                  ? getGuestDisplayName()
+                  : '로그인 / 회원가입'}
           </span>
         </button>
         {user && (

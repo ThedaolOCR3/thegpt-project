@@ -26,6 +26,14 @@ class KeywordDepartmentClassifierTest(unittest.TestCase):
         )
         self.assertEqual(result.department, "내과")
 
+    def test_matches_eye_pressure_keyword(self) -> None:
+        # 실제 오분류 사례 — "안압"이 안과 키워드 목록에 없어서 "기타"로 빠졌다.
+        result = self.classifier.classify(
+            "안압이 올라가는 듯한 느낌이드는데, 피곤해서 그런건가? 일시적인현상인거겠지? "
+            "이럴땐 어느 병원으로 가서 진료를 받아야해?"
+        )
+        self.assertEqual(result.department, "안과")
+
     def test_no_match_returns_low_confidence_and_no_department(self) -> None:
         result = self.classifier.classify("안녕하세요")
         self.assertIsNone(result.department)
