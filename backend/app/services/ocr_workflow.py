@@ -19,6 +19,8 @@ from app.core.config import settings
 from app.schemas.admin import OcrDocumentResponse
 from app.services.ocr_chunk_service import create_chunks
 
+from typing import Literal
+
 logger = logging.getLogger(__name__)
 
 DOCUMENT_TYPE_LABELS = {
@@ -124,7 +126,7 @@ def build_admin_ocr_response(
     file_name: str,
     result: OcrDocumentResult,
     chunks: list[str],
-    source_type: str = "file",
+    source_type: Literal["file", "url"] = "file",
     source_url: str | None = None,
 ) -> OcrDocumentResponse:
     """Framework 독립 Core 결과를 기존 Admin Response로 변환합니다."""
