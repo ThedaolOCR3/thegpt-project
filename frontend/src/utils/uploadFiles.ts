@@ -16,6 +16,7 @@ export type FileMergeResult = {
   files: File[];
   duplicateCount: number;
   unsupportedNames: string[];
+  oversizedNames: string[];
   limitExceeded: boolean;
 };
 
@@ -33,16 +34,22 @@ export function mergeSelectedFiles(
   selected: readonly File[],
   supportedExtensions: ReadonlySet<string>,
   maxFiles = MAX_MULTI_UPLOAD_FILES,
+  maxFileBytes?: number,
 ): FileMergeResult {
   const files = [...current];
   const identities = new Set(files.map(getFileIdentity));
   const unsupportedNames: string[] = [];
+  const oversizedNames: string[] = [];
   let duplicateCount = 0;
   let limitExceeded = false;
 
   for (const file of selected) {
     if (!supportedExtensions.has(getFileExtension(file))) {
       unsupportedNames.push(file.name);
+      continue;
+    }
+    if (maxFileBytes !== undefined && file.size > maxFileBytes) {
+      oversizedNames.push(file.name);
       continue;
     }
     const identity = getFileIdentity(file);
@@ -58,16 +65,23 @@ export function mergeSelectedFiles(
     identities.add(identity);
   }
 
-  return { files, duplicateCount, unsupportedNames, limitExceeded };
+  return { files, duplicateCount, unsupportedNames, oversizedNames, limitExceeded };
 }
 
-export function describeFileMerge(result: FileMergeResult, supportedLabel: string) {
+export function describeFileMerge(
+  result: FileMergeResult,
+  supportedLabel: string,
+  maxFileSizeLabel?: string,
+) {
   const messages: string[] = [];
   if (result.unsupportedNames.length > 0) {
     messages.push(`${supportedLabel} 파일만 첨부할 수 있습니다.`);
   }
   if (result.limitExceeded) {
     messages.push(`한 번에 최대 ${MAX_MULTI_UPLOAD_FILES}개까지 첨부할 수 있습니다.`);
+  }
+  if (result.oversizedNames.length > 0 && maxFileSizeLabel) {
+    messages.push(`파일당 ${maxFileSizeLabel} 이하만 첨부할 수 있습니다.`);
   }
   if (result.duplicateCount > 0) {
     messages.push(`중복 파일 ${result.duplicateCount}개는 제외했습니다.`);

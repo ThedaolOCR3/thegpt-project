@@ -14,7 +14,7 @@ import {
   getFileIdentity,
   mergeSelectedFiles,
 } from '../../../utils/uploadFiles';
-import { OCR_SUPPORTED_EXTENSIONS } from '../constants/adminOptions';
+import { OCR_MAX_FILE_BYTES, OCR_SUPPORTED_EXTENSIONS } from '../constants/adminOptions';
 
 const messageOf = (error: unknown, fallback = '문서 분석 테스트에 실패했습니다.') =>
   error instanceof Error ? error.message : fallback;
@@ -79,6 +79,8 @@ export function useOcrTest() {
       items.map((item) => item.file),
       nextFiles,
       OCR_SUPPORTED_EXTENSIONS,
+      undefined,
+      OCR_MAX_FILE_BYTES,
     );
     const currentById = new Map(items.map((item) => [item.id, item]));
     const nextItems = merged.files.map(
@@ -89,6 +91,7 @@ export function useOcrTest() {
     setSelectionError(describeFileMerge(
       merged,
       'PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT, ZIP',
+      '8GB',
     ));
   }
 
