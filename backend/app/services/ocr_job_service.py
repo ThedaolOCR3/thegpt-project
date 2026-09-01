@@ -20,7 +20,9 @@ from app.schemas.admin import (
     OcrJobCreatedResponse,
     OcrJobStatusResponse,
 )
+from app.services.large_document_service import large_document_service
 from app.services.ocr_workflow import process_document
+from app.services.r2_storage import R2StorageError
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +34,12 @@ class OcrJobNotFoundError(Exception):
 class OcrJobCapacityError(Exception):
     """동시에 보관할 수 있는 OCR Job 수를 초과했을 때 발생합니다."""
 
+
 OcrProcessor = Callable[
     [UploadFile, int, int, ProgressCallback | None],
     Awaitable[OcrDocumentResponse],
 ]
+RemoteOcrProcessor = Callable[..., Awaitable[OcrDocumentResponse]]
 
 
 @dataclass
@@ -60,11 +64,13 @@ class OcrJobManager:
         max_file_bytes: int,
         max_pending_jobs: int,
         ttl_minutes: int,
+        remote_processor: RemoteOcrProcessor | None = None,
     ) -> None:
         self.processor = processor
         self.max_file_bytes = max_file_bytes
         self.max_pending_jobs = max_pending_jobs
         self.ttl = timedelta(minutes=ttl_minutes)
+        self.remote_processor = remote_processor
         self._jobs: dict[str, OcrJobRecord] = {}
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = RLock()
@@ -85,28 +91,7 @@ class OcrJobManager:
                 f"파일 크기는 {max_size_mb}MB 이하여야 합니다."
             )
 
-        now = datetime.now(UTC)
-        job_id = uuid4().hex
-        with self._lock:
-            self._remove_expired_jobs(now)
-            active_job_count = sum(
-                job.status in {"queued", "processing"}
-                for job in self._jobs.values()
-            )
-            if active_job_count >= self.max_pending_jobs:
-                raise OcrJobCapacityError(
-                    "동시에 처리할 수 있는 OCR 작업 수를 초과했습니다. 잠시 후 다시 시도해 주세요."
-                )
-
-            self._jobs[job_id] = OcrJobRecord(
-                job_id=job_id,
-                status="queued",
-                stage="queued",
-                progress=3,
-                message="OCR 작업이 대기열에 등록되었습니다.",
-                created_at=now,
-                updated_at=now,
-            )
+        job_id = self._reserve_job()
 
         task = asyncio.create_task(
             self._run_job(
@@ -122,6 +107,37 @@ class OcrJobManager:
             self._tasks[job_id] = task
         task.add_done_callback(lambda _task: self._discard_task(job_id))
 
+        return OcrJobCreatedResponse(jobId=job_id, status="queued")
+
+    async def create_remote_job(
+        self,
+        *,
+        object_key: str,
+        file_name: str,
+        file_size: int,
+        content_type: str,
+        chunk_size: int,
+        overlap: int,
+    ) -> OcrJobCreatedResponse:
+        """R2 업로드 원본을 요청 본문으로 복사하지 않고 백그라운드 분석합니다."""
+
+        if self.remote_processor is None:
+            raise RuntimeError("대용량 OCR Processor가 설정되지 않았습니다.")
+        job_id = self._reserve_job()
+        task = asyncio.create_task(
+            self._run_remote_job(
+                job_id=job_id,
+                object_key=object_key,
+                file_name=file_name,
+                file_size=file_size,
+                content_type=content_type,
+                chunk_size=chunk_size,
+                overlap=overlap,
+            )
+        )
+        with self._lock:
+            self._tasks[job_id] = task
+        task.add_done_callback(lambda _task: self._discard_task(job_id))
         return OcrJobCreatedResponse(jobId=job_id, status="queued")
 
     def get_job(self, job_id: str) -> OcrJobStatusResponse:
@@ -178,6 +194,75 @@ class OcrJobManager:
             self._complete_job(job_id, result)
         finally:
             await upload_file.close()
+
+    async def _run_remote_job(
+        self,
+        *,
+        job_id: str,
+        object_key: str,
+        file_name: str,
+        file_size: int,
+        content_type: str,
+        chunk_size: int,
+        overlap: int,
+    ) -> None:
+        self._update_progress(
+            job_id,
+            stage="uploading",
+            progress=5,
+            message="R2 직접 업로드가 완료되었습니다.",
+        )
+        try:
+            assert self.remote_processor is not None
+            result = await self.remote_processor(
+                object_key=object_key,
+                file_name=file_name,
+                file_size=file_size,
+                content_type=content_type,
+                chunk_size=chunk_size,
+                overlap=overlap,
+                progress_callback=lambda stage, progress, message: self._update_progress(
+                    job_id,
+                    stage,
+                    progress,
+                    message,
+                ),
+            )
+        except OcrError as exc:
+            logger.warning("대용량 OCR Job 실패: job_id=%s, error=%s", job_id, exc)
+            self._fail_job(job_id, str(exc))
+        except R2StorageError as exc:
+            logger.warning("대용량 OCR R2 실패: job_id=%s, error=%s", job_id, exc)
+            self._fail_job(job_id, str(exc))
+        except Exception:
+            logger.exception("예상하지 못한 대용량 OCR Job 오류: job_id=%s", job_id)
+            self._fail_job(job_id, "대용량 문서 분석 중 예상하지 못한 오류가 발생했습니다.")
+        else:
+            self._complete_job(job_id, result)
+
+    def _reserve_job(self) -> str:
+        now = datetime.now(UTC)
+        job_id = uuid4().hex
+        with self._lock:
+            self._remove_expired_jobs(now)
+            active_job_count = sum(
+                job.status in {"queued", "processing"}
+                for job in self._jobs.values()
+            )
+            if active_job_count >= self.max_pending_jobs:
+                raise OcrJobCapacityError(
+                    "동시에 처리할 수 있는 OCR 작업 수를 초과했습니다. 잠시 후 다시 시도해 주세요."
+                )
+            self._jobs[job_id] = OcrJobRecord(
+                job_id=job_id,
+                status="queued",
+                stage="queued",
+                progress=3,
+                message="OCR 작업이 대기열에 등록되었습니다.",
+                created_at=now,
+                updated_at=now,
+            )
+        return job_id
 
     def _update_progress(
         self,
@@ -247,7 +332,8 @@ def _build_status_response(job: OcrJobRecord) -> OcrJobStatusResponse:
 
 ocr_job_manager = OcrJobManager(
     processor=process_document,
-    max_file_bytes=settings.ocr_max_file_size_mb * 1024 * 1024,
+    max_file_bytes=settings.ocr_inline_file_size_mb * 1024 * 1024,
     max_pending_jobs=settings.ocr_max_pending_jobs,
     ttl_minutes=settings.ocr_job_ttl_minutes,
+    remote_processor=large_document_service.process,
 )

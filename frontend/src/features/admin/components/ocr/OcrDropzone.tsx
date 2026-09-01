@@ -30,7 +30,7 @@ export function OcrDropzone({
     >
       <UploadCloud aria-hidden="true" size={32} />
       <strong>문서를 여러 개 끌어 놓거나 직접 선택하세요</strong>
-      <span>PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT, ZIP · 최대 5개</span>
+      <span>PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT, ZIP · 파일당 8GB 이하 · 최대 5개</span>
       <button
         className="admin-secondary-button"
         type="button"

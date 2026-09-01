@@ -25,6 +25,18 @@ export type OcrJobCreated = {
   status: 'queued';
 };
 
+export type OcrMultipartUploadSession = {
+  uploadId: string;
+  objectKey: string;
+  partSize: number;
+  partCount: number;
+};
+
+export type OcrMultipartCompletedPart = {
+  partNumber: number;
+  etag: string;
+};
+
 export type OcrJobStatus = OcrProgressUpdate & {
   jobId: string;
   status: 'queued' | 'processing' | 'completed' | 'failed';
