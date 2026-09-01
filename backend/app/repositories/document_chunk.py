@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.generated import ChunkEmbeddings, DocumentChunks
+from app.models.generated import AdminDocuments, ChunkEmbeddings, DocumentChunks
 
 # 마이그레이션(03b8a4b5b62a)의 chunk_embeddings.embedding VECTOR 폭과 반드시 같아야 한다.
 EMBEDDING_COLUMN_WIDTH = 2048
@@ -64,7 +64,11 @@ class DocumentChunkRepository:
         stmt = (
             select(DocumentChunks, ChunkEmbeddings.embedding.cosine_distance(padded_query).label("distance"))
             .join(ChunkEmbeddings, ChunkEmbeddings.chunk_id == DocumentChunks.id)
-            .where(ChunkEmbeddings.provider_name == provider_name)
+            .join(AdminDocuments, AdminDocuments.id == DocumentChunks.document_id)
+            .where(
+                ChunkEmbeddings.provider_name == provider_name,
+                AdminDocuments.ocr_status == "completed",
+            )
             .order_by("distance")
             .limit(top_k)
         )
