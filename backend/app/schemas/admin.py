@@ -39,6 +39,8 @@ class OcrDocumentResponse(AdminSchema):
     notes: list[str]
     source_type: Literal["file", "url"] = Field(default="file", alias="sourceType")
     source_url: str | None = Field(default=None, alias="sourceUrl", max_length=500)
+    chunk_artifact_key: str | None = Field(default=None, exclude=True)
+    original_object_key: str | None = Field(default=None, exclude=True)
 
 
 class OcrUrlJobRequest(AdminSchema):
@@ -51,8 +53,6 @@ class OcrUrlJobRequest(AdminSchema):
         if self.overlap >= self.chunk_size:
             raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
         return self
-
-
 class OcrJobCreatedResponse(AdminSchema):
     job_id: str = Field(alias="jobId")
     status: Literal["queued"]
@@ -66,6 +66,67 @@ class OcrJobStatusResponse(AdminSchema):
     message: str
     result: OcrDocumentResponse | None = None
     error: str | None = None
+
+
+class OcrMultipartUploadInitRequest(AdminSchema):
+    file_name: str = Field(alias="fileName", min_length=1, max_length=255)
+    file_size: int = Field(alias="fileSize", ge=1, le=8 * 1024**3)
+    content_type: str = Field(alias="contentType", min_length=1, max_length=150)
+
+
+class OcrMultipartUploadInitResponse(AdminSchema):
+    upload_id: str = Field(alias="uploadId")
+    object_key: str = Field(alias="objectKey")
+    part_size: int = Field(alias="partSize")
+    part_count: int = Field(alias="partCount")
+
+
+class OcrMultipartPartUrlRequest(AdminSchema):
+    upload_id: str = Field(alias="uploadId", min_length=1, max_length=512)
+    object_key: str = Field(alias="objectKey", min_length=1, max_length=1024)
+    part_number: int = Field(alias="partNumber", ge=1, le=10_000)
+
+
+class OcrMultipartPartUrlResponse(AdminSchema):
+    upload_url: str = Field(alias="uploadUrl")
+
+
+class OcrMultipartCompletedPart(AdminSchema):
+    part_number: int = Field(alias="partNumber", ge=1, le=10_000)
+    etag: str = Field(min_length=1, max_length=200)
+
+
+class OcrMultipartUploadCompleteRequest(AdminSchema):
+    upload_id: str = Field(alias="uploadId", min_length=1, max_length=512)
+    object_key: str = Field(alias="objectKey", min_length=1, max_length=1024)
+    file_size: int = Field(alias="fileSize", ge=1, le=8 * 1024**3)
+    parts: list[OcrMultipartCompletedPart] = Field(min_length=1, max_length=10_000)
+
+
+class OcrMultipartUploadCompleteResponse(AdminSchema):
+    object_key: str = Field(alias="objectKey")
+    etag: str
+    file_size: int = Field(alias="fileSize")
+
+
+class OcrMultipartUploadAbortRequest(AdminSchema):
+    upload_id: str = Field(alias="uploadId", min_length=1, max_length=512)
+    object_key: str = Field(alias="objectKey", min_length=1, max_length=1024)
+
+
+class OcrRemoteJobRequest(AdminSchema):
+    object_key: str = Field(alias="objectKey", min_length=1, max_length=1024)
+    file_name: str = Field(alias="fileName", min_length=1, max_length=255)
+    file_size: int = Field(alias="fileSize", ge=1, le=8 * 1024**3)
+    content_type: str = Field(alias="contentType", min_length=1, max_length=150)
+    chunk_size: int = Field(default=512, alias="chunkSize", ge=50, le=4096)
+    overlap: int = Field(default=50, ge=0)
+
+    @model_validator(mode="after")
+    def validate_chunk_options(self) -> "OcrRemoteJobRequest":
+        if self.overlap >= self.chunk_size:
+            raise ValueError("Overlap은 Chunk Size보다 작아야 합니다.")
+        return self
 
 
 class OcrVectorSaveRequest(AdminSchema):

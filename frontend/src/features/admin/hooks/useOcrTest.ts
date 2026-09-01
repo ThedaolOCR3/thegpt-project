@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getOcrOverlap,
   OCR_CHUNK_SIZE,
+  OCR_MAX_FILE_BYTES,
   OCR_OVERLAP_PERCENT,
   OCR_SUPPORTED_EXTENSIONS,
   type OcrChunkSize,
@@ -137,6 +138,8 @@ export function useOcrTest() {
       items.map((item) => item.file),
       nextFiles,
       OCR_SUPPORTED_EXTENSIONS,
+      undefined,
+      OCR_MAX_FILE_BYTES,
     );
     const currentById = new Map(items.map((item) => [item.id, item]));
     const nextItems = merged.files.map(
@@ -151,6 +154,7 @@ export function useOcrTest() {
     setSelectionError(describeFileMerge(
       merged,
       'PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT, ZIP',
+      '8GB',
     ));
   }
 

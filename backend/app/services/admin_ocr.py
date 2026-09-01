@@ -2,11 +2,13 @@
 
 import hashlib
 import logging
+from collections.abc import Iterator
 from typing import Protocol
 from urllib.parse import quote
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.repositories.document_repository import DocumentRepository, SavedDocument
 from app.schemas.admin import OcrVectorSaveRequest, OcrVectorSaveResponse
 from app.services.embedding_service import (
@@ -16,6 +18,8 @@ from app.services.embedding_service import (
     embedding_service,
 )
 from app.services.ocr_job_service import OcrJobManager, ocr_job_manager
+from app.services.large_document_service import iter_chunk_artifact
+from app.services.r2_storage import R2StorageService, rag_r2_storage
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,7 @@ async def save_ocr_result_with_embeddings(
     job_manager: OcrJobManager = ocr_job_manager,
     embedder: EmbeddingService = embedding_service,
     repository: DocumentSaver | None = None,
+    storage: R2StorageService = rag_r2_storage,
 ) -> OcrVectorSaveResponse:
     """OCR 결과 조회 → Embedding → 문서·Chunk Transaction 저장을 관리합니다."""
 
@@ -52,6 +57,15 @@ async def save_ocr_result_with_embeddings(
         raise OcrSaveValidationError("완료된 OCR Job만 VectorDB에 저장할 수 있습니다.")
     if not job.result.chunks:
         raise OcrSaveValidationError("저장할 OCR Chunk가 없습니다.")
+
+    document_repository = repository or DocumentRepository(db)
+    if job.result.chunk_artifact_key:
+        return await _save_staged_result(
+            result=job.result,
+            embedder=embedder,
+            repository=document_repository,
+            storage=storage,
+        )
 
     logger.info(
         "[OCR SAVE] document save start: job_id=%s chunks=%d",
@@ -65,7 +79,6 @@ async def save_ocr_result_with_embeddings(
         configured_dimension=embedder.dimension,
     )
 
-    document_repository = repository or DocumentRepository(db)
     saved = document_repository.save_with_chunks(
         original_file_url=(
             job.result.source_url
@@ -84,6 +97,83 @@ async def save_ocr_result_with_embeddings(
         embeddingDimension=embedder.dimension,
         embeddingModel=embedder.model,
     )
+
+
+async def _save_staged_result(
+    *,
+    result,
+    embedder: EmbeddingService,
+    repository,
+    storage: R2StorageService,
+) -> OcrVectorSaveResponse:
+    artifact_key = result.chunk_artifact_key
+    if not artifact_key or not result.original_object_key:
+        raise OcrSaveValidationError("대용량 OCR 저장 정보가 올바르지 않습니다.")
+
+    document_id = repository.begin_staged_save(
+        original_file_url=_build_r2_file_reference(result.original_object_key),
+        extracted_text=result.extracted_text,
+    )
+    chunk_count = 0
+    try:
+        for chunks in _batched(
+            iter_chunk_artifact(artifact_key, storage),
+            settings.embedding_batch_size,
+        ):
+            embeddings = await embedder.embed_chunks(chunks)
+            _validate_embeddings_before_storage(
+                chunks=chunks,
+                embeddings=embeddings,
+                configured_dimension=embedder.dimension,
+            )
+            repository.append_staged_chunks(
+                document_id=document_id,
+                start_index=chunk_count,
+                chunks=chunks,
+                embeddings_by_provider=embeddings.vectors_by_provider,
+            )
+            chunk_count += len(chunks)
+        if chunk_count == 0:
+            raise OcrSaveValidationError("저장할 OCR Chunk가 없습니다.")
+        saved = repository.finish_staged_save(document_id, chunk_count)
+    except Exception:
+        try:
+            repository.abort_staged_save(document_id)
+        except Exception:
+            logger.exception("실패한 대용량 OCR 문서 정리 실패: document_id=%s", document_id)
+        raise
+
+    try:
+        storage.delete_object(artifact_key)
+    except Exception:
+        logger.exception("저장 완료 후 Chunk artifact 정리 실패: key=%s", artifact_key)
+
+    return OcrVectorSaveResponse(
+        message=f"OCR 문서와 Chunk {saved.chunk_count}개를 VectorDB에 저장했습니다.",
+        documentId=saved.document_id,
+        chunkCount=saved.chunk_count,
+        embeddingProvider=embedder.provider,
+        embeddingDimension=embedder.dimension,
+        embeddingModel=embedder.model,
+    )
+
+
+def _batched(values: Iterator[str], batch_size: int) -> Iterator[list[str]]:
+    batch: list[str] = []
+    for value in values:
+        batch.append(value)
+        if len(batch) >= batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+def _build_r2_file_reference(object_key: str) -> str:
+    reference = f"r2:///{object_key}"
+    if len(reference) <= 500:
+        return reference
+    return f"r2:///admin-rag-uploads/{hashlib.sha256(object_key.encode()).hexdigest()}"
 
 
 def _build_job_file_reference(job_id: str, document_name: str) -> str:

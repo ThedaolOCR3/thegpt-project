@@ -186,7 +186,7 @@ def build_admin_ocr_response(
 
 def _build_default_config() -> OcrProcessingConfig:
     return OcrProcessingConfig(
-        max_file_bytes=settings.ocr_max_file_size_mb * 1024 * 1024,
+        max_file_bytes=settings.ocr_inline_file_size_mb * 1024 * 1024,
         max_pdf_pages=settings.ocr_max_pdf_pages,
         native_text_min_chars=settings.ocr_native_text_min_chars,
         significant_image_area_ratio=settings.ocr_significant_image_area_ratio,

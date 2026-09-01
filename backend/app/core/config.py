@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     message_max_files_per_request: int = 5
     message_max_file_size_mb: int = 20
 
-    # Hybrid OCR(csj-ocr 브랜치에서 이식) 설정 — 이미지/PDF/Office 문서 처리 한도.
-    ocr_max_file_size_mb: int = 20
+    # 관리자 RAG 원본은 8GiB까지 R2 멀티파트로 받되, 메모리에 올리는
+    # 기존 multipart OCR 경로는 독립된 20MiB 한도를 유지한다.
+    ocr_max_file_size_mb: int = 8 * 1024
+    ocr_inline_file_size_mb: int = 20
     ocr_max_pdf_pages: int = 50
     ocr_native_text_min_chars: int = 20
     ocr_significant_image_area_ratio: float = 0.03
@@ -47,6 +49,7 @@ class Settings(BaseSettings):
     ocr_enable_deskew: bool = True
     ocr_max_office_uncompressed_size_mb: int = 200
     ocr_max_office_archive_entries: int = 5_000
+    ocr_large_archive_uncompressed_size_mb: int = 16 * 1024
     ocr_job_ttl_minutes: int = 60
     ocr_max_pending_jobs: int = 5
     ocr_web_max_url_length: int = 500
