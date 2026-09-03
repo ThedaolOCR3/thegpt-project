@@ -7,6 +7,7 @@ from ai.rag.ingestion.adapters.ai_healthcare_qa import AiHealthcareQaAdapter
 from ai.rag.ingestion.adapters.asan import AsanHealthInfoAdapter
 from ai.rag.ingestion.adapters.genmed_gpt import GenMedGptAdapter
 from ai.rag.ingestion.adapters.health_search_qa import HealthSearchQaAdapter
+from ai.rag.ingestion.adapters.kdca_openapi import KdcaOpenApiAdapter, _parse_response
 from ai.rag.ingestion.adapters.komed_instruct import KoMedInstructAdapter
 from ai.rag.ingestion.adapters.snuh_clinical_qa import SnuhClinicalQaAdapter
 
@@ -258,6 +259,119 @@ class AiHealthcareQaAdapterTest(unittest.TestCase):
         adapter = AiHealthcareQaAdapter()
         with self.assertRaises(PermissionError):
             list(adapter.load_raw(20, shuffle_seed=42))
+
+
+class KdcaOpenApiResponseParsingTest(unittest.TestCase):
+    """실제 API 응답을 STEP 0에서 직접 호출해 확인한 형태 그대로 fixture로 쓴다
+    (2026-09-03, TOKEN=1a03bc27cdf6로 복통/기침(성인)/직업성 호흡기질환 등 호출)."""
+
+    def test_parses_title_and_sections(self) -> None:
+        xml_text = """<?xml version="1.0" encoding="UTF-8"?>
+<XML><HEAD><CODE>S001</CODE><MESSAGE>OK</MESSAGE></HEAD><svc>
+<CNTNTSSJ><![CDATA[복통]]></CNTNTSSJ>
+<CNTNTS_SN><![CDATA[1081]]></CNTNTS_SN>
+<cntntsClList>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[개요]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[복통은 다양한 질환에서 나타납니다.]]></CNTNTS_CL_CN></cntntsCl>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[원인]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[복통의 원인은 매우 다양합니다.]]></CNTNTS_CL_CN></cntntsCl>
+</cntntsClList></svc></XML>"""
+        result = _parse_response(xml_text, cntnts_sn=1081)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["title"], "복통")
+        self.assertEqual(result["cntnts_sn"], 1081)
+        self.assertEqual(result["sections"], [("개요", "복통은 다양한 질환에서 나타납니다."), ("원인", "복통의 원인은 매우 다양합니다.")])
+
+    def test_nonexistent_cntnts_sn_returns_none_despite_ok_status(self) -> None:
+        # 실제로 확인된 동작: 없는 cntntsSn을 넣어도 HTTP/CODE는 정상(S001/OK)으로
+        # 오고, cntntsClList가 그냥 빈 채로 온다 - 상태코드가 아니라 실제 섹션
+        # 존재 여부로 판단해야 한다.
+        xml_text = """<?xml version="1.0" encoding="UTF-8"?>
+<XML><HEAD><CODE>S001</CODE><MESSAGE>OK</MESSAGE></HEAD><svc>
+<cntntsClList>
+</cntntsClList></svc></XML>"""
+        self.assertIsNone(_parse_response(xml_text, cntnts_sn=99999999))
+
+    def test_image_download_url_section_is_excluded(self) -> None:
+        # 실제로 확인된 패턴: 일부 섹션은 텍스트가 아니라 이미지 다운로드 URL만
+        # CNTNTS_CL_CN에 들어있다 - RAG 텍스트로 쓰면 안 된다.
+        xml_text = """<?xml version="1.0" encoding="UTF-8"?>
+<XML><HEAD><CODE>S001</CODE><MESSAGE>OK</MESSAGE></HEAD><svc>
+<CNTNTSSJ><![CDATA[복통]]></CNTNTSSJ>
+<cntntsClList>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[원인]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[https://is.kdca.go.kr/cscdnhfile/health/healthNewDown/healthInfoFileDown.do?SEQ=173c16dd3cb3]]></CNTNTS_CL_CN></cntntsCl>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[원인]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[실제 원인 설명 텍스트]]></CNTNTS_CL_CN></cntntsCl>
+</cntntsClList></svc></XML>"""
+        result = _parse_response(xml_text, cntnts_sn=1081)
+        self.assertEqual(result["sections"], [("원인", "실제 원인 설명 텍스트")])
+
+    def test_references_section_is_excluded(self) -> None:
+        # 실제로 확인된 문제(cntntsSn=6253, 기침(성인)): "참고문헌" 섹션의 학술
+        # 인용구에 HTML 엔티티 잔재가 있어서, 포함시키면 cleaning.py가 페이지
+        # 전체를 거부해버린다 - 애초에 환자 대상 설명도 아니라서 아예 뺀다.
+        xml_text = """<?xml version="1.0" encoding="UTF-8"?>
+<XML><HEAD><CODE>S001</CODE><MESSAGE>OK</MESSAGE></HEAD><svc>
+<CNTNTSSJ><![CDATA[기침(성인)]]></CNTNTSSJ>
+<cntntsClList>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[개요]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[기침은 흔한 증상입니다.]]></CNTNTS_CL_CN></cntntsCl>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[참고문헌]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[Chung, K. F. &amp; Pavord, I. D. (2008).]]></CNTNTS_CL_CN></cntntsCl>
+</cntntsClList></svc></XML>"""
+        result = _parse_response(xml_text, cntnts_sn=6253)
+        self.assertEqual(result["sections"], [("개요", "기침은 흔한 증상입니다.")])
+
+    def test_html_entity_in_body_text_is_unescaped_not_deleted(self) -> None:
+        # 실제로 확인된 문제(cntntsSn=6524): 참고문헌이 아니라 본문 중간의 인용
+        # 링크에도 "...cancer_seq=5237&amp;menu_seq=5253)" 같은 미해제 엔티티가
+        # 있었다 - 지우는 게 아니라 원래 문자(&)로 복원해야 한다.
+        xml_text = """<?xml version="1.0" encoding="UTF-8"?>
+<XML><HEAD><CODE>S001</CODE><MESSAGE>OK</MESSAGE></HEAD><svc>
+<CNTNTSSJ><![CDATA[직업성 호흡기질환]]></CNTNTSSJ>
+<cntntsClList>
+<cntntsCl><CNTNTS_CL_NM><![CDATA[관련 질환]]></CNTNTS_CL_NM>
+<CNTNTS_CL_CN><![CDATA[자세한 내용(cancer_seq=5237&amp;menu_seq=5253)을 참고하세요.]]></CNTNTS_CL_CN></cntntsCl>
+</cntntsClList></svc></XML>"""
+        result = _parse_response(xml_text, cntnts_sn=6524)
+        self.assertEqual(result["sections"], [("관련 질환", "자세한 내용(cancer_seq=5237&menu_seq=5253)을 참고하세요.")])
+
+
+class KdcaOpenApiAdapterNormalizeTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.adapter = KdcaOpenApiAdapter()
+
+    def test_joins_sections_with_headers(self) -> None:
+        raw_row = {
+            "cntnts_sn": 1081,
+            "title": "복통",
+            "sections": [("개요", "복통은 다양합니다."), ("원인", "원인도 다양합니다.")],
+        }
+        record = self.adapter.to_normalized(raw_row, 0)
+        self.assertIsNotNone(record)
+        self.assertEqual(record.original_id, "1081")
+        self.assertEqual(record.title, "복통")
+        self.assertIn("## 개요\n복통은 다양합니다.", record.content)
+        self.assertIn("## 원인\n원인도 다양합니다.", record.content)
+        self.assertEqual(record.metadata["source_tier"], 1)
+        self.assertEqual(record.metadata["reliability"], "verified_official")
+
+    def test_empty_sections_returns_none(self) -> None:
+        raw_row = {"cntnts_sn": 1234, "title": "제목만 있음", "sections": []}
+        self.assertIsNone(self.adapter.to_normalized(raw_row, 0))
+
+    def test_load_raw_requires_token_env_var(self) -> None:
+        import os
+
+        original = os.environ.pop("KDCA_HEALTHINFO_TOKEN", None)
+        try:
+            with self.assertRaises(RuntimeError) as raised:
+                list(self.adapter.load_raw(limit=1))
+            self.assertIn("KDCA_HEALTHINFO_TOKEN", str(raised.exception))
+        finally:
+            if original is not None:
+                os.environ["KDCA_HEALTHINFO_TOKEN"] = original
 
 
 if __name__ == "__main__":

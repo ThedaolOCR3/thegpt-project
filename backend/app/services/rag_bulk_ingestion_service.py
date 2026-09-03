@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from ai.rag import EmbeddingProvider
 from ai.rag.ingestion.adapters.registry import get_adapter
 from ai.rag.ingestion.dedup import Deduplicator
-from ai.rag.ingestion.pipeline import IngestionRecord, run_ingestion_pipeline
+from ai.rag.ingestion.pipeline import run_ingestion_pipeline
 from ai.rag.ingestion.schema import NormalizedRecord
 from app.core.logging import get_logger
 from app.core.rag_embedding import get_default_rag_embedding_providers

@@ -7,6 +7,7 @@ from .asan import AsanHealthInfoAdapter
 from .base import DatasetAdapter
 from .genmed_gpt import GenMedGptAdapter
 from .health_search_qa import HealthSearchQaAdapter
+from .kdca_openapi import KdcaOpenApiAdapter
 from .komed_instruct import KoMedInstructAdapter
 from .snuh_clinical_qa import SnuhClinicalQaAdapter
 
@@ -17,6 +18,7 @@ ADAPTERS: dict[str, type[DatasetAdapter]] = {
     "ai-healthcare-qa": AiHealthcareQaAdapter,
     "komed-instruct": KoMedInstructAdapter,
     "genmed-gpt": GenMedGptAdapter,
+    "kdca-openapi": KdcaOpenApiAdapter,
 }
 
 

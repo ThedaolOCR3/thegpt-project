@@ -1,32 +1,29 @@
-# 질병관리청 공공데이터 OpenAPI - Bruno 컬렉션 (준비 중)
+# 질병관리청 공공데이터 OpenAPI - Bruno 컬렉션
 
-현재 상태: **골격만 있음.** 실제 60개 엔드포인트 목록과 서비스키를 아직 못 받아서
-실제 요청 파일은 없습니다(추측으로 만들지 않았습니다). `00 TEMPLATE...bru` 하나만
-있고, 그건 실행용이 아니라 "실제 요청을 어떻게 추가하는지" 설명하는 문서입니다.
+현재 상태: **2026-09-03, 67개 엔드포인트 실제 등록 및 저장 완료.** 처음엔 골격만
+있었고(공공데이터포털의 일반적인 serviceKey/pageNo/numOfRows 패턴으로 추측), 실제
+토큰과 목록을 받아서 확인해보니 그 추측과 다른 API였습니다(`TOKEN`/`cntntsSn`
+파라미터, XML 응답) - `00 TEMPLATE...bru`가 실제 형태로 갱신되어 있습니다.
 
 ## 왜 이 폴더가 `backend/bruno`와 분리되어 있나
 
 `backend/bruno`는 우리 백엔드 API(localhost:8000)를 테스트하는 컬렉션이고, 이건
-**외부** 질병관리청 서버(data.go.kr 계열)를 직접 호출하는 별개 컬렉션이라 분리했습니다.
+**외부** 질병관리청 서버(api.kdca.go.kr)를 직접 호출하는 별개 컬렉션이라 분리했습니다.
 
-## 실제로 쓰려면 필요한 것 (팀원이 채워야 함)
+## 실제 연결 지점
 
-1. 신청해둔 각 API의 base URL/서비스명/오퍼레이션명 (60개 각각)
-2. 발급받은 서비스키 - `environments/Local.bru`의 `serviceKey`에 채우면 됩니다
-   (이 파일은 `.gitignore` 처리해서 git에는 안 올라갑니다)
-3. 각 API가 JSON/XML 중 뭘 반환하는지
+- 엔드포인트 레지스트리(67개 질환/증상 이름 + cntntsSn): `data/kdca_endpoints.yaml`
+- 실제 fetch + 정제 + 청킹 + 임베딩 + Neon 저장 어댑터:
+  `ai/rag/ingestion/adapters/kdca_openapi.py`
+- 실행 CLI(다른 5개 HF 데이터셋과 동일한 진입점):
+  ```
+  python scripts/rag_ingest.py --source kdca-openapi --dry-run   # 저장 없이 확인만
+  python scripts/rag_ingest.py --source kdca-openapi             # 실제 Neon 저장
+  ```
+  `.env`의 `KDCA_HEALTHINFO_TOKEN`이 필요합니다(export해서 실행).
 
-## 흐름
+## Bruno는 언제 쓰나
 
-1. 위 정보를 주시면 `data/kdca_endpoints.yaml`(지금은 예시 `kdca_endpoints.example.yaml`만 있음)에
-   실제 60개를 등록하고, 이 폴더에 실제 요청 60개를 하나씩 만듭니다.
-2. Bruno에서 직접 응답을 눈으로 확인하실 수 있습니다(이게 원래 요청하신 "체크"
-   단계입니다).
-3. `scripts/kdca_openapi_ingest.py --source <이름> --dry-run`으로 registry 등록
-   상태만 먼저 검증할 수 있고, `--source <이름> --limit 5` 같은 식으로 실제
-   소량 호출도 스크립트에서 바로 확인할 수 있습니다.
-4. 각 API 응답 스키마를 실제로 확인한 뒤(HF 데이터셋 어댑터를 만들 때와 똑같이
-   STEP 0 없이 추측하지 않습니다), HF 데이터셋과 동일한 정제/청킹/(선택)벡터화
-   파이프라인에 연결합니다.
-5. **실제로 대량 fetch해서 로컬 파일로 저장하는 건, "체크 후 별도로 저장 진행해달라"는
-   지시를 받은 뒤에만 진행합니다.** 지금은 준비만 해뒀습니다.
+새 엔드포인트를 등록하기 전에 응답 구조를 눈으로 먼저 확인하고 싶을 때
+`00 TEMPLATE...bru`를 열어서 `environments/Local.bru`의 `token`만 채우고
+직접 호출해보면 됩니다 - `cntntsSn` 값만 바꿔서 다른 질환도 확인할 수 있습니다.
