@@ -1,0 +1,40 @@
+meta {
+  name: 00 TEMPLATE (엔드포인트 추가 방법)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/실제서비스경로/실제오퍼레이션명?serviceKey={{serviceKey}}&pageNo={{pageNo}}&numOfRows={{numOfRows}}&type={{type}}
+  body: none
+  auth: none
+}
+
+docs {
+  이 파일은 실제 요청이 아니라 템플릿입니다 - 실제 질병관리청 API 60개 목록과
+  서비스키를 받기 전까지는 실행하지 마세요.
+
+  공공데이터포털(data.go.kr)에서 발급받은 API는 보통 아래 형태를 따릅니다:
+
+    GET http://apis.data.go.kr/{기관코드}/{서비스명}/{오퍼레이션명}
+      ?serviceKey={인증키}
+      &pageNo={페이지번호}
+      &numOfRows={한번에가져올개수}
+      &type=json (또는 xml)
+
+  실제 60개 엔드포인트를 추가하려면 다음이 필요합니다(추측으로 만들지 않습니다):
+    1. 신청해둔 각 API의 정확한 base URL/서비스명/오퍼레이션명
+    2. 발급받은 서비스키(인증키) - environments/Local.bru의 serviceKey에 채워주세요
+       (git에는 커밋하지 마세요 - .gitignore 처리 필요)
+    3. 각 API가 JSON/XML 중 무엇을 반환하는지
+    4. (있으면) 각 API의 요청/응답 명세서 링크
+
+  위 정보를 주시면:
+    - 이 폴더에 실제 60개 요청을 하나씩 만들어서 Bruno에서 직접 확인하실 수 있게
+      해드립니다.
+    - data/kdca_endpoints.yaml(현재는 예시만 있음)에 실제 엔드포인트 registry를
+      채워서, scripts/kdca_openapi_ingest.py가 실제로 호출/저장할 수 있게 준비합니다.
+    - 다만 실제 fetch + 로컬 저장(raw/processed/chunks/embeddings)은, 말씀하신 대로
+      Bruno로 먼저 확인하신 뒤 "저장 진행해줘" 지시를 주시면 그때 실행합니다 -
+      지금은 준비만 해둡니다.
+}

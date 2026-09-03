@@ -27,6 +27,14 @@ export async function getConversations(): Promise<Conversation[]> {
   return list.map(toConversation);
 }
 
+// 제목/카테고리(진료과)/대화 내용을 한 번에 검색한다(모드 구분 없음) - 사이드바 검색창.
+export async function searchConversations(query: string): Promise<Conversation[]> {
+  const list = await withChatToken((token) =>
+    apiClient<ConversationDto[]>(`/conversations/search?q=${encodeURIComponent(query)}`, { token }),
+  );
+  return list.map(toConversation);
+}
+
 export async function createConversation(): Promise<Conversation> {
   const dto = await withChatToken((token) =>
     apiClient<ConversationDto>('/conversations', { method: 'POST', token }),

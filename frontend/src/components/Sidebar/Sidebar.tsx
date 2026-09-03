@@ -1,23 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   SquarePen,
   User,
   LogOut,
+  X,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../features/auth/AuthContext';
 import { getGuestDisplayName } from '../../features/auth/guestSession';
 import { HistoryItem } from './HistoryItem';
-import { getConversations, renameConversation, deleteConversation } from '../../api/conversations';
+import {
+  getConversations,
+  renameConversation,
+  deleteConversation,
+  searchConversations,
+} from '../../api/conversations';
 import { onConversationsChanged } from '../../api/conversationsEvents';
 import type { Conversation } from '../../api/types';
 
 type FilterMode = 'all' | 'category';
+
+// 키 입력마다 바로 검색 API를 부르면 낭비라 이만큼 멈춘 뒤에만 요청한다.
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
@@ -29,6 +39,13 @@ export function Sidebar() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filter, setFilter] = useState<FilterMode>('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+  // 검색: 제목·카테고리(진료과)·대화 내용을 한 번에 검색한다(모드 선택 없음).
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSearchActive = searchQuery.trim().length > 0;
 
   useEffect(() => {
     function refresh() {
@@ -53,13 +70,53 @@ export function Sidebar() {
     // 목록이 그대로 남아 "카테고리(대화 내역)가 로드 안 된 것"처럼 보인다.
   }, [conversationId, isLoggedIn]);
 
+  function runSearch(query: string) {
+    setIsSearching(true);
+    searchConversations(query)
+      .then(setSearchResults)
+      .catch((error) => {
+        console.error('대화 검색에 실패했습니다.', error);
+        setSearchResults([]);
+      })
+      .finally(() => setIsSearching(false));
+  }
+
+  // 검색어가 바뀔 때마다 SEARCH_DEBOUNCE_MS만큼 기다렸다가 검색 API를 부른다.
+  // 빈 검색어면 아예 요청하지 않고 검색 결과를 비워서 평소 목록(전체/진료과별)으로 돌아간다.
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    if (!isSearchActive) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(() => runSearch(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  // 검색 버튼 클릭(또는 입력창에서 Enter) 시 디바운스를 기다리지 않고 바로 검색한다.
+  function handleSearchSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (isSearchActive) runSearch(searchQuery.trim());
+  }
+
   async function handleRename(id: string, title: string) {
-    setConversations((current) => current.map((c) => (c.id === id ? { ...c, title, isTitleCustom: true } : c)));
+    const patch = (c: Conversation) => (c.id === id ? { ...c, title, isTitleCustom: true } : c);
+    setConversations((current) => current.map(patch));
+    setSearchResults((current) => (current ? current.map(patch) : current));
     await renameConversation(id, title);
   }
 
   async function handleDelete(id: string) {
     setConversations((current) => current.filter((c) => c.id !== id));
+    setSearchResults((current) => (current ? current.filter((c) => c.id !== id) : current));
     await deleteConversation(id);
     if (conversationId === id) navigate('/');
   }
@@ -133,8 +190,9 @@ export function Sidebar() {
     );
   }
 
-  const grouped =
-    filter === 'category'
+  const grouped = isSearchActive
+    ? [{ label: null, items: searchResults ?? [] }]
+    : filter === 'category'
       ? groupByCategory(conversations)
       : [{ label: null, items: conversations }];
 
@@ -162,31 +220,69 @@ export function Sidebar() {
         </button>
       </div>
 
+      <div className="px-4 pb-2.5">
+        <form className="relative" onSubmit={handleSearchSubmit}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="제목·진료과·내용 검색"
+            aria-label="대화 검색"
+            className="w-full rounded-lg border border-neutral-200 bg-white py-1.5 pl-3 pr-14 text-xs text-neutral-700 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              title="검색어 지우기"
+              aria-label="검색어 지우기"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-8 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 dark:hover:bg-neutral-700"
+            >
+              <X size={13} />
+            </button>
+          )}
+          <button
+            type="submit"
+            title="검색"
+            aria-label="검색"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 dark:hover:bg-neutral-700"
+          >
+            <Search size={14} />
+          </button>
+        </form>
+      </div>
+
       <div className="flex items-center justify-between px-4 pb-3">
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              filter === 'all'
-                ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-50'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
-          >
-            전체
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('category')}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              filter === 'category'
-                ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-50'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
-          >
-            진료과별
-          </button>
-        </div>
+        {isSearchActive ? (
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
+            {isSearching ? '검색 중...' : `검색 결과 ${searchResults?.length ?? 0}건`}
+          </p>
+        ) : (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                filter === 'all'
+                  ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-50'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+              }`}
+            >
+              전체
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('category')}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                filter === 'category'
+                  ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-50'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+              }`}
+            >
+              진료과별
+            </button>
+          </div>
+        )}
         <button
           type="button"
           title="새 채팅"
@@ -243,8 +339,10 @@ export function Sidebar() {
                       onDelete={() => handleDelete(conversation.id)}
                     />
                   ))}
-                  {group.items.length === 0 && (
-                    <p className="px-2 py-1 text-xs text-neutral-400 dark:text-neutral-600">대화 내역이 없습니다.</p>
+                  {group.items.length === 0 && !isSearching && (
+                    <p className="px-2 py-1 text-xs text-neutral-400 dark:text-neutral-600">
+                      {isSearchActive ? '검색 결과가 없습니다.' : '대화 내역이 없습니다.'}
+                    </p>
                   )}
                 </div>
               )}

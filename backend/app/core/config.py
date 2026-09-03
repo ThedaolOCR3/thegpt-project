@@ -28,9 +28,29 @@ class Settings(BaseSettings):
     guest_token_expire_minutes: int = 60 * 24 * 30  # 30일
     guest_message_limit: int = 30
     guest_attachment_limit: int = 5
+    # 시크릿창/다른 브라우저로 guest_message_limit을 우회(새 게스트 계정 계속
+    # 발급)하는 것까지 완전히 막을 순 없지만(익명 사용자라 신원이 없음), 같은
+    # IP에서 짧은 시간에 새 게스트 계정을 너무 많이 만드는 것 정도는 막는다.
+    guest_signup_limit_per_ip: int = 5
+    guest_signup_window_hours: int = 24
     # 메인·채팅 multipart 첨부 제한. 원본은 요청 동안 검증한 뒤 보관하지 않는다.
     message_max_files_per_request: int = 5
     message_max_file_size_mb: int = 20
+
+    # 소셜 로그인(Google/GitHub) — Authorization Code 플로우, 코드 교환은 항상
+    # 서버(여기)에서만 한다(client_secret을 프론트에 노출하면 안 됨). redirect_uri는
+    # Google/GitHub 콘솔에 등록한 값과 정확히 같아야 한다 — 지금은 Cloudflare
+    # Worker(dev-thegpt-project.thegpt.workers.dev)가 이 경로를 그대로 백엔드로
+    # 전달(proxy)하도록 등록되어 있어서, 로컬/실제 API prefix(/api)와 무관하게
+    # main.py가 루트 경로(/auth/google/callback, /oauth/github/callback)에 별도
+    # 라우터를 마운트한다 — 두 provider의 경로 규칙이 서로 다른 건(auth/ vs oauth/)
+    # 이미 각 콘솔에 등록해버린 값이라 그대로 맞췄다.
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_oauth_redirect_uri: str = ""
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+    github_oauth_redirect_uri: str = ""
 
     # Hybrid OCR(csj-ocr 브랜치에서 이식) 설정 — 이미지/PDF/Office 문서 처리 한도.
     ocr_max_file_size_mb: int = 20

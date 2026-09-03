@@ -76,15 +76,83 @@ class RemoteEmbeddingProviderTest(unittest.TestCase):
             return httpx.Response(500, text="secret upstream body")
 
         with self.assertRaises(RemoteEmbeddingError) as raised:
-            _provider(httpx.MockTransport(handler)).embed_query("질문")
+            _provider(httpx.MockTransport(handler), retry_backoff_seconds=0).embed_query("질문")
 
         self.assertNotIn("secret upstream", str(raised.exception))
+
+    def test_transient_502_is_retried_and_recovers(self) -> None:
+        # 실제 관찰된 사례 - Cloudflare 터널이 잠깐 끊기면서 502가 한 번 나고,
+        # 재연결되면 정상 응답이 온다. 대량 처리 도중 이런 일시적 문제로 전체를
+        # 처음부터 다시 하지 않아도 되게 재시도한다.
+        calls = {"count": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["count"] += 1
+            if calls["count"] < 3:
+                return httpx.Response(502, text="bad gateway")
+            vector = [1.0] + [0.0] * 1023
+            return httpx.Response(
+                200, json={"model": "jina-v4", "dimensions": 1024, "embeddings": [vector]}
+            )
+
+        provider = _provider(httpx.MockTransport(handler), retry_backoff_seconds=0)
+        result = provider.embed_query("질문")
+
+        self.assertEqual(calls["count"], 3)
+        self.assertAlmostEqual(result[0], 1.0)
+
+    def test_transient_530_origin_unreachable_is_retried(self) -> None:
+        # 실제 관찰된 사례 - Vast.ai GPU 인스턴스가 잠깐 응답 안 하면 Cloudflare가
+        # 530(origin unreachable)을 준다. 이것도 몇 초 뒤엔 복구되는 걸 확인했다.
+        calls = {"count": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["count"] += 1
+            if calls["count"] < 2:
+                return httpx.Response(530, text="origin unreachable")
+            vector = [1.0] + [0.0] * 1023
+            return httpx.Response(
+                200, json={"model": "jina-v4", "dimensions": 1024, "embeddings": [vector]}
+            )
+
+        provider = _provider(httpx.MockTransport(handler), retry_backoff_seconds=0)
+        result = provider.embed_query("질문")
+
+        self.assertEqual(calls["count"], 2)
+        self.assertAlmostEqual(result[0], 1.0)
+
+    def test_gives_up_after_max_retries(self) -> None:
+        calls = {"count": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["count"] += 1
+            return httpx.Response(503, text="service unavailable")
+
+        provider = _provider(httpx.MockTransport(handler), retry_backoff_seconds=0)
+        provider.max_retries = 2
+
+        with self.assertRaises(RemoteEmbeddingError):
+            provider.embed_query("질문")
+        self.assertEqual(calls["count"], 3)  # 최초 시도 + 재시도 2번
+
+    def test_permanent_4xx_is_not_retried(self) -> None:
+        calls = {"count": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls["count"] += 1
+            return httpx.Response(401, text="unauthorized")
+
+        provider = _provider(httpx.MockTransport(handler), retry_backoff_seconds=0)
+        with self.assertRaises(RemoteEmbeddingError):
+            provider.embed_query("질문")
+        self.assertEqual(calls["count"], 1)
 
 
 def _provider(
     transport: httpx.BaseTransport,
     *,
     batch_size: int = 32,
+    retry_backoff_seconds: float = 0.5,
 ) -> RemoteEmbeddingProvider:
     return RemoteEmbeddingProvider(
         base_url="https://embedding.test",
@@ -94,6 +162,7 @@ def _provider(
         timeout_seconds=5,
         batch_size=batch_size,
         transport=transport,
+        retry_backoff_seconds=retry_backoff_seconds,
     )
 
 

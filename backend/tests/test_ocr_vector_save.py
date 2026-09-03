@@ -71,7 +71,7 @@ class DocumentRepositoryTest(unittest.TestCase):
             {"jina-v4", "medical-bgem3"},
         )
         self.assertTrue(all(row.dimension == 1024 for row in db.embedding_rows))
-        self.assertTrue(all(len(row.embedding) == 2048 for row in db.embedding_rows))
+        self.assertTrue(all(len(row.embedding) == 1024 for row in db.embedding_rows))
 
     def test_db_failure_rolls_back_whole_save(self) -> None:
         db = FakeSession(document_id=uuid4(), fail_commit=True)

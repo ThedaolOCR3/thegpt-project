@@ -34,6 +34,14 @@ class KeywordDepartmentClassifierTest(unittest.TestCase):
         )
         self.assertEqual(result.department, "안과")
 
+    def test_matches_eye_fatigue_and_eye_pain_phrasing(self) -> None:
+        # 실제 오분류 사례 — "눈에 통증"/"눈이 피로한"이 목록에 없어서 "기타"로 빠졌다.
+        result = self.classifier.classify(
+            "눈이 피로한건지 눈에 통증이 살짝 있는데 어느병원으로 진료를 받으러 가야할지 "
+            "잘모르겠는데 어떤 진료과의 병원으로 진료를 받으러 가야해?"
+        )
+        self.assertEqual(result.department, "안과")
+
     def test_no_match_returns_low_confidence_and_no_department(self) -> None:
         result = self.classifier.classify("안녕하세요")
         self.assertIsNone(result.department)

@@ -5,6 +5,7 @@ Vast.ai GPU 서버가 Jina v4와 Medical BGE-M3를 상주시키고, Backend은
 """
 
 import math
+import time
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -16,6 +17,15 @@ class RemoteEmbeddingError(RuntimeError):
 
 
 SyncClientFactory = Callable[..., httpx.Client]
+
+# 일시적인 서버/네트워크 문제로 보는 상태코드만 재시도한다 - 4xx(인증 실패, 잘못된
+# 요청 등)는 재시도해도 똑같이 실패하므로 재시도 대상이 아니다. Cloudflare 터널을
+# 통한 원격 GPU 서버 호출에서 502(터널 재연결 중), 530("origin unreachable" - GPU
+# 인스턴스가 잠깐 응답 안 함)이 실제로 관찰됐다 - 둘 다 몇 초~몇십 초 뒤 원격 서버가
+# 다시 응답하는 걸 확인했다(재시작이 필요한 영구 장애가 아님). 520-530은 전부
+# Cloudflare가 origin 서버와 통신 실패했을 때 쓰는 코드 범위라 통째로 재시도 대상에
+# 넣는다.
+_RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504, *range(520, 531)})
 
 
 class RemoteEmbeddingProvider:
@@ -33,6 +43,8 @@ class RemoteEmbeddingProvider:
         name: str | None = None,
         transport: httpx.BaseTransport | None = None,
         client_factory: SyncClientFactory = httpx.Client,
+        max_retries: int = 3,
+        retry_backoff_seconds: float = 1.0,
     ) -> None:
         self.base_url = base_url.strip().rstrip("/")
         self.api_key = api_key.strip() if api_key else None
@@ -43,6 +55,8 @@ class RemoteEmbeddingProvider:
         self.batch_size = max(1, min(batch_size, 64))
         self._transport = transport
         self._client_factory = client_factory
+        self.max_retries = max(0, max_retries)
+        self.retry_backoff_seconds = max(0.0, retry_backoff_seconds)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         return self._embed(texts, input_type="passage")
@@ -71,16 +85,7 @@ class RemoteEmbeddingProvider:
             with self._client_factory(**client_kwargs) as client:
                 for start in range(0, len(texts), self.batch_size):
                     batch = texts[start : start + self.batch_size]
-                    response = client.post(
-                        f"{self.base_url}/v1/embeddings",
-                        headers={"Authorization": f"Bearer {self.api_key}"},
-                        json={
-                            "model": self.model,
-                            "input_type": input_type,
-                            "texts": batch,
-                        },
-                    )
-                    response.raise_for_status()
+                    response = self._post_with_retry(client, input_type, batch)
                     vectors.extend(
                         self._extract_vectors(
                             response.json(),
@@ -101,6 +106,41 @@ class RemoteEmbeddingProvider:
         if len(vectors) != len(texts):
             raise RemoteEmbeddingError("요청 Text와 Embedding Vector 개수가 다릅니다.")
         return vectors
+
+    def _post_with_retry(
+        self,
+        client: httpx.Client,
+        input_type: str,
+        batch: list[str],
+    ) -> httpx.Response:
+        """502/503/504처럼 일시적인 서버 문제로 보이는 응답이나 연결 자체가 실패한
+        경우에만 지수 백오프로 재시도한다. Cloudflare 터널 재연결처럼 몇 초 안에
+        회복되는 경우가 실제로 있어서, 대량 처리(RAG ingestion) 도중 한 번 끊겼다고
+        전체를 처음부터 다시 하지 않아도 되게 하기 위함이다. 인증 실패(401/403) 등
+        재시도해도 똑같이 실패할 4xx는 즉시 그대로 올린다."""
+        attempt = 0
+        while True:
+            try:
+                response = client.post(
+                    f"{self.base_url}/v1/embeddings",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json={"model": self.model, "input_type": input_type, "texts": batch},
+                )
+                response.raise_for_status()
+                return response
+            except httpx.HTTPStatusError as exc:
+                is_retryable = exc.response.status_code in _RETRYABLE_STATUS_CODES
+                if not is_retryable or attempt >= self.max_retries:
+                    raise
+                time.sleep(self.retry_backoff_seconds * (2**attempt))
+                attempt += 1
+            except httpx.RequestError:
+                # 연결 실패/타임아웃(httpx.TimeoutException은 RequestError의 하위클래스) -
+                # 상태코드가 없으니 전부 일시적 문제로 보고 재시도한다.
+                if attempt >= self.max_retries:
+                    raise
+                time.sleep(self.retry_backoff_seconds * (2**attempt))
+                attempt += 1
 
     def _extract_vectors(
         self,

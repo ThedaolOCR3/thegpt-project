@@ -75,6 +75,133 @@ class RagSearchServiceTest(unittest.TestCase):
         self.assertEqual(mock_rrf.call_args.kwargs.get("k"), 5)
 
 
+class RetrievedChunkMetadataForwardingTest(unittest.TestCase):
+    """RetrievedChunk에 source/metadata를 안 채워서 build_reference_info_block()의
+    출처 표시 로직이 항상 죽은 코드였던 버그(2026-09-02) - 이제 chunk_metadata를
+    그대로 넘기는지 확인."""
+
+    def test_source_and_metadata_are_populated_from_chunk_metadata(self) -> None:
+        document_id = uuid4()
+        chunk = _chunk(
+            document_id,
+            "A",
+            chunk_metadata={"source": "Asan-AMC-Healthinfo", "source_tier": 1, "department": ["정형외과"]},
+        )
+        repository = FakeRepository({"jina-v4": [chunk]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session), "질문", top_k=1, providers=[FakeProvider("jina-v4", 0.1)]
+            )
+
+        self.assertEqual(results[0].source, "Asan-AMC-Healthinfo")
+        self.assertEqual(results[0].metadata, {"source": "Asan-AMC-Healthinfo", "source_tier": 1, "department": ["정형외과"]})
+
+    def test_missing_chunk_metadata_leaves_source_none_without_crashing(self) -> None:
+        document_id = uuid4()
+        chunk = _chunk(document_id, "A", chunk_metadata=None)
+        repository = FakeRepository({"jina-v4": [chunk]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session), "질문", top_k=1, providers=[FakeProvider("jina-v4", 0.1)]
+            )
+
+        self.assertIsNone(results[0].source)
+        self.assertEqual(results[0].metadata, {})
+
+
+class SoftBoostTest(unittest.TestCase):
+    """ai/rag/CLAUDE.md TODO(진료과 분류 결과를 검색 필터로 쓸지 - 강제 필터 vs
+    soft filter)에 대한 결정: 소프트 부스트(곱연산 가중치)를 택했다. 분류기가
+    오탐해도 정답 청크가 후보에서 완전히 사라지지 않는지를 검증한다."""
+
+    def test_source_tier_1_outranks_tier_4_when_rrf_scores_are_close(self) -> None:
+        document_id = uuid4()
+        # RRF 순위상 살짝 밀리지만(2등) 신뢰도가 훨씬 높은 청크(tier 1)가,
+        # 순위는 앞서지만(1등) 신뢰도가 낮은 청크(tier 4)를 역전해야 한다.
+        low_tier_first = _chunk(document_id, "낮은신뢰도", chunk_metadata={"source_tier": 4})
+        high_tier_second = _chunk(document_id, "높은신뢰도", chunk_metadata={"source_tier": 1})
+        repository = FakeRepository({"jina-v4": [low_tier_first, high_tier_second]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session), "질문", top_k=2, providers=[FakeProvider("jina-v4", 0.1)]
+            )
+
+        self.assertEqual(results[0].text, "높은신뢰도")
+
+    def test_department_match_boosts_matching_chunk_above_higher_ranked_one(self) -> None:
+        document_id = uuid4()
+        unrelated = _chunk(document_id, "무관", chunk_metadata={"department": ["피부과"]})
+        matching = _chunk(document_id, "일치", chunk_metadata={"department": ["정형외과"]})
+        repository = FakeRepository({"jina-v4": [unrelated, matching]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session),
+                "질문",
+                top_k=2,
+                providers=[FakeProvider("jina-v4", 0.1)],
+                department="정형외과",
+            )
+
+        self.assertEqual(results[0].text, "일치")
+
+    def test_no_department_argument_applies_no_department_boost(self) -> None:
+        # department를 안 넘기면(예: 분류 실패로 department=None) 진료과 부스트
+        # 없이 순수 RRF+신뢰도 부스트만 적용돼야 한다 - 엉뚱하게 아무 진료과나
+        # 끌어올리면 안 된다.
+        document_id = uuid4()
+        first = _chunk(document_id, "A", chunk_metadata={"department": ["피부과"]})
+        second = _chunk(document_id, "B", chunk_metadata={"department": ["정형외과"]})
+        repository = FakeRepository({"jina-v4": [first, second]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session), "질문", top_k=2, providers=[FakeProvider("jina-v4", 0.1)]
+            )
+
+        self.assertEqual([r.text for r in results], ["A", "B"])  # RRF 순위 그대로
+
+    def test_missing_metadata_gets_neutral_multiplier(self) -> None:
+        # chunk_metadata가 None(구버전 데이터 등)이어도 예외 없이 그대로 순위가
+        # 유지돼야 한다(부스트 없음 = 1.0배).
+        document_id = uuid4()
+        first = _chunk(document_id, "A", chunk_metadata=None)
+        second = _chunk(document_id, "B", chunk_metadata=None)
+        repository = FakeRepository({"jina-v4": [first, second]})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            results = search(
+                Mock(spec=Session),
+                "질문",
+                top_k=2,
+                providers=[FakeProvider("jina-v4", 0.1)],
+                department="정형외과",
+            )
+
+        self.assertEqual([r.text for r in results], ["A", "B"])
+
+
 class FakeProvider:
     dimension = 1024
 
@@ -105,11 +232,12 @@ class FakeRepository:
         ]
 
 
-def _chunk(document_id, text):
+def _chunk(document_id, text, chunk_metadata=None):
     return SimpleNamespace(
         id=uuid4(),
         document_id=document_id,
         chunk_text=text,
+        chunk_metadata=chunk_metadata,
     )
 
 

@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+// OAuth 로그인 버튼처럼 fetch가 아니라 풀페이지 이동(window.location.href)이
+// 필요한 곳에서 쓰려고 export한다.
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
 interface RequestOptions extends RequestInit {
   token?: string | null;
