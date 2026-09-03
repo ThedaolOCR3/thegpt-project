@@ -40,5 +40,6 @@ export async function apiClient<T>(
       response.status,
     );
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

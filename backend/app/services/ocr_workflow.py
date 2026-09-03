@@ -19,6 +19,8 @@ from app.core.config import settings
 from app.schemas.admin import OcrDocumentResponse
 from app.services.ocr_chunk_service import create_chunks
 
+from typing import Literal
+
 logger = logging.getLogger(__name__)
 
 DOCUMENT_TYPE_LABELS = {
@@ -28,6 +30,12 @@ DOCUMENT_TYPE_LABELS = {
     "scanned_pdf": "스캔 PDF",
     "docx_direct": "DOCX 직접 추출",
     "pptx_direct": "PPTX 직접 추출",
+    "json_direct": "JSON 직접 추출",
+    "jsonl_direct": "JSONL 직접 추출",
+    "csv_direct": "CSV 직접 추출",
+    "txt_direct": "TXT 직접 추출",
+    "zip_archive": "ZIP 압축 문서",
+    "web_page": "웹페이지",
 }
 
 CoreAnalyzer = Callable[
@@ -118,10 +126,16 @@ def build_admin_ocr_response(
     file_name: str,
     result: OcrDocumentResult,
     chunks: list[str],
+    source_type: Literal["file", "url"] = "file",
+    source_url: str | None = None,
 ) -> OcrDocumentResponse:
     """Framework 독립 Core 결과를 기존 Admin Response로 변환합니다."""
 
-    safe_file_name = Path(file_name.replace("\\", "/")).name
+    safe_file_name = (
+        file_name.strip()[:255]
+        if source_type == "url"
+        else Path(file_name.replace("\\", "/")).name
+    )
     confidence_percent = round(result.average_confidence * 100, 1)
     notes = [
         f"문서 유형: {DOCUMENT_TYPE_LABELS.get(result.document_type, result.document_type)}",
@@ -132,6 +146,10 @@ def build_admin_ocr_response(
         notes.insert(0, "원본 형식: DOCX")
     elif result.document_type.startswith("pptx"):
         notes.insert(0, "원본 형식: PPTX")
+    elif result.document_type.endswith("_direct"):
+        notes.insert(0, f"원본 형식: {result.document_type.removesuffix('_direct').upper()}")
+    elif result.document_type == "zip_archive":
+        notes.insert(0, "원본 형식: ZIP")
 
     review_warning_keywords = (
         "실패",
@@ -161,12 +179,14 @@ def build_admin_ocr_response(
         chunks=chunks,
         readiness="review" if needs_review else "ready",
         notes=notes,
+        sourceType=source_type,
+        sourceUrl=source_url,
     )
 
 
 def _build_default_config() -> OcrProcessingConfig:
     return OcrProcessingConfig(
-        max_file_bytes=settings.ocr_max_file_size_mb * 1024 * 1024,
+        max_file_bytes=settings.ocr_inline_file_size_mb * 1024 * 1024,
         max_pdf_pages=settings.ocr_max_pdf_pages,
         native_text_min_chars=settings.ocr_native_text_min_chars,
         significant_image_area_ratio=settings.ocr_significant_image_area_ratio,

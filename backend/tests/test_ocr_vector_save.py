@@ -73,6 +73,43 @@ class DocumentRepositoryTest(unittest.TestCase):
         self.assertTrue(all(row.dimension == 1024 for row in db.embedding_rows))
         self.assertTrue(all(len(row.embedding) == 1024 for row in db.embedding_rows))
 
+    def test_chunk_metadata_is_applied_to_every_chunk_when_given(self) -> None:
+        document_id = uuid4()
+        db = FakeSession(document_id=document_id)
+        repository = DocumentRepository(db)  # type: ignore[arg-type]
+        metadata = {"source": "https://health.kdca.go.kr/x", "source_tier": 2}
+
+        repository.save_with_chunks(
+            original_file_url="https://health.kdca.go.kr/x",
+            extracted_text="전체 텍스트",
+            chunks=["첫 Chunk", "둘째 Chunk"],
+            embeddings_by_provider={
+                "jina-v4": [[0.1] * 1024, [0.2] * 1024],
+                "medical-bgem3": [[0.3] * 1024, [0.4] * 1024],
+            },
+            chunk_metadata=metadata,
+        )
+
+        self.assertTrue(all(row.chunk_metadata == metadata for row in db.chunk_rows))
+
+    def test_omitting_chunk_metadata_leaves_it_none(self) -> None:
+        # 기존 파일 업로드 호출부(chunk_metadata 인자 없이 호출)가 그대로 동작해야 한다.
+        document_id = uuid4()
+        db = FakeSession(document_id=document_id)
+        repository = DocumentRepository(db)  # type: ignore[arg-type]
+
+        repository.save_with_chunks(
+            original_file_url="ocr-job://job/sample.pdf",
+            extracted_text="전체 텍스트",
+            chunks=["Chunk"],
+            embeddings_by_provider={
+                "jina-v4": [[0.1] * 1024],
+                "medical-bgem3": [[0.2] * 1024],
+            },
+        )
+
+        self.assertTrue(all(row.chunk_metadata is None for row in db.chunk_rows))
+
     def test_db_failure_rolls_back_whole_save(self) -> None:
         db = FakeSession(document_id=uuid4(), fail_commit=True)
         repository = DocumentRepository(db)  # type: ignore[arg-type]
@@ -209,6 +246,85 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
         reference = _build_job_file_reference("job-id", "가" * 600 + ".pdf")
         self.assertTrue(reference.startswith("ocr-job://job-id/"))
         self.assertLessEqual(len(reference), 500)
+
+    def test_url_job_keeps_existing_embedding_flow_and_saves_final_url(self) -> None:
+        async def scenario() -> None:
+            job_manager = Mock()
+            url_result = _ocr_result().model_copy(
+                update={
+                    "source_type": "url",
+                    "source_url": "https://example.com/final",
+                }
+            )
+            job_manager.get_job.return_value = SimpleNamespace(
+                status="completed", result=url_result
+            )
+            embedder = FakeEmbedder()
+            repository = FakeRepository()
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="url-job"),
+                Mock(spec=Session),
+                job_manager=job_manager,
+                embedder=embedder,  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(embedder.received_chunks, ["첫 Chunk", "둘째 Chunk"])
+            self.assertEqual(
+                repository.saved["original_file_url"],
+                "https://example.com/final",
+            )
+
+        asyncio.run(scenario())
+
+    def test_url_job_chunk_metadata_carries_source_and_tier_for_rag_boost(self) -> None:
+        # 2026-09-03: 관리자 업로드 청크도 RAG 검색 소프트 부스트/출처 표시를 받을 수
+        # 있어야 한다(document_chunk.py의 search_by_provider 필터를 dataset_import와
+        # 합치면서, chunk_metadata가 아예 안 채워지던 관리자 업로드 경로가 그대로면
+        # 신뢰도 부스트/출처 표시를 영영 못 받는 문제를 같이 고쳤다).
+        async def scenario() -> None:
+            job_manager = Mock()
+            url_result = _ocr_result().model_copy(
+                update={"source_type": "url", "source_url": "https://health.kdca.go.kr/x"}
+            )
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=url_result)
+            repository = FakeRepository()
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="url-job"),
+                Mock(spec=Session),
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(
+                repository.saved["chunk_metadata"],
+                {"source": "https://health.kdca.go.kr/x", "source_tier": 2},
+            )
+
+        asyncio.run(scenario())
+
+    def test_file_job_chunk_metadata_is_none_neutral_not_error(self) -> None:
+        # 파일 업로드는 출처를 알 수 없으니 metadata 없이 중립으로 저장돼야 한다(부스트도
+        # 페널티도 없음, rag_search_service._boost_multiplier가 None을 안전하게 처리).
+        async def scenario() -> None:
+            job_manager = Mock()
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=_ocr_result())
+            repository = FakeRepository()
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="completed-job"),
+                Mock(spec=Session),
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertIsNone(repository.saved["chunk_metadata"])
+
+        asyncio.run(scenario())
 
 
 class OcrVectorSaveApiTest(unittest.TestCase):

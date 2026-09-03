@@ -95,6 +95,34 @@ class OcrJobManagerTest(unittest.TestCase):
         with self.assertRaises(OcrJobNotFoundError):
             manager.get_job("missing-job")
 
+    def test_url_job_uses_same_status_contract(self) -> None:
+        async def scenario() -> None:
+            async def file_processor(_file, _chunk_size, _overlap, _callback):
+                return _result()
+
+            async def url_processor(url, chunk_size, overlap, progress_callback):
+                self.assertEqual(url, "https://example.com/article")
+                self.assertEqual((chunk_size, overlap), (300, 40))
+                progress_callback("extracting", 60, "본문 추출 중")
+                return _url_result()
+
+            manager = OcrJobManager(
+                processor=file_processor,
+                max_file_bytes=1024,
+                max_pending_jobs=2,
+                ttl_minutes=10,
+                url_processor=url_processor,
+            )
+            created = await manager.create_url_job(
+                "https://example.com/article", 300, 40
+            )
+            status = await _wait_for_terminal_status(manager, created.job_id)
+            self.assertEqual(status.status, "completed")
+            self.assertEqual(status.result.source_type, "url")
+            self.assertEqual(status.result.source_url, "https://example.com/article")
+
+        asyncio.run(scenario())
+
 
 def _manager(processor, max_pending_jobs: int = 2) -> OcrJobManager:
     return OcrJobManager(
@@ -136,6 +164,22 @@ def _result() -> OcrDocumentResponse:
         chunks=["추출 텍스트"],
         readiness="ready",
         notes=[],
+    )
+
+
+def _url_result() -> OcrDocumentResponse:
+    return OcrDocumentResponse(
+        documentName="테스트 웹페이지",
+        pageCount=None,
+        characterCount=10,
+        estimatedChunks=1,
+        confidence=100.0,
+        extractedText="웹 추출 텍스트",
+        chunks=["웹 추출 텍스트"],
+        readiness="ready",
+        notes=[],
+        sourceType="url",
+        sourceUrl="https://example.com/article",
     )
 
 

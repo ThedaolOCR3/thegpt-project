@@ -50,12 +50,20 @@ Vast.ai 서버에만 있습니다. Admin 모델 가용성 조회는 원격 `/hea
 - PNG/JPG: PaddleOCR 처리
 - DOCX: `python-docx` 기반 문단·표·이미지 직접 추출
 - PPTX: `python-pptx` 기반 슬라이드·도형·표·이미지·발표자 노트 직접 추출
+- JSON/JSONL: UTF-8·UTF-16·CP949 디코딩과 JSON 문법 검증 후 직접 추출
+- CSV/TXT: UTF-8·UTF-16·CP949 Text 직접 추출
+- ZIP: 내부의 지원 문서를 디스크에 풀지 않고 순서대로 통합 추출
 
 DOCX/PPTX 처리를 위해 LibreOffice를 설치하거나 실행 경로를 설정할 필요가 없습니다.
 정확한 Office 페이지 미리보기 또는 페이지 번호가 필요하면 원본 프로그램에서 PDF로
 내보낸 뒤 PDF를 업로드합니다.
 
 OCR Core는 동기 CPU 작업이며 Backend Adapter가 `asyncio.to_thread()`로 실행해 FastAPI Event Loop를 직접 막지 않습니다. Admin 문자 Chunk, Job 상태와 Vector Save는 Backend에 남아 있습니다.
+
+Admin RAG는 파일당 8GB까지 지원합니다. 20MB 이하는 기존 multipart OCR 경로를,
+20MB 초과 JSON·JSONL·CSV·TXT·ZIP은 R2 멀티파트 직접 업로드와 스트리밍 Chunk 경로를
+사용합니다. R2 CORS와 Cloud Run CPU 설정은
+`docs/r2-admin-rag-uploads.md`를 참고하세요.
 
 ## 마이그레이션
 

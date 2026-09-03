@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.auth.dependencies import require_admin
 from app.core.database import get_db
+from app.models.generated import Users
 from app.repositories.document_repository import DocumentPersistenceError
 
 from app.schemas.admin import (
@@ -17,6 +19,7 @@ from app.schemas.admin import (
     OcrDocumentResponse,
     OcrJobCreatedResponse,
     OcrJobStatusResponse,
+    OcrUrlJobRequest,
     OcrVectorSaveRequest,
     OcrVectorSaveResponse,
     RetrievalEvalResponse,
@@ -54,7 +57,7 @@ router = APIRouter()
 async def analyze_ocr(
     file: Annotated[
         UploadFile,
-        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+        File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT 또는 ZIP 파일"),
     ],
     chunk_size: Annotated[
         int,
@@ -99,7 +102,7 @@ async def analyze_ocr(
 async def create_ocr_job(
     file: Annotated[
         UploadFile,
-        File(description="분석할 PDF, PNG, JPG, DOCX 또는 PPTX 파일"),
+        File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT 또는 ZIP 파일"),
     ],
     chunk_size: Annotated[
         int,
@@ -113,6 +116,36 @@ async def create_ocr_job(
     except DocumentTooLargeError as exc:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
+    except OcrJobCapacityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/ocr/url-jobs",
+    response_model=OcrJobCreatedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_ocr_url_job(
+    payload: OcrUrlJobRequest,
+    current_user: Annotated[Users, Depends(require_admin)],
+) -> OcrJobCreatedResponse:
+    """공개 웹페이지를 관리자 OCR Job으로 등록합니다."""
+
+    del current_user
+    try:
+        return await ocr_job_manager.create_url_job(
+            payload.url,
+            payload.chunk_size,
+            payload.overlap,
+        )
+    except DocumentValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
     except OcrJobCapacityError as exc:

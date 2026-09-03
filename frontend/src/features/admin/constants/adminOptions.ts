@@ -58,7 +58,10 @@ export const OCR_OVERLAP = getOcrOverlap(
   OCR_CHUNK_SIZE,
   OCR_OVERLAP_PERCENT,
 );
-export const OCR_ACCEPT = ".pdf,.png,.jpg,.jpeg,.docx,.pptx";
+export const OCR_ACCEPT = ".pdf,.png,.jpg,.jpeg,.docx,.pptx,.json,.jsonl,.csv,.txt,.zip";
+export const OCR_MAX_FILE_BYTES = 8 * 1024 * 1024 * 1024;
+export const OCR_INLINE_FILE_BYTES = 20 * 1024 * 1024;
+export const OCR_LARGE_FILE_EXTENSIONS = new Set(["json", "jsonl", "csv", "txt", "zip"]);
 export const OCR_SUPPORTED_EXTENSIONS = new Set([
   "pdf",
   "png",
@@ -66,4 +69,9 @@ export const OCR_SUPPORTED_EXTENSIONS = new Set([
   "jpeg",
   "docx",
   "pptx",
+  "json",
+  "jsonl",
+  "csv",
+  "txt",
+  "zip",
 ]);

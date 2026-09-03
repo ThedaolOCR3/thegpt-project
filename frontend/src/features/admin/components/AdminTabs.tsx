@@ -3,7 +3,7 @@ import { BrainCircuit, LineChart, ScanText } from "lucide-react";
 import type { AdminTab } from "../types/common";
 
 const TABS: { id: AdminTab; label: string }[] = [
-  { id: "ocr", label: "OCR" },
+  { id: "ocr", label: "RAG 등록" },
   { id: "llm", label: "LLM" },
   { id: "eval", label: "성능 지표" },
 ];

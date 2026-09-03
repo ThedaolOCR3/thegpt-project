@@ -1,4 +1,4 @@
-"""Image/PDF/DOCX/PPTX를 하나의 순서로 처리하는 OCR 중심 Pipeline입니다."""
+"""Image/PDF/Office/Text/ZIP 문서를 하나의 순서로 처리하는 Pipeline입니다."""
 
 import logging
 from collections.abc import Callable
@@ -19,8 +19,10 @@ from .contracts import (
 )
 from .engine import get_paddle_ocr_service
 from .errors import DocumentProcessingError
+from .extractors.archive import process_zip_document
 from .extractors.office import OfficeDocumentParser, process_office_document
 from .extractors.pdf import process_pdf_document
+from .extractors.structured_text import process_structured_text_document
 from .postprocessing import clean_document_text
 from .preprocessing import is_pdf, preprocess_image
 from .validation import validate_document
@@ -131,6 +133,27 @@ def _extract_document(
             document.content,
             config,
             ocr_service_factory,
+            progress_callback,
+        )
+    if document.file_type in {"json", "jsonl", "csv", "txt"}:
+        _report_progress(
+            progress_callback,
+            "extracting",
+            80,
+            "Text 기반 문서를 직접 추출했습니다.",
+        )
+        return process_structured_text_document(document)
+    if document.file_type == "zip":
+        return process_zip_document(
+            document,
+            config,
+            lambda member, callback: analyze_document(
+                member,
+                config,
+                callback,
+                ocr_service_factory=ocr_service_factory,
+                office_parser=office_parser,
+            ),
             progress_callback,
         )
     return process_office_document(

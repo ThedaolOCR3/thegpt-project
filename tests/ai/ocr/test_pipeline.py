@@ -1,5 +1,7 @@
 import unittest
+from io import BytesIO
 from unittest.mock import patch
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from PIL import Image
 
@@ -207,6 +209,70 @@ class OcrPipelineTest(unittest.TestCase):
         self.assertEqual(self.ocr_engine.call_count, 1)
         self.assertIn("가짜 OCR 추출 텍스트", result.cleaned_text)
 
+    def test_text_based_rag_files_are_extracted_without_ocr(self) -> None:
+        cases = [
+            (
+                "data.json",
+                "application/json",
+                '{"name": "홍길동", "condition": "두통"}'.encode(),
+                "json_direct",
+                '"condition": "두통"',
+            ),
+            (
+                "data.jsonl",
+                "application/x-ndjson",
+                '{"question": "배가 아파요"}\n{"answer": "진료가 필요합니다"}\n'.encode(),
+                "jsonl_direct",
+                "진료가 필요합니다",
+            ),
+            (
+                "data.csv",
+                "text/csv",
+                "질문,답변\n배가 아파요,진료가 필요합니다\n".encode(),
+                "csv_direct",
+                "배가 아파요,진료가 필요합니다",
+            ),
+            (
+                "notes.txt",
+                "text/plain",
+                "RAG에 저장할 일반 텍스트".encode(),
+                "txt_direct",
+                "RAG에 저장할 일반 텍스트",
+            ),
+        ]
+
+        for file_name, content_type, content, document_type, expected_text in cases:
+            with self.subTest(file_name=file_name):
+                result = self._process(content, file_name, content_type)
+                self.assertEqual(result.document_type, document_type)
+                self.assertIn(expected_text, result.cleaned_text)
+                self.assertIsNone(result.page_count)
+                self.assertEqual(result.ocr_image_count, 0)
+                self.assertEqual(result.average_confidence, 1.0)
+
+        self.assertEqual(self.ocr_engine.call_count, 0)
+
+    def test_zip_combines_supported_members_without_disk_extraction(self) -> None:
+        result = self._process(
+            _make_zip(
+                {
+                    "notes/guide.txt": "두통이 있으면 안정을 취하세요.",
+                    "data.json": '{"department": "신경과"}',
+                    "ignored.gif": b"GIF89a",
+                }
+            ),
+            "knowledge.zip",
+            "application/zip",
+        )
+
+        self.assertEqual(result.document_type, "zip_archive")
+        self.assertIn("## ZIP 내부 파일: notes/guide.txt", result.cleaned_text)
+        self.assertIn("두통이 있으면 안정을 취하세요.", result.cleaned_text)
+        self.assertIn('"department": "신경과"', result.cleaned_text)
+        self.assertTrue(any("건너뛰" in warning for warning in result.warnings))
+        self.assertEqual(result.average_confidence, 1.0)
+        self.assertEqual(self.ocr_engine.call_count, 0)
+
     def test_large_image_is_resized_before_ocr(self) -> None:
         image = _make_png(width=2000, height=1000)
 
@@ -339,6 +405,14 @@ class OcrPipelineTest(unittest.TestCase):
             self.config,
             ocr_service_factory=lambda: self.ocr_engine,
         )
+
+
+def _make_zip(files: dict[str, bytes | str]) -> bytes:
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
+    return output.getvalue()
 
 
 if __name__ == "__main__":
