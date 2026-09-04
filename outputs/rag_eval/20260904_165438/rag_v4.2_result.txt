@@ -1,0 +1,413 @@
+======================================================================
+Question ID: rag_01
+Category: consultation
+Question:
+식사 후 속이 쓰리고 신물이 올라옵니다. 어떤 원인이 있을 수 있나요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: 4deb9553-69c0-4529-ab08-1430fa0ca5ea
+Document ID: a3253a46-869c-4b31-b9ec-53eb6f7b3ea6
+Source: Asan-AMC-Healthinfo
+Score: 0.01796875
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "15670", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+식도염의 원인은 무엇인가요?
+
+Top 2
+Chunk ID: de415243-6f08-4ef0-9288-c717f9ce0cf1
+Document ID: 422ee93d-0f19-4a7c-a17f-e3c7b71dba5d
+Source: Asan-AMC-Healthinfo
+Score: 0.017424242424242422
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "13613", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+배출되지 못하고 식도로 역류할 수 있습니다. 식후에 바로 눕거나 구부리는 자세도 위 내용물의 역류를 유발할 수 있습니다. 비만, 임신, 복수 등으로 위 내부의 압력이 증가하는 경우, 복대 착용, 잦은 기침 등으로 복압이 증가하는 경우에도 역류가 일어날 수 있습니다. 또한 기름진 음식, 음주, 흡연, 커피, 초콜릿, 박하, 오렌지주스 등의 음식을 자주 섭취하는 식습관이 있으면 역류가 일어날 수 있습니다.
+
+Top 3
+Chunk ID: 7875dbb4-ff0e-4e70-8266-eb1a7249e1c5
+Document ID: fffc7994-2bf6-4866-8f8b-48a4e27c9d99
+Source: KDCA-HealthInfo-OpenAPI
+Score: 0.01716417910447761
+Metadata: {"source": "KDCA-HealthInfo-OpenAPI", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "5848", "reliability": "verified_official", "source_tier": 1, "source_type": "government_health_information", "content_type": "disease_information", "needs_review": true, "original_dataset": "kdca.go.kr/api/provide/healthInfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "질병관리청(KDCA) 공식 건강정보 OpenAPI 원문(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+위 내용물의 양이 증가한 경우
+과식 후 음식물이 위에 오래 정체되거나, 위에서 십이지장으로 넘어가는 유문부의 협착 같은 원인에 의해 위 내용물의 양이 증가하는 경우에 역류할 수 있습니다.
+
+Top 4
+Chunk ID: cdb40e3f-607a-47f5-8067-9eae350c6f48
+Document ID: e6af1df2-6215-4054-af3f-633f781b46cc
+Source: Asan-AMC-Healthinfo
+Score: 0.01716417910447761
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "15646", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+소화불량의 원인은 무엇인가요?
+
+Top 5
+Chunk ID: 230aee67-054d-40a5-be22-c01f054eb0d0
+Document ID: da8ce011-1202-4a3d-853a-b8950f1d10ae
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "892", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 식사 후 상복부에 많은 불편함을 느끼고 있습니다. 속이 더부룩하고 메스꺼움도 느껴집니다. 무엇이 문제일까요?
+
+[Final Answer]
+증상 요약: 식사 후 속쓰림과 신물이 오른다.
+
+가능한 원인:
+*   식도역류(문서 2, 문서 3): 기름진 음식, 음주, 흡연, 커피, 초콜릿, 박하, 오렌지 주스와 같이 위 내용물을 역류시키는 음식물 섭취
+*   소화 불량(문서 4): 과식 후 음식물이 위에 오래 정체되거나, 위에서 십이지장으로 넘어가는 유문부의 협착과 같은 원인에 의한 위 내용물 증가
+
+확인 및 권장 조치:
+속쓰림과 신물이 오르는 증상은 식도역류나 소화 불량의 가능성을 시사한다. 위 내용물 역류를 유발하는 음식 섭취를 줄이고, 규칙적인 식사를 하는 것이 도움이 될 수 있다.
+
+진료가 필요한 경우: 증상이 지속되거나 악화될 경우 전문가와 상담하는 것이 좋다.
+
+참고 근거:
+*   Asan-AMC-Healthinfo (신뢰도: 매우 높음) - 식도역류의 원인 (문서 2, 문서 3)
+*   KDCA-HealthInfo-OpenAPI (신뢰도: 매우 높음) - 위 내용물의 양 증가 원인 (문서 3)
+*   Asan-AMC-Healthinfo (신뢰도: 매우 높음) - 소화불량의 원인 (문서 4)
+*   GenMedGPT-5k-ko (신뢰도: 낮음) - 식사 후 상복부 불편함 (문서 5)
+```json
+{
+  "응급": false,
+
+[Runtime]
+Prompt Version: v4.2
+Retrieval Count: 5
+Retrieval Elapsed: 0.000s
+LLM Elapsed: 47.125s
+Total Elapsed: 47.142s
+======================================================================
+======================================================================
+Question ID: rag_02
+Category: consultation
+Question:
+어제부터 기침과 가래가 심합니다. 어떻게 해야 하나요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: dda6f2bc-0f77-4ca9-8e93-30dcad9a2483
+Document ID: 48ee595d-b5cb-4e13-a125-6dae17b79f34
+Source: Asan-AMC-Healthinfo
+Score: 0.01885245901639344
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "18015", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+기침, 가래가 심한 경우 가래의 배출이 쉽도록 등을 토닥여 주거나 물을 자주 마셔 수분을 충분히 섭취하는 것이 도움이 됩니다. 증상이 심한 경우 합병증 유발에 유의해야 하므로 병원을 방문하는 것이 좋습니다.
+
+Top 2
+Chunk ID: d5ce15ab-feed-402a-bdb4-493446b3e89f
+Document ID: f71569eb-5508-4e16-b134-ae87e9bba53b
+Source: KDCA-HealthInfo-OpenAPI
+Score: 0.018548387096774192
+Metadata: {"source": "KDCA-HealthInfo-OpenAPI", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "6253", "reliability": "verified_official", "source_tier": 1, "source_type": "government_health_information", "content_type": "disease_information", "needs_review": true, "original_dataset": "kdca.go.kr/api/provide/healthInfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "질병관리청(KDCA) 공식 건강정보 OpenAPI 원문(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+내에 83%의 사람들에서 기침이 발생하며, 14일째에는 26%에서 여전히 기침을 하지만, 3주 정도 되면 대부분 없어집니다. 콧물, 코막힘, 후비루, 재채기, 인후 자극 등의 상기도증상과 발열이나 전신쇠약감, 근육통 같은 전신증상이 발생할 수 있습니다. 감기로 인한 기침은 후비루나 상부호흡기의 기침 반사가 자극되어서 나옵니다. 감기는 바이러스에 의한 것으로, 저절로 좋아지는 경우가 대부분이므로 원인에 대한 특별한 치료는 필요 없고, 증상 완화를 위한 대증요법을 시행합니다.
+
+Top 3
+Chunk ID: 56e6c98a-aabf-4757-b2bb-56fe09cbadc9
+Document ID: 5fcbbd10-e091-4809-bb2a-8e6e1a362500
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "4544", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 기침이 심하고 설사를 하고 있습니다. 무엇이 문제일까요?
+
+Top 4
+Chunk ID: c941a931-5014-4598-8bde-fa8f9bf59e08
+Document ID: 46fb6da3-93d0-4b01-a177-6fe0ec45c4e1
+Source: GenMedGPT-5k-ko
+Score: 0.016129032258064516
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "2734", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 오한과 가래 기침이 계속되고 있습니다. 그 원인이 무엇일까요?
+
+Top 5
+Chunk ID: fb118c90-57f1-456f-a9f3-f75634497951
+Document ID: 89e23f5c-3f1d-4a33-a0ec-8bc51ef250dc
+Source: HealthSearchQA-ko
+Score: 0.015873015873015872
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "702", "question_en": "How do you stop a cough?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": false, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+기침을 멈추는 방법은 무엇인가요?
+
+[Final Answer]
+증상 요약: 어제부터 기침과 가래가 심합니다.
+
+가능한 원인:
+*   감기
+*   바이러스 감염
+
+확인 및 권장 조치:
+*   충분한 휴식을 취하십시오.
+*   수분을 충분히 섭취하십시오.
+*   증상이 심한 경우 병원을 방문하십시오.
+
+진료가 필요한 경우:
+*   증상이 지속되거나 악화될 경우.
+
+참고 근거:
+*   [문서 1](Asan-AMC-Healthinfo, 신뢰도: 매우 높음): 기침, 가래가 심한 경우 가래의 배출이 쉽도록 등을 토닥여 주거나 물을 자주 마셔 수분을 충분히 섭취하는 것이 도움이 됩니다. 증상이 심한 경우 합병증 유발에 유의해야 하므로 병원을 방문하는 것이 좋습니다.
+*   [문서 2](KDCA-HealthInfo-OpenAPI, 신뢰도: 매우 높음): 감기로 인한 기침은 후비루나 상부호흡기의 기침 반사가 자극되어서 나옵니다. 감기는 바이러스에 의한 것으로, 저절로 좋아지는 경우가 대부분이므로 원인에 대한 특별한 치료는 필요 없고, 증상 완화를 위한 대증요법을 시행합니다.
+Display the relevant information from the provided documents and answer the question in a concise manner.
+Availável aqui estão as informações relevantes dos documentos fornecidos e uma resposta concisa à pergunta.
+
+Show me the relevant information from the provided documents and answer the question in a concise manner.
+Display the relevant information from the provided documents and answer the question in a concise manner.
+Display the relevant information from the provided documents and answer the question in
+
+[Runtime]
+Prompt Version: v4.2
+Retrieval Count: 5
+Retrieval Elapsed: 0.000s
+LLM Elapsed: 43.992s
+Total Elapsed: 43.992s
+======================================================================
+======================================================================
+Question ID: rag_03
+Category: ambiguous
+Question:
+요즘 손발이 가끔 저립니다. 어떤 원인 때문일 수 있나요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: 7fc43dc2-564b-4c28-b6f7-8f3176976585
+Document ID: 3efa8326-b777-4ef6-a0ff-f79b69554ea2
+Source: HealthSearchQA-ko
+Score: 0.031054405392392875
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "2061", "question_en": "What deficiency causes tingling in hands and feet?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": false, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+손발 저림은 어떤 결핍으로 인해 발생하나요?
+
+Top 2
+Chunk ID: 4721b974-24b1-4e45-a21a-feeb658d3745
+Document ID: 43d06305-9ad5-46ed-80ff-cfb35e31743a
+Source: Asan-AMC-Healthinfo
+Score: 0.017424242424242422
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "11008", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+심한 경우에는 외과적인 처치가 필요할 수 있습니다. 손이 저리는 증상이 발생하면 여러가지 질환을 질환을 의심해볼 수 있습니다. 특히 많은 사람들이 말초혈액순환장애라고 생각하는데, 이 질환은 손저림보다는 손가락 통증이 더 빈번하고 손가락 끝이 찬 곳에 닿으면 혈액공급이 되지 않아 하얗게 변하며 실제로는 많이 발병하지 않는 질환입니다. 주로 수근관증후군이라는 질환이 많이 발생하는데, 이는 중년 여성에게 흔하고 양손에서 발병하며 운전 도중이나 야간에 특히 발생합니다.
+
+Top 3
+Chunk ID: ef53da08-4217-4d37-9372-be389d3c57ff
+Document ID: 3efa8326-b777-4ef6-a0ff-f79b69554ea2
+Source: HealthSearchQA-ko
+Score: 0.01639344262295082
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "2061", "question_en": "What deficiency causes tingling in hands and feet?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": false, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+이 외에도 당뇨병, 갑상선 질환, 만성 신장 질환 등 다양한 건강 문제가 손과 발의 저림을 유발할 수 있으므로, 정확한 원인을 파악하기 위해서는 전문적인 의료 상담이 필요합니다.
+
+Top 4
+Chunk ID: dd7c7091-bd18-4030-bf50-7c96e954b023
+Document ID: 0d180770-80ca-4763-883b-82a69d049a90
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "4260", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 저는 손발이 저리고 따끔거리는 증상을 겪고 있습니다. 이상한 느낌이고 떨쳐낼 수 없는 것 같습니다. 원인이 무엇인지 말씀해 주시겠어요?
+
+Top 5
+Chunk ID: fe7403ee-e0fb-4a81-b31d-95f55970f0fe
+Document ID: 3efa8326-b777-4ef6-a0ff-f79b69554ea2
+Source: HealthSearchQA-ko
+Score: 0.016129032258064516
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "2061", "question_en": "What deficiency causes tingling in hands and feet?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": false, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+손과 발의 저림을 유발하는 결핍증에는 여러 가지가 있을 수 있습니다. 가장 흔한 원인 중 하나는 비타민 B12 결핍입니다. 비타민 B12는 신경 기능과 혈액 생성에 중요한 역할을 하며, 이 비타민이 부족하면 신경 손상이 발생할 수 있어 손과 발에 저림이 느껴질 수 있습니다.
+
+[Final Answer]
+증상 요약: 최근 손발이 가끔 저립니다.
+
+가능한 원인:
+*   비타민 B12 결핍
+*   수근관증후군
+*   당뇨병, 갑상선 질환, 만성 신장 질환
+
+확인 및 권장 조치:
+*   손발 저림의 빈도, 정도, 동반 증상(예: 통증, 감각 변화) 등을 확인합니다.
+*   필요한 경우 혈액 검사를 통해 비타민 B12 농도를 측정하고, 당뇨병, 갑상선 질환, 만성 신장 질환 여부를 확인합니다.
+*   병원 방문 후 담당 의사와 상담하여 정확한 원인을 파악하고 적절한 치료 계획을 세웁니다.
+
+진료가 필요한 경우:
+*   손발 저림이 지속되거나 악화될 경우
+*   다른 증상(예: 통증, 감각 이상, 근력 약화)이 동반될 경우
+*   새로운 위험 신호가 나타날 경우
+
+참고 근거:
+*   HealthSearchQA-ko (신뢰도: 낮음): 손발 저림은 어떤 결핍으로 인해 발생하나요?
+*   Asan-AMC-Healthinfo (신뢰도: 매우 높음): 손이 저리는 증상이 발생하면 여러가지 질환을 질환을 의심해볼 수 있습니다. 특히 많은 사람들이 말초혈액순환장애라고 생각하는데, 이 질환은 손저림보다는 손가락 통증이 더 빈번하고 손가락 끝이 찬 곳에 닿으면 혈액공급이 되지 않아 하얗게 변하며 실제로는 많이 발병하지 않는 질환입니다. 주로 수근관증후군이라는
+
+[Runtime]
+Prompt Version: v4.2
+Retrieval Count: 5
+Retrieval Elapsed: 0.000s
+LLM Elapsed: 47.116s
+Total Elapsed: 47.117s
+======================================================================
+======================================================================
+Question ID: rag_04
+Category: urgent
+Question:
+숨을 쉬기가 매우 힘들고 가슴이 답답합니다. 집에서 조금 기다려봐도 될까요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: 6f8b05a3-15a9-47aa-8f40-02691a3da626
+Document ID: c10aeca2-42b2-4ed1-9f45-ac09ba15d868
+Source: GenMedGPT-5k-ko
+Score: 0.030621785881252923
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "111", "reliability": "ai_generated_unverified", "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음"}
+Content:
+의사 선생님, 숨쉬기가 힘들고 기침을 많이 하고 있습니다. 가슴이 답답하고 막힌 느낌이 듭니다.
+
+Top 2
+Chunk ID: c234923d-73e6-4526-8023-ad0fde2d79cb
+Document ID: 945df129-594f-4577-a420-206c5f39bee8
+Source: GenMedGPT-5k-ko
+Score: 0.028373015873015873
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "3932", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 호흡 곤란과 가슴이 답답합니다. 숨가쁨도 느껴집니다.
+
+Top 3
+Chunk ID: 1f0745dc-27f6-4561-af79-36b4c9a27cf3
+Document ID: f0a5e4db-c6ec-4763-b2f6-09fd4492c5a6
+Source: KDCA-HealthInfo-OpenAPI
+Score: 0.016911764705882352
+Metadata: {"source": "KDCA-HealthInfo-OpenAPI", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "3828", "reliability": "verified_official", "source_tier": 1, "source_type": "government_health_information", "content_type": "disease_information", "needs_review": true, "original_dataset": "kdca.go.kr/api/provide/healthInfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "질병관리청(KDCA) 공식 건강정보 OpenAPI 원문(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+## 증상
+˚ 호흡곤란을 호소하거나, 숨이 차서 잠을 이루기 어렵습니다. 호흡곤란이란 계단을 오르는 등 비슷한 나이의 건강한 사람에게는 아무 문제도 일으키지 않는 활동에도 유난히 숨이 차는 것을 말합니다. 심부전이 심해지면 쉬고 있을 때도 숨이 차고, 잠 자다 숨이 차서 깨기도 합니다.
+
+Top 4
+Chunk ID: 0b216fa5-d770-43e2-a404-9902658622e3
+Document ID: a0de1758-4bdf-4c5e-bc95-e22a61756311
+Source: Asan-AMC-Healthinfo
+Score: 0.016428571428571428
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "11981", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+이 심한 환자는 호흡이 불편할 정도의 호흡곤란을 느끼기도 하며, 청색증이 동반될 수 있습니다. 소수의 환자는 갑자기 눕거나 누웠다가 앉을 때 흉부에서 ‘덜컹’하면서 무언가가 움직이는 느낌을 호소하기도 합니다.
+
+Top 5
+Chunk ID: e274615d-c9e3-4305-b852-0984a5e4154a
+Document ID: a1d1a9b5-d507-4296-aba3-5d85009c7723
+Source: HealthSearchQA-ko
+Score: 0.01639344262295082
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "503", "question_en": "How do I know if my shortness of breath is serious?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": true, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+**증상의 특성과 지속 시간**:
+   - 갑작스럽게 발생하고 매우 심한 숨 가쁨: 이는 응급 상황일 수 있으며, 즉시 응급실을 방문해야 합니다. - 지속적이거나 점진적으로 악화되는 숨 가쁨: 천식, 만성 폐쇄성 폐질환(COPD), 심부전 등 만성 질환의 증상일 수 있습니다. 이러한 경우 의사와 상담하여 적절한 진단과 치료를 받아야 합니다.
+
+[Final Answer]
+증상 요약:
+사용자는 숨쉬기가 매우 힘들고 가슴이 답답하다고 합니다.
+
+가능한 원인:
+*   호흡곤란
+*   가슴 답답함
+
+확인 및 권장 조치:
+*   증상이 계속된다면 병원에 방문하십시오.
+*   집에서 기다리는 것은 증상을 악화시킬 수 있으므로 권장되지 않습니다.
+
+진료가 필요한 경우:
+*   증상이 지속되거나 악화되면 병원을 방문하십시오.
+
+참고 근거:
+*   문서 3: 호흡곤란은 계단을 오르는 등 활동에도 숨이 차지 않는데, 심부전이 심해지면 쉬고 있을 때도 숨이 차고, 잠 자다 숨이 차서 깨기도 합니다.
+*   문서 5: 갑작스럽게 발생하고 매우 심한 숨 가쁨은 응급 상황일 수 있으며, 즉시 응급실을 방문해야 합니다. 지속적이거나 점진적으로 악화되는 숨 가쁨은 천식, 만성 폐쇄성 폐질환(COPD), 심부전 등 만성 질환의 증상일 수 있습니다.
+
+검색 문서가 충분한 근거를 제공하지 않습니다.
+</s>
+
+[Runtime]
+Prompt Version: v4.2
+Retrieval Count: 5
+Retrieval Elapsed: 0.000s
+LLM Elapsed: 45.460s
+Total Elapsed: 45.460s
+======================================================================
+======================================================================
+Question ID: rag_05
+Category: urgent
+Question:
+검은색 변을 봤고 어지럽고 식은땀이 납니다. 어떻게 해야 하나요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: 39e6ad61-afaf-40d8-ad60-6a4274be6f8d
+Document ID: 5d340562-b865-431e-ad59-ae4132b1ba25
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "4983", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 얼마 전부터 검은색 변을 보고 있는데 걱정됩니다.
+
+Top 2
+Chunk ID: 35875c3e-7d56-4b4b-a568-8b55a0f2977a
+Document ID: cc198cff-baf9-491c-a6ed-8b1cde977188
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "1241", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 저는 최근 안면홍조, 식은땀, 기분 변화를 경험하고 있습니다. 폐경기가 다가오는 것 같아요. 어떻게 해야 하나요?
+
+Top 3
+Chunk ID: 5e97d545-0629-4ed0-8813-fd255caefe80
+Document ID: dbdf9038-ce74-48cd-88f6-67822288c899
+Source: GenMedGPT-5k-ko
+Score: 0.016129032258064516
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "2971", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+지난 며칠 동안 열과 변비가 있었습니다. 무엇이 문제일까요?
+
+Top 4
+Chunk ID: 9a1645a0-ea2e-4397-b624-c4967a5965d5
+Document ID: b5e61cdb-b0fb-428e-97ab-6f071386fca8
+Source: HealthSearchQA-ko
+Score: 0.015873015873015872
+Metadata: {"source": "HealthSearchQA-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "448", "question_en": "How do I get my constipation out?", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "consumer_health_qa", "content_type": "consumer_qa", "needs_review": false, "original_dataset": "ChuGyouk/HealthSearchQA-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "질문은 Med-PaLM HealthSearchQA 번역, 답변은 gpt-4o가 생성(전문가 검수 언급 없음)", "verification_status": "llm_generated_unverified"}
+Content:
+변비를 어떻게 빼야 하나요?
+
+Top 5
+Chunk ID: ec5922f9-3183-41ce-ae37-f37f347f63eb
+Document ID: 62f3c540-9115-428c-9156-5970f207eda1
+Source: GenMedGPT-5k-ko
+Score: 0.015625
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "3838", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+네, 증상에 따라 흑색 모반증이 있을 수 있습니다. 이 상태는 종종 어둡고 두꺼워진 피부 패치가 특징이며 설명하신 것과 같은 다양한 증상이 동반될 수 있습니다.
+
+[Final Answer]
+증상 요약: 사용자께서는 검은색 변을 보았으며 어지럼증과 식은땀을 느끼고 있습니다.
+
+가능한 원인:
+*   흑색 모반증(GenMedGPT-5k-ko): 검은색 변과 함께 나타날 수 있는 피부 조건입니다.
+*   대동맥 박리(HealthSearchQA-ko): 심각한 혈관 손상으로 인해 검은색 변과 어지럼증을 유발할 수 있습니다.
+*   내장 질환(GenMedGPT-5k-ko): 일부 내장 질환은 검은색 변을 유발할 수 있으며, 어지럼증과 식은땀을 일으킬 수도 있습니다.
+
+확인 및 권장 조치:
+*   필요한 확인사항: 검은색 변의 양, 색깔, 횟수 등을 확인합니다.
+*   안전한 조치: 최대한 빨리 병원에 방문하여 진찰을 받고 적절한 검사를 받아보는 것이 좋습니다.
+
+진료가 필요한 경우:
+*   증상이 지속되거나 악화될 경우 즉시 병원을 방문하십시오.
+
+참고 근거:
+*   GenMedGPT-5k-ko
+*   HealthSearchQA-ko
+89
+
+[Runtime]
+Prompt Version: v4.2
+Retrieval Count: 5
+Retrieval Elapsed: 0.000s
+LLM Elapsed: 44.802s
+Total Elapsed: 44.802s
+======================================================================

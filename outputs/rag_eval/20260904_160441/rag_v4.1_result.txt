@@ -1,0 +1,72 @@
+======================================================================
+Question ID: rag_01
+Category: consultation
+Question:
+식사 후 속이 쓰리고 신물이 올라옵니다. 어떤 원인이 있을 수 있나요?
+
+[Retrieval]
+
+Top 1
+Chunk ID: 4deb9553-69c0-4529-ab08-1430fa0ca5ea
+Document ID: a3253a46-869c-4b31-b9ec-53eb6f7b3ea6
+Source: Asan-AMC-Healthinfo
+Score: 0.01796875
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "15670", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+식도염의 원인은 무엇인가요?
+
+Top 2
+Chunk ID: de415243-6f08-4ef0-9288-c717f9ce0cf1
+Document ID: 422ee93d-0f19-4a7c-a17f-e3c7b71dba5d
+Source: Asan-AMC-Healthinfo
+Score: 0.017424242424242422
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "13613", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+배출되지 못하고 식도로 역류할 수 있습니다. 식후에 바로 눕거나 구부리는 자세도 위 내용물의 역류를 유발할 수 있습니다. 비만, 임신, 복수 등으로 위 내부의 압력이 증가하는 경우, 복대 착용, 잦은 기침 등으로 복압이 증가하는 경우에도 역류가 일어날 수 있습니다. 또한 기름진 음식, 음주, 흡연, 커피, 초콜릿, 박하, 오렌지주스 등의 음식을 자주 섭취하는 식습관이 있으면 역류가 일어날 수 있습니다.
+
+Top 3
+Chunk ID: 7875dbb4-ff0e-4e70-8266-eb1a7249e1c5
+Document ID: fffc7994-2bf6-4866-8f8b-48a4e27c9d99
+Source: KDCA-HealthInfo-OpenAPI
+Score: 0.01716417910447761
+Metadata: {"source": "KDCA-HealthInfo-OpenAPI", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "5848", "reliability": "verified_official", "source_tier": 1, "source_type": "government_health_information", "content_type": "disease_information", "needs_review": true, "original_dataset": "kdca.go.kr/api/provide/healthInfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "질병관리청(KDCA) 공식 건강정보 OpenAPI 원문(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+위 내용물의 양이 증가한 경우
+과식 후 음식물이 위에 오래 정체되거나, 위에서 십이지장으로 넘어가는 유문부의 협착 같은 원인에 의해 위 내용물의 양이 증가하는 경우에 역류할 수 있습니다.
+
+Top 4
+Chunk ID: cdb40e3f-607a-47f5-8067-9eae350c6f48
+Document ID: e6af1df2-6215-4054-af3f-633f781b46cc
+Source: Asan-AMC-Healthinfo
+Score: 0.01716417910447761
+Metadata: {"source": "Asan-AMC-Healthinfo", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "15646", "reliability": "verified_official", "source_tier": 1, "source_type": "hospital_health_information", "content_type": "disease_information", "needs_review": false, "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo", "reliability_tier": "매우 높음", "generated_metadata": false, "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)", "verification_status": "official_source"}
+Content:
+소화불량의 원인은 무엇인가요?
+
+Top 5
+Chunk ID: 230aee67-054d-40a5-be22-c01f054eb0d0
+Document ID: da8ce011-1202-4a3d-853a-b8950f1d10ae
+Source: GenMedGPT-5k-ko
+Score: 0.01639344262295082
+Metadata: {"source": "GenMedGPT-5k-ko", "disease": [], "category": null, "language": "ko", "symptoms": [], "department": [], "original_id": "892", "reliability": "ai_generated_unverified", "source_tier": 3, "source_type": "doctor_patient_dialogue", "content_type": "doctor_patient_dialogue", "needs_review": false, "original_dataset": "ChuGyouk/GenMedGPT-5k-ko", "reliability_tier": "낮음", "generated_metadata": false, "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음", "verification_status": "llm_generated_unverified"}
+Content:
+의사 선생님, 식사 후 상복부에 많은 불편함을 느끼고 있습니다. 속이 더부룩하고 메스꺼움도 느껴집니다. 무엇이 문제일까요?
+
+[Final Answer]
+증상 요약: 식사 후 속쓰림과 신물이 오른다는 증상을 경험했습니다.
+
+가능한 원인:
+*   식도역류(문서 2): 식사 후 바로 누워있기, 구부린 자세 유지, 비만, 임신, 복수 등으로 인한 위 압력 증가, 복대 착용, 잦은 기침, 기름진 음식, 음주, 흡연, 커피, 초콜릿, 박하, 오렌지 주스 섭취 등이 식도역류의 원인이 될 수 있습니다.
+*   위 내용물 과다(문서 3): 과식 후 음식물이 위에 오래 정체되거나, 위에서 십이지장으로 넘어가는 유문부의 협착으로 인해 위 내용물량이 증가하여 역류할 수 있습니다.
+*   소화불량(문서 4): 소화불량은 다양한 원인으로 발생할 수 있으며, 식사 후 불편함, 속 부풀림, 메스꺼움 등을 동반할 수 있습니다.
+
+확인 및 권장 조치:
+*   식사 후 자세 유지 습관 확인: 식사 후 바로 누워있지 않도록 하고
+
+[Runtime]
+Prompt Version: v4.1
+Retrieval Count: 5
+Retrieval Elapsed: 52.030s
+LLM Elapsed: 30.527s
+Total Elapsed: 82.600s
+======================================================================

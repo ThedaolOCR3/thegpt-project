@@ -1,0 +1,1 @@
+{"question_id": "rag_01", "category": "consultation", "prompt_version": "v4.1", "mode": "live", "retrieval_count": 5, "retrieval_elapsed_seconds": 52.030484, "llm_elapsed_seconds": 30.527012, "total_elapsed_seconds": 82.599858, "max_output_tokens": 256, "input_tokens": 1907, "output_tokens": 256, "total_tokens": 2163, "finish_reason": "length", "success": true, "error": null}

@@ -1,0 +1,20 @@
+Started: 2026-09-04T17:10:54+09:00
+Completed: 2026-09-04T17:14:53+09:00
+Status: completed
+Prompt Version: v4.3
+Prompt Path: G:\내 드라이브\02_프로젝트\3_메인프로젝트\06_FineTuning\00_common\prompts\medical_prompt_v4.3_rag_simplified.json
+RAG Template Path: G:\내 드라이브\02_프로젝트\3_메인프로젝트\06_FineTuning\00_common\prompts\medical_prompt_v4.3_rag_simplified.json
+Question Count: 5
+Success Count: 5
+Failure Count: 0
+Mode: snapshot
+Embedding Model: Not used (snapshot metadata: jina-v4, medical-bgem3)
+Top-K: 5
+Use Reranker: False
+Remote LLM Model: medgemma
+Adapter: medgemma-final (Remote server routing key)
+max_output_tokens: 384
+DB Write Enabled: False
+Snapshot Input Path: C:\Users\2class_18\Documents\CSJ\DEV\thegpt-project\outputs\rag_eval\20260904_162448\retrieval_snapshot.json
+Snapshot Path: C:\Users\2class_18\Documents\CSJ\DEV\thegpt-project\outputs\rag_eval\20260904_171054\retrieval_snapshot.json
+Elapsed Seconds: 239.615

@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-04T16:04:41+09:00",
+  "prompt_version": "v4.1",
+  "retrieval_config": {
+    "top_k": 5,
+    "use_reranker": false,
+    "providers": [
+      "jina-v4",
+      "medical-bgem3"
+    ],
+    "embedding_dimension": 1024,
+    "candidate_min": 20,
+    "rrf_k": 60
+  },
+  "questions": [
+    {
+      "question_id": "rag_01",
+      "category": "consultation",
+      "question": "식사 후 속이 쓰리고 신물이 올라옵니다. 어떤 원인이 있을 수 있나요?",
+      "retrieval_success": true,
+      "error_type": null,
+      "retrieved_contexts": [
+        {
+          "rank": 1,
+          "content": "식도염의 원인은 무엇인가요?",
+          "score": 0.01796875,
+          "chunk_id": "4deb9553-69c0-4529-ab08-1430fa0ca5ea",
+          "document_id": "a3253a46-869c-4b31-b9ec-53eb6f7b3ea6",
+          "source": "Asan-AMC-Healthinfo",
+          "metadata": {
+            "source": "Asan-AMC-Healthinfo",
+            "disease": [],
+            "category": null,
+            "language": "ko",
+            "symptoms": [],
+            "department": [],
+            "original_id": "15670",
+            "reliability": "verified_official",
+            "source_tier": 1,
+            "source_type": "hospital_health_information",
+            "content_type": "disease_information",
+            "needs_review": false,
+            "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo",
+            "reliability_tier": "매우 높음",
+            "generated_metadata": false,
+            "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)",
+            "verification_status": "official_source"
+          }
+        },
+        {
+          "rank": 2,
+          "content": "배출되지 못하고 식도로 역류할 수 있습니다. 식후에 바로 눕거나 구부리는 자세도 위 내용물의 역류를 유발할 수 있습니다. 비만, 임신, 복수 등으로 위 내부의 압력이 증가하는 경우, 복대 착용, 잦은 기침 등으로 복압이 증가하는 경우에도 역류가 일어날 수 있습니다. 또한 기름진 음식, 음주, 흡연, 커피, 초콜릿, 박하, 오렌지주스 등의 음식을 자주 섭취하는 식습관이 있으면 역류가 일어날 수 있습니다.",
+          "score": 0.017424242424242422,
+          "chunk_id": "de415243-6f08-4ef0-9288-c717f9ce0cf1",
+          "document_id": "422ee93d-0f19-4a7c-a17f-e3c7b71dba5d",
+          "source": "Asan-AMC-Healthinfo",
+          "metadata": {
+            "source": "Asan-AMC-Healthinfo",
+            "disease": [],
+            "category": null,
+            "language": "ko",
+            "symptoms": [],
+            "department": [],
+            "original_id": "13613",
+            "reliability": "verified_official",
+            "source_tier": 1,
+            "source_type": "hospital_health_information",
+            "content_type": "disease_information",
+            "needs_review": false,
+            "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo",
+            "reliability_tier": "매우 높음",
+            "generated_metadata": false,
+            "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)",
+            "verification_status": "official_source"
+          }
+        },
+        {
+          "rank": 3,
+          "content": "위 내용물의 양이 증가한 경우\n과식 후 음식물이 위에 오래 정체되거나, 위에서 십이지장으로 넘어가는 유문부의 협착 같은 원인에 의해 위 내용물의 양이 증가하는 경우에 역류할 수 있습니다.",
+          "score": 0.01716417910447761,
+          "chunk_id": "7875dbb4-ff0e-4e70-8266-eb1a7249e1c5",
+          "document_id": "fffc7994-2bf6-4866-8f8b-48a4e27c9d99",
+          "source": "KDCA-HealthInfo-OpenAPI",
+          "metadata": {
+            "source": "KDCA-HealthInfo-OpenAPI",
+            "disease": [],
+            "category": null,
+            "language": "ko",
+            "symptoms": [],
+            "department": [],
+            "original_id": "5848",
+            "reliability": "verified_official",
+            "source_tier": 1,
+            "source_type": "government_health_information",
+            "content_type": "disease_information",
+            "needs_review": true,
+            "original_dataset": "kdca.go.kr/api/provide/healthInfo",
+            "reliability_tier": "매우 높음",
+            "generated_metadata": false,
+            "reliability_reason": "질병관리청(KDCA) 공식 건강정보 OpenAPI 원문(생성/번역 아님)",
+            "verification_status": "official_source"
+          }
+        },
+        {
+          "rank": 4,
+          "content": "소화불량의 원인은 무엇인가요?",
+          "score": 0.01716417910447761,
+          "chunk_id": "cdb40e3f-607a-47f5-8067-9eae350c6f48",
+          "document_id": "e6af1df2-6215-4054-af3f-633f781b46cc",
+          "source": "Asan-AMC-Healthinfo",
+          "metadata": {
+            "source": "Asan-AMC-Healthinfo",
+            "disease": [],
+            "category": null,
+            "language": "ko",
+            "symptoms": [],
+            "department": [],
+            "original_id": "15646",
+            "reliability": "verified_official",
+            "source_tier": 1,
+            "source_type": "hospital_health_information",
+            "content_type": "disease_information",
+            "needs_review": false,
+            "original_dataset": "ChuGyouk/Asan-AMC-Healthinfo",
+            "reliability_tier": "매우 높음",
+            "generated_metadata": false,
+            "reliability_reason": "서울아산병원 공식 홈페이지 건강정보 원문 편집(생성/번역 아님)",
+            "verification_status": "official_source"
+          }
+        },
+        {
+          "rank": 5,
+          "content": "의사 선생님, 식사 후 상복부에 많은 불편함을 느끼고 있습니다. 속이 더부룩하고 메스꺼움도 느껴집니다. 무엇이 문제일까요?",
+          "score": 0.01639344262295082,
+          "chunk_id": "230aee67-054d-40a5-be22-c01f054eb0d0",
+          "document_id": "da8ce011-1202-4a3d-853a-b8950f1d10ae",
+          "source": "GenMedGPT-5k-ko",
+          "metadata": {
+            "source": "GenMedGPT-5k-ko",
+            "disease": [],
+            "category": null,
+            "language": "ko",
+            "symptoms": [],
+            "department": [],
+            "original_id": "892",
+            "reliability": "ai_generated_unverified",
+            "source_tier": 3,
+            "source_type": "doctor_patient_dialogue",
+            "content_type": "doctor_patient_dialogue",
+            "needs_review": false,
+            "original_dataset": "ChuGyouk/GenMedGPT-5k-ko",
+            "reliability_tier": "낮음",
+            "generated_metadata": false,
+            "reliability_reason": "ChatDoctor(GPT 생성 합성 대화) 원본을 DeepL로 번역, 전문가 검수 언급 없음",
+            "verification_status": "llm_generated_unverified"
+          }
+        }
+      ]
+    }
+  ]
+}
