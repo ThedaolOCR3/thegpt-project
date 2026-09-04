@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.admin.dashboard_router import router as admin_dashboard_router
 from app.api.admin.router import router as admin_router
 from app.api.admin.upload_router import router as admin_upload_router
+from app.api.auth.oauth_router import oauth_start_router
 from app.api.auth.router import router as auth_router
 from app.api.auth.email_verification_router import router as email_verification_router
 from app.api.auth.password_reset_router import router as password_reset_router
@@ -19,6 +20,7 @@ from app.api.rag.router import router as rag_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
+api_router.include_router(oauth_start_router, prefix="/auth/oauth", tags=["auth"])
 api_router.include_router(signup_router, prefix="/auth", tags=["auth"])
 api_router.include_router(email_verification_router, prefix="/auth", tags=["auth"])
 api_router.include_router(password_reset_router, prefix="/auth", tags=["auth"])

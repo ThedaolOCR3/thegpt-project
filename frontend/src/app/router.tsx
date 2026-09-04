@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { MainLayout } from "../components/Layout/MainLayout";
 import { LoginPage } from "../features/auth/login";
+import { OAuthCallbackPage } from "../features/auth/oauth-callback";
 import { SignupPage } from "../features/auth/signup";
 import { VerifyEmailPage } from "../features/auth/verify";
 import { ForgotPasswordPage } from "../features/auth/password-reset/ForgotPasswordPage";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "/chat/:conversationId", element: <ChatPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/signup", element: <SignupPage /> },
+      { path: "/oauth-callback", element: <OAuthCallbackPage /> },
       { path: "/verify-email", element: <VerifyEmailPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/reset-password", element: <ResetPasswordPage /> },

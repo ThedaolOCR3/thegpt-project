@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from ai.consultation import ConsultationResult, consult
+from ai.consultation import ConsultationResult, consult, get_default_classifier
 from ai.rag import RetrievedChunk
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -123,11 +123,22 @@ class MessageService:
                 None,
             )
 
-        reference_chunks = await asyncio.to_thread(self._search_reference_chunks, content)
+        # 진료과 분류를 여기서 미리 한 번만 한다 - RAG 검색의 진료과 소프트 부스트
+        # (rag_search_service.search의 department=)와 consult()의 프롬프트 힌트가
+        # 같은 분류 결과를 쓰게 하기 위함(키워드 매칭이라 결정론적이지만, 같은 질문을
+        # 두 번 분류해서 굳이 두 경로가 어긋날 여지를 만들 이유가 없다).
+        department_result = get_default_classifier().classify(content)
+        reference_chunks = await asyncio.to_thread(
+            self._search_reference_chunks, content, department_result.department
+        )
 
         consult_kwargs = {"model_id": model_id} if model_id else {}
         result: ConsultationResult = await consult(
-            llm_application, content, reference_chunks=reference_chunks, **consult_kwargs
+            llm_application,
+            content,
+            reference_chunks=reference_chunks,
+            department_result=department_result,
+            **consult_kwargs,
         )
 
         # LLM 호출 자체가 실패한 경우(is_fallback)는 실제 상담이 이뤄진 게 아니므로
@@ -155,16 +166,21 @@ class MessageService:
             logger.exception("consultation_logs 저장 실패 — 응답 자체는 정상 처리됨: message_id=%s", message_id)
             self.db.rollback()
 
-    def _search_reference_chunks(self, query: str) -> list[RetrievedChunk]:
+    def _search_reference_chunks(
+        self, query: str, department: str | None = None
+    ) -> list[RetrievedChunk]:
         """RAG 검색 결과를 consult()의 참고 의료 정보로 넘긴다. RAG 데이터셋이 아직
         Neon에 안 들어갔거나(테이블은 있는데 0건) 마이그레이션 자체가 아직 안
         적용된 경우(테이블 없음) 등 어떤 이유로든 검색이 실패해도, 여기서 잡아서
         빈 결과를 반환한다 — consult()는 빈/None 결과를 "참고 정보 없음" 경로로
         처리하므로 채팅은 LLM+프롬프트 엔지니어링만으로 계속 응답한다(안 죽음).
         나중에 실제 데이터가 채워지면 이 함수는 코드 변경 없이 그대로 검색 결과를
-        반환하기 시작한다."""
+        반환하기 시작한다.
+
+        `department`: 호출부(_generate_reply)가 미리 분류해서 넘긴 진료과 -
+        rag_search_service.search()의 진료과 소프트 부스트에 쓰인다."""
         try:
-            return rag_search_service.search(self.db, query)
+            return rag_search_service.search(self.db, query, department=department)
         except Exception:
             logger.exception("RAG 검색 실패 — 참고 정보 없이 LLM/프롬프트만으로 응답을 이어감: query=%r", query)
             # DB 오류(예: 마이그레이션 전이라 chunk_embeddings 테이블이 아직 없음)는

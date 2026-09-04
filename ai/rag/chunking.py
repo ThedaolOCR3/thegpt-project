@@ -66,12 +66,22 @@ def is_garbage(text: str) -> bool:
     return len(_MEANINGFUL_CONTENT.findall(stripped)) < MIN_MEANINGFUL_CHARS
 
 
+def _decode_token_slice(tokenizer, ids: list[int]) -> str:
+    """토큰 id 리스트의 일부만 잘라 독립적으로 decode하면, 한글처럼 한 글자가 토큰
+    여러 개로 인코딩되는 경우 그 경계가 글자 중간에서 잘릴 수 있다 — 이때 깨진
+    바이트가 U+FFFD(대체 문자, "�")로 디코딩된다. 정상적인 텍스트는 cleaning.py가
+    이미 깨진 유니코드를 걸러서 여기까지 오지 않으므로, 슬라이스 맨 앞/뒤에 남는
+    "�"는 실제 내용이 아니라 순수한 토큰 경계 아티팩트다 — 거기서만 제거한다
+    (중간에 있으면 원래 있던 내용일 수 있으니 안 건드림)."""
+    return tokenizer.decode(ids).strip("�")
+
+
 def _tail_by_tokens(text: str, n_tokens: int) -> str:
     tokenizer = _get_tokenizer()
     ids = tokenizer.encode(text)
     if len(ids) <= n_tokens:
         return text
-    return tokenizer.decode(ids[-n_tokens:])
+    return _decode_token_slice(tokenizer, ids[-n_tokens:])
 
 
 def _force_split_by_tokens(text: str, max_tokens: int, overlap_tokens: int = 0) -> list[str]:
@@ -89,7 +99,7 @@ def _force_split_by_tokens(text: str, max_tokens: int, overlap_tokens: int = 0) 
         piece_ids = ids[i : i + max_tokens]
         if not piece_ids:
             break
-        pieces.append(tokenizer.decode(piece_ids))
+        pieces.append(_decode_token_slice(tokenizer, piece_ids))
         if i + max_tokens >= len(ids):
             break
     return pieces

@@ -26,6 +26,15 @@ class ConversationService:
         conversations = self.repository.list_by_user(user_id)
         return [to_conversation_response(c) for c in conversations]
 
+    def search_conversations(self, user_id: UUID, query: str) -> list[ConversationResponse]:
+        # 빈 검색어면 "전부 다 매칭"으로 보지 않고 전체 목록을 그대로 보여준다
+        # (ILIKE '%%'도 결과상 같지만, 의도를 명확히 하고 불필요한 join 스캔을 피함).
+        stripped = query.strip()
+        if not stripped:
+            return self.list_conversations(user_id)
+        conversations = self.repository.search(user_id, stripped)
+        return [to_conversation_response(c) for c in conversations]
+
     def create_conversation(self, user_id: UUID) -> ConversationResponse:
         conversation = self.repository.create(user_id)
         return to_conversation_response(conversation)

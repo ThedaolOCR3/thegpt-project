@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.admin.upload_router import register_upload_error_handlers
+from app.api.auth.oauth_router import oauth_callback_router
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import get_db
@@ -23,6 +25,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router, prefix=settings.api_prefix)
+    # Google/GitHub OAuth 콜백은 /api 접두사 없이 루트에 마운트한다 - Google/GitHub
+    # 콘솔에 등록한 redirect_uri(Cloudflare Worker가 그대로 프록시)와 경로가 정확히
+    # 같아야 하기 때문이다(app/api/auth/oauth_router.py 상단 설명 참고).
+    app.include_router(oauth_callback_router, tags=["auth"])
+    register_upload_error_handlers(app)
 
     @app.exception_handler(Exception)
     async def log_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:

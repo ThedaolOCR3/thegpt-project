@@ -4,6 +4,7 @@ import uuid
 
 from pgvector.sqlalchemy.vector import VECTOR
 from sqlalchemy import Boolean, DateTime, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -26,11 +27,29 @@ class EmailVerifications(Base):
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
 
 
+class GuestIpThrottle(Base):
+    """게스트 계정 신규 발급 rate limit용 카운터. 신원 정보가 아니라 순전히
+    "이 IP가 최근 window_started_at 이후 몇 번 새 게스트를 만들었는지"만 센다
+    (app/services/guest_throttle.py 참고) - 과거 기록을 안 쌓고 창이 지나면
+    그 자리에서 리셋된다."""
+
+    __tablename__ = 'guest_ip_throttle'
+    __table_args__ = (
+        PrimaryKeyConstraint('ip', name='guest_ip_throttle_pkey'),
+        {'schema': 'app_db'}
+    )
+
+    ip: Mapped[str] = mapped_column(String(45), primary_key=True)
+    window_started_at: Mapped[datetime.datetime] = mapped_column(DateTime(True), nullable=False, server_default=text('now()'))
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text('1'))
+
+
 class Users(Base):
     __tablename__ = 'users'
     __table_args__ = (
         PrimaryKeyConstraint('id', name='users_pkey'),
         UniqueConstraint('email', name='users_email_key'),
+        UniqueConstraint('auth_provider', 'oauth_id', name='users_auth_provider_oauth_id_key'),
         {'schema': 'app_db'}
     )
 
@@ -39,6 +58,9 @@ class Users(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(String(255))
     profile_image_url: Mapped[Optional[str]] = mapped_column(String(500))
     auth_provider: Mapped[Optional[str]] = mapped_column(String(30), server_default=text("'local'::character varying"))
+    # Google의 sub / GitHub의 숫자 id - (auth_provider, oauth_id) 조합이 유니크
+    # (마이그레이션 e7c2a5f9b1d3). local/guest 계정은 NULL.
+    oauth_id: Mapped[Optional[str]] = mapped_column(String(255))
     is_email_verified: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text('false'))
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('false'))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
@@ -123,6 +145,9 @@ class DocumentChunks(Base):
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[Optional[Any]] = mapped_column(VECTOR(1024))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))
+    # 컬럼명은 "metadata"이지만 SQLAlchemy DeclarativeBase.metadata와 이름이 겹쳐서
+    # 파이썬 속성명은 chunk_metadata로 둔다(마이그레이션 ebf81fbe5350 참고).
+    chunk_metadata: Mapped[Optional[dict]] = mapped_column('metadata', JSONB)
 
     document: Mapped['AdminDocuments'] = relationship('AdminDocuments', back_populates='document_chunks')
     chunk_embeddings: Mapped[list['ChunkEmbeddings']] = relationship('ChunkEmbeddings', back_populates='chunk')
@@ -209,4 +234,5 @@ class ConsultationLogs(Base):
     total_tokens: Mapped[Optional[int]] = mapped_column(Integer)
     response_time_ms: Mapped[Optional[int]] = mapped_column(Integer)
     error_type: Mapped[Optional[str]] = mapped_column(String(100))
+    finish_reason: Mapped[Optional[str]] = mapped_column(String(50))
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(True), server_default=text('now()'))

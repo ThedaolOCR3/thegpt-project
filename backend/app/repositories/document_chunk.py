@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.models.generated import AdminDocuments, ChunkEmbeddings, DocumentChunks
 
-# 마이그레이션(03b8a4b5b62a)의 chunk_embeddings.embedding VECTOR 폭과 반드시 같아야 한다.
-EMBEDDING_COLUMN_WIDTH = 2048
+# 마이그레이션(a1f3c9d2e8b4)의 chunk_embeddings.embedding VECTOR 폭과 반드시 같아야 한다.
+# 원래 03b8a4b5b62a가 2048로 넓게 잡았던 건 향후 더 큰 임베딩 모델 대비였는데,
+# 실제 확정된 Jina v4/Medical BGE-M3가 둘 다 1024차원이라 절반이 0-padding으로
+# 낭비되고 있었다(실제 DB에서 전체 용량의 42%로 확인됨) - 1024로 좁혔다.
+EMBEDDING_COLUMN_WIDTH = 1024
 
 
 def pad_embedding(vector: list[float]) -> list[float]:
@@ -28,17 +31,48 @@ class DocumentChunkRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def create_chunks(self, document_id: UUID, rows: list[dict]) -> list[DocumentChunks]:
+    def create_chunks(
+        self,
+        document_id: UUID,
+        rows: list[dict],
+        *,
+        metadata: dict | None = None,
+        commit: bool = True,
+    ) -> list[DocumentChunks]:
         """rows: {chunk_index, chunk_text} 딕셔너리 리스트. 임베딩은 별도로
-        `add_embeddings()`를 호출해서 붙인다."""
-        chunks = [DocumentChunks(document_id=document_id, **row) for row in rows]
+        `add_embeddings()`를 호출해서 붙인다. metadata는 문서 전체 청크에 동일하게
+        적용된다(RAG 데이터셋 ingestion에서 출처/진료과/신뢰도 등을 추적하기 위함) —
+        생략하면 NULL이라 기존 OCR 저장 경로는 그대로 동작한다.
+        commit=False: 대량 ingestion이 여러 문서의 청크를 모아서 한 번에 커밋하기
+        위한 것 — flush만 해서 id는 채우되 트랜잭션은 호출자가 끝낸다.
+
+        commit=False일 때는 청크별 refresh()를 안 한다 - PostgreSQL은 INSERT에
+        RETURNING을 붙여서 서버 생성 기본값(id)을 flush() 시점에 이미 채워주므로
+        refresh()는 원래도 불필요한 왕복이었다. 다만 기존 단일 문서 경로(commit=True,
+        청크 2~5개라 비용이 작음)는 동작을 안 바꾸려고 그대로 뒀다 - 대량 처리에서만
+        문서당 청크 수십~수백 개가 전부 refresh 왕복을 만들어 실제로 체감될 만큼
+        느려졌던 걸 확인하고 여기만 없앴다."""
+        chunks = [
+            DocumentChunks(document_id=document_id, chunk_metadata=metadata, **row) for row in rows
+        ]
         self.db.add_all(chunks)
-        self.db.commit()
-        for chunk in chunks:
-            self.db.refresh(chunk)
+        if commit:
+            self.db.commit()
+            for chunk in chunks:
+                self.db.refresh(chunk)
+        else:
+            self.db.flush()
         return chunks
 
-    def add_embeddings(self, chunk_id: UUID, provider_name: str, dimension: int, vector: list[float]) -> None:
+    def add_embeddings(
+        self,
+        chunk_id: UUID,
+        provider_name: str,
+        dimension: int,
+        vector: list[float],
+        *,
+        commit: bool = True,
+    ) -> None:
         self.db.add(
             ChunkEmbeddings(
                 chunk_id=chunk_id,
@@ -47,7 +81,8 @@ class DocumentChunkRepository:
                 embedding=pad_embedding(vector),
             )
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
 
     def delete_by_document(self, document_id: UUID) -> None:
         """재수집(re-ingest) 전에 같은 문서의 기존 청크를 지운다 — chunk_embeddings는
@@ -59,7 +94,22 @@ class DocumentChunkRepository:
         self, provider_name: str, query_vector: list[float], top_k: int
     ) -> list[tuple[DocumentChunks, float]]:
         """지정한 provider로 저장된 임베딩만 대상으로 코사인 거리 기준 상위 top_k를
-        반환한다. 반환값은 (청크, 코사인_거리) — 거리가 작을수록 더 유사하다."""
+        반환한다. 반환값은 (청크, 코사인_거리) — 거리가 작을수록 더 유사하다.
+
+        `admin_documents.ocr_status`가 "completed"(관리자가 텍스트/ZIP/웹URL로
+        업로드해서 처리 완료한 문서) 또는 "dataset_import"(HuggingFace 데이터셋
+        대량 RAG 적재)인 문서의 청크만 대상으로 한다 - `document_chunks`/
+        `chunk_embeddings`는 이 둘과, 그 사이 상태(OCR "pending"/"processing" -
+        아직 처리 중이라 검색에 노출되면 안 됨)까지 같이 쓰는 테이블이다.
+        "completed"만 필터링하던 이전 버전은 dataset_import 청크(전체 RAG
+        코퍼스)를 몽땅 걸러버리는 버그가 있었고, source metadata 유무로 걸러내던
+        버전은 관리자 업로드 청크(metadata를 안 채움)를 몽땅 걸러버리는 버그가
+        있었다 - 실제 라이브 쿼리로 두 버그 다 재현해서 확인 후 이 형태로 합쳤다
+        (2026-09-03). 개발자가 테스트 삼아 올렸다가 저장까지 눌러버린 문서(2026-08
+        중 6건 발견 후 삭제함)처럼, "completed"긴 한데 RAG용으로 의도한 콘텐츠가
+        아닌 경우는 이 필터로 못 거른다 - 그런 문서가 다시 쌓이면 코드가 아니라
+        데이터를 지워서 정리해야 한다(admin_documents에 "이건 RAG용으로 큐레이션한
+        문서다"를 표시하는 컬럼이 아직 없음 - 후속 과제)."""
         padded_query = pad_embedding(query_vector)
         stmt = (
             select(DocumentChunks, ChunkEmbeddings.embedding.cosine_distance(padded_query).label("distance"))
@@ -67,7 +117,7 @@ class DocumentChunkRepository:
             .join(AdminDocuments, AdminDocuments.id == DocumentChunks.document_id)
             .where(
                 ChunkEmbeddings.provider_name == provider_name,
-                AdminDocuments.ocr_status == "completed",
+                AdminDocuments.ocr_status.in_(("completed", "dataset_import")),
             )
             .order_by("distance")
             .limit(top_k)

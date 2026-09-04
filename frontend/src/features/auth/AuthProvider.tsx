@@ -28,6 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   };
 
+  const loginWithToken = async (token: string) => {
+    const me = await authApi.getMe(token);
+    authStorage.setToken(token);
+    setUser(me);
+  };
+
   const logout = () => {
     authStorage.clearToken();
     setUser(null);
@@ -36,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = (nextUser: User) => setUser(nextUser);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithToken, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

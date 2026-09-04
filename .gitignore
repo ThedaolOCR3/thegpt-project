@@ -27,3 +27,15 @@ ai/llm/models/
 
 # Vast.ai Notebook이 프로젝트 안에 내려받는 Hugging Face base/adapter 파일
 models/
+
+# RAG 데이터셋 로컬 전처리 산출물 (raw/processed/chunks/embeddings) - 대용량,
+# HF에서 다시 스트리밍하면 재생성 가능하므로 git에 안 올림 (scripts/rag_prepare_dataset.py 참고)
+/data/raw/
+/data/processed/
+/data/chunks/
+/data/embeddings/
+# 로컬 실행 상태(재실행 시 이어받는 dedup 진행 기록) - 로컬 전용, 커밋 안 함
+/data/_cross_dataset_dedup_index*.json
+# 실제 질병관리청 서비스키/60개 엔드포인트 목록 - 예시(.example.yaml)만 커밋, 실제 값은 로컬 전용
+data/kdca_endpoints.yaml
+bruno/KDCA-OpenAPI/environments/Local.bru

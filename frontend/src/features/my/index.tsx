@@ -49,12 +49,14 @@ export function MyPage() {
           </span>
           <input value={user?.email ?? ''} readOnly />
         </label>
-        <div className="password-change-field">
-          <span>비밀번호 변경</span>
-          <button className="password-change-button" onClick={() => setIsPasswordModalOpen(true)}>
-            비밀번호 변경
-          </button>
-        </div>
+        {user?.has_password && (
+          <div className="password-change-field">
+            <span>비밀번호 변경</span>
+            <button className="password-change-button" onClick={() => setIsPasswordModalOpen(true)}>
+              비밀번호 변경
+            </button>
+          </div>
+        )}
         <label>계정 생성일<input value={formatDate(user?.created_at)} readOnly /></label>
       </div>
 

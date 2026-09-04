@@ -22,9 +22,33 @@
 .form-notice { margin: 0; padding: 12px; color: #27615b; background: #eaf6f4; border-radius: 8px; font-size: 14px; }
 .dev-reset-link { padding: 12px; color: #126a63; background: #fff8db; border-radius: 8px; font-size: 14px; font-weight: 700; text-align: center; }
 
+.oauth-section { margin-top: 20px; display: grid; gap: 10px; }
+.oauth-divider { position: relative; text-align: center; margin: 4px 0 6px; color: #a39c8f; font-size: 13px; }
+.oauth-divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e4dfd3; }
+.oauth-divider span { position: relative; padding: 0 10px; background: white; }
+.oauth-button {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 46px; border-radius: 10px; font-weight: 700; text-decoration: none;
+  border: 1px solid #d8d3c9; color: #2b2820; background: white;
+}
+.oauth-button:hover { background: #f7f6f2; }
+.oauth-github { background: #24292f; border-color: #24292f; color: white; }
+.oauth-github:hover { background: #1b1f24; }
+.oauth-in-app-warning {
+  display: grid; gap: 8px; padding: 12px; border-radius: 8px;
+  background: #fff8db; color: #6b5b06; font-size: 13px; line-height: 1.5;
+}
+.oauth-in-app-warning .text-button { justify-self: start; }
+
 /* 인증 화면도 사이드바의 다크모드와 같은 색상 체계를 사용합니다. */
 .dark .auth-page { background: #0a0a0a; }
 .dark .auth-card { color: #f5f5f5; background: #171717; border-color: #404040; box-shadow: none; }
 .dark .auth-description, .dark .auth-links, .dark .password-help a, .dark .auth-options a, .dark .remember-me { color: #a3a3a3; }
 .dark .auth-field input { color: #f5f5f5; background: #262626; border-color: #525252; }
 .dark .form-notice { color: #a7f3d0; background: #13332d; }
+.dark .oauth-divider span { background: #171717; }
+.dark .oauth-divider { color: #737373; }
+.dark .oauth-divider::before { background: #404040; }
+.dark .oauth-button { color: #f5f5f5; background: #262626; border-color: #525252; }
+.dark .oauth-button:hover { background: #333; }
+.dark .oauth-in-app-warning { background: #332b06; color: #fde68a; }
