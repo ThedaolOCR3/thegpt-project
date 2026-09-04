@@ -10,6 +10,11 @@ from app.schemas.admin import OcrMultipartCompletedPart
 from app.services.r2_storage import R2StorageService, rag_r2_storage
 
 MIB = 1024**2
+# R2(S3 호환) 멀티파트는 Part 개수가 최대 10,000개다. 8GiB(config.py의
+# ocr_max_file_size_mb) 파일을 64MiB Part로 나누면 최대 128개라 한도에 여유가
+# 크다 - Part를 더 작게 잡으면(예: 5MiB, S3 최소 크기) 8GiB 기준 1,600여 개까지
+# 늘어나 HTTP 요청 수가 늘고, 더 크게 잡으면 Part 하나 재시도 실패 시 다시
+# 올려야 하는 용량이 커진다. 64MiB는 그 사이의 절충값이다.
 UPLOAD_PART_SIZE_BYTES = 64 * MIB
 UPLOAD_PREFIX = "admin-rag-uploads/"
 SUPPORTED_EXTENSIONS = {
@@ -117,6 +122,10 @@ class LargeUploadService:
 
     @staticmethod
     def _validate_object_key(object_key: str) -> None:
+        # object_key는 클라이언트가 이후 요청(part-url/complete/abort)마다 그대로
+        # 돌려보내는 값이라, 검증 없이 그대로 R2 호출에 쓰면 그 값을 조작해서
+        # UPLOAD_PREFIX 밖의 임의 경로에 접근/덮어쓰기(path traversal)할 수 있다 -
+        # 반드시 우리가 발급한 접두어로 시작하고 ".." 세그먼트가 없는지 확인한다.
         if not object_key.startswith(UPLOAD_PREFIX) or ".." in object_key.split("/"):
             raise LargeUploadValidationError("올바르지 않은 R2 Object Key입니다.")
 
