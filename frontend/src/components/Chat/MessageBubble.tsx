@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { AlertTriangle, Check, Copy, FileText } from 'lucide-react';
+import { Check, Copy, FileText, Info } from 'lucide-react';
 import type { Message, MessageAttachment } from '../../api/types';
 import { formatMessageTime } from '../../utils/formatDate';
 
 // 예전엔 이 문구를 답변 생성 때마다 백엔드가 텍스트 끝에 붙였다 — 매 응답마다 같은
-// 문장이 반복되는 게 번잡해서, 이제 채팅 UI에서 답변과 분리된 경고 배너로 보여준다
+// 문장이 반복되는 게 번잡해서, 이제 채팅 UI에서 답변과 분리된 안내 배너로 보여준다
 // (실제 답변 내용에는 더 이상 포함되지 않음 — ai/consultation/pipeline.py 참고).
+// 노란/경고색+삼각형 아이콘 조합은 "뭔가 잘못됐다"는 오류 메시지처럼 읽힌다는 피드백이
+// 있어서, 오류가 아니라 일반 안내라는 게 분명히 드러나도록 파란 info 톤 + Info
+// 아이콘으로 바꿨다.
 const MEDICAL_DISCLAIMER = '참고용으로만 사용하시기 바랍니다. 의학적인 자문이나 진단이 필요한 경우 전문가에게 문의하세요.';
 
 type MessageBubbleProps = {
@@ -31,8 +34,8 @@ export function MessageBubble({ message, onPreviewAttachment }: MessageBubblePro
   return (
     <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
       {!isUser && message.content && (
-        <div className="mb-1.5 flex max-w-[70%] items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+        <div className="mb-1.5 flex max-w-[70%] items-start gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+          <Info size={13} className="mt-0.5 shrink-0" />
           <span>{MEDICAL_DISCLAIMER}</span>
         </div>
       )}

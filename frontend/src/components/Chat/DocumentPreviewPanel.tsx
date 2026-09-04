@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize2, X } from 'lucide-react';
 import { extractTextFromImage } from '../../api/documents';
 import type { MessageAttachment } from '../../api/types';
+import { maskPII } from '../../utils/piiMask';
 import { ImageLightbox } from './ImageLightbox';
 
 type DocumentPreviewPanelProps = {
@@ -77,7 +78,10 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
         const blob = await fetch(attachment.url!).then((res) => res.blob());
         const file = new File([blob], attachment.name, { type: attachment.type });
         const result = await extractTextFromImage(file);
-        const text = result.text || '(텍스트를 찾지 못했어요)';
+        // 처방전/검사결과지 등에 주민등록번호·전화번호·주소가 그대로 찍혀 나오는
+        // 경우가 있어서, 화면에 보여주기 전에 마스킹한다 — 원문이 아니라 마스킹된
+        // 텍스트를 캐싱/표시한다(캐시에도 원문 개인정보를 남기지 않기 위함).
+        const text = result.text ? maskPII(result.text) : '(텍스트를 찾지 못했어요)';
         ocrCache.set(attachment.url!, text);
         if (!cancelled) setParsedText(text);
       } catch (error) {

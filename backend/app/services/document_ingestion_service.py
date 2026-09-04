@@ -22,9 +22,12 @@ def ingest_document(
     *,
     providers: list[EmbeddingProvider] | None = None,
     replace_existing: bool = True,
+    metadata: dict | None = None,
 ) -> int:
     """document_id(= vector_db.admin_documents.id)에 딸린 청크를 새로 만들어 저장한다.
-    반환값: 실제로 저장된 청크 개수(쓰레기 필터링 후 0개면 아무 것도 안 하고 0 반환)."""
+    반환값: 실제로 저장된 청크 개수(쓰레기 필터링 후 0개면 아무 것도 안 하고 0 반환).
+    metadata는 문서 전체 청크에 동일하게 적용된다(RAG 데이터셋 ingestion에서 출처/
+    진료과/신뢰도 등을 그대로 통과시킨다 — 생략하면 기존 호출부와 동일하게 NULL)."""
     providers = providers or get_default_rag_embedding_providers()
 
     chunks = chunk_text(text)
@@ -38,6 +41,7 @@ def ingest_document(
     saved_chunks = repo.create_chunks(
         document_id,
         [{"chunk_index": c.index, "chunk_text": c.text} for c in chunks],
+        metadata=metadata,
     )
 
     texts = [c.chunk_text for c in saved_chunks]

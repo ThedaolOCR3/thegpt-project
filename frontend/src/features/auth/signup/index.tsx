@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
+import { OAuthButtons } from '../components/OAuthButtons';
 import { signupApi } from './signupApi';
 
 export function SignupPage() {
@@ -40,6 +41,7 @@ export function SignupPage() {
         {error && <p className="form-error">{error}</p>}
         <button className="auth-button" disabled={isSubmitting}>{isSubmitting ? '가입 중...' : '회원가입'}</button>
       </form>
+      <OAuthButtons />
       <p className="auth-links">이미 계정이 있나요? <Link to="/login">로그인</Link></p>
     </AuthCard>
   );

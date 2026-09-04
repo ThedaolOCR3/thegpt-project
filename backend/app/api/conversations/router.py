@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.auth.dependencies import get_current_user
@@ -20,6 +20,20 @@ def list_conversations(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[ConversationResponse]:
     return ConversationService(db).list_conversations(current_user.id)
+
+
+@router.get("/search", response_model=list[ConversationResponse])
+def search_conversations(
+    current_user: Annotated[Users, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    q: Annotated[str, Query(max_length=200)] = "",
+) -> list[ConversationResponse]:
+    """제목/카테고리(진료과)/대화 내용을 한 번에 검색한다(모드 구분 없음) - 사이드바
+    검색창 전용. "/{conversation_id}" 같은 path param 라우트보다 먼저 등록해야
+    "search"가 conversation_id로 오인되지 않는다(지금은 그런 라우트가 없어서
+    실제로는 안전하지만, 나중에 GET /{conversation_id}가 추가될 걸 대비해
+    등록 순서를 먼저 둔다)."""
+    return ConversationService(db).search_conversations(current_user.id, q)
 
 
 @router.post("", response_model=ConversationResponse, status_code=201)

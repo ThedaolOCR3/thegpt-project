@@ -106,6 +106,34 @@ class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
 
         service.conversations.set_category_if_unset.assert_called_once_with(conversation, "기타")
 
+    async def test_classified_department_is_forwarded_to_rag_search(self) -> None:
+        # RAG 검색의 진료과 소프트 부스트(rag_search_service.search의 department=)가
+        # 실제로 값을 받으려면, _generate_reply가 미리 분류해서 넘겨줘야 한다.
+        service = _bare_service(MagicMock())
+        fake_result = message_module.ConsultationResult(answer="답변", department=None, confidence="낮음")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result),
+            patch.object(message_module.rag_search_service, "search", return_value=[]) as mock_search,
+        ):
+            await service._generate_reply("허리가 아파요", conversation=MagicMock())
+
+        self.assertEqual(mock_search.call_args.kwargs.get("department"), "정형외과")
+
+    async def test_classified_department_result_is_forwarded_to_consult(self) -> None:
+        # consult()가 다시 분류하지 않고 같은 결과를 재사용하도록(pipeline.py의
+        # department_result=) 넘겨야 한다.
+        service = _bare_service(MagicMock())
+        fake_result = message_module.ConsultationResult(answer="답변", department=None, confidence="낮음")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result) as mock_consult,
+            patch.object(message_module.rag_search_service, "search", return_value=[]),
+        ):
+            await service._generate_reply("허리가 아파요", conversation=MagicMock())
+
+        forwarded = mock_consult.call_args.kwargs.get("department_result")
+        self.assertIsNotNone(forwarded)
+        self.assertEqual(forwarded.department, "정형외과")
+
     async def test_fallback_result_does_not_touch_category(self) -> None:
         # LLM 호출 자체가 실패한 경우(is_fallback=True)는 실제 상담이 아니므로 카테고리를
         # "기타"로 확정해버리면 안 된다 — 다음 정상 응답이 영영 반영 안 될 수 있다.

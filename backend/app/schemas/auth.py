@@ -15,6 +15,11 @@ class UserResponse(BaseModel):
     is_email_verified: bool
     is_admin: bool
     created_at: datetime | None
+    # 소셜 로그인(구글/깃허브)·게스트 계정은 password_hash가 없다 - 프론트가 이
+    # 값으로 "비밀번호 변경" 메뉴나 탈퇴 시 비밀번호 입력란을 보여줄지 정한다
+    # (auth_provider 문자열을 프론트가 직접 나열해서 판단하지 않도록, 실제로
+    # 비밀번호가 있는지만 딱 알려준다).
+    has_password: bool
 
 
 class UsageSummaryResponse(BaseModel):
@@ -23,7 +28,9 @@ class UsageSummaryResponse(BaseModel):
 
 
 class DeleteAccountRequest(BaseModel):
-    password: str = Field(min_length=1)
+    # 소셜 로그인/게스트 계정은 비밀번호가 없어서 생략 가능하다(MyPageService.
+    # delete_account가 has_password 여부로 검증을 건너뜀).
+    password: str | None = Field(default=None, min_length=1)
 
 
 class DeleteAccountResponse(BaseModel):

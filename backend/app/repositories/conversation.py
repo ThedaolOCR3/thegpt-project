@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.generated import Conversations
+from app.models.generated import Conversations, Messages
 
 
 class ConversationRepository:
@@ -17,6 +17,28 @@ class ConversationRepository:
         stmt = (
             select(Conversations)
             .where(Conversations.user_id == user_id)
+            .order_by(Conversations.updated_at.desc())
+        )
+        return list(self.db.scalars(stmt))
+
+    def search(self, user_id: UUID, query: str) -> list[Conversations]:
+        """제목/카테고리(진료과)/대화 내용 중 하나라도 일치하면 결과에 포함한다 -
+        검색 종류를 사용자가 고르게 하지 않고 한 번에 다 확인한다(요청 사항).
+        메시지 내용 매칭 때문에 join이 필요해서 같은 대화가 메시지 여러 개에서
+        중복 매칭될 수 있어 distinct()로 한 번만 나오게 한다."""
+        like_pattern = f"%{query}%"
+        stmt = (
+            select(Conversations)
+            .distinct()
+            .outerjoin(Messages, Messages.conversation_id == Conversations.id)
+            .where(
+                Conversations.user_id == user_id,
+                or_(
+                    Conversations.title.ilike(like_pattern),
+                    Conversations.category.ilike(like_pattern),
+                    Messages.content.ilike(like_pattern),
+                ),
+            )
             .order_by(Conversations.updated_at.desc())
         )
         return list(self.db.scalars(stmt))

@@ -56,6 +56,50 @@ class LargeOcrVectorSaveTest(unittest.TestCase):
 
         asyncio.run(scenario())
 
+    def test_url_source_chunk_metadata_is_identical_across_every_batch(self) -> None:
+        # 2026-09-03: 8GB 스테이지드 저장은 청크를 배치 여러 개로 나눠서 저장하는데,
+        # chunk_metadata(source/source_tier)는 문서 하나에 배치 수와 무관하게 항상
+        # 같은 값이어야 한다 - 배치마다 다시 계산해서 값이 흔들리면 안 됨을 확인한다.
+        async def scenario() -> None:
+            chunks = [f"Chunk {index}" for index in range(35)]
+            storage = FakeArtifactStorage(chunks)
+            repository = FakeStagedRepository()
+            embedder = FakeBatchEmbedder()
+            job_manager = Mock()
+            job_manager.get_job.return_value = SimpleNamespace(
+                status="completed",
+                result=OcrDocumentResponse(
+                    documentName="data.jsonl",
+                    pageCount=None,
+                    characterCount=350,
+                    estimatedChunks=len(chunks),
+                    confidence=100,
+                    extractedText="preview",
+                    chunks=chunks[:20],
+                    readiness="ready",
+                    notes=[],
+                    chunk_artifact_key="admin-rag-artifacts/chunks.jsonl",
+                    original_object_key="admin-rag-uploads/id/data.jsonl",
+                    source_type="url",
+                    source_url="https://health.kdca.go.kr/big-page",
+                ),
+            )
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="large-url-job"),
+                Mock(spec=Session),
+                job_manager=job_manager,
+                embedder=embedder,  # type: ignore[arg-type]
+                repository=repository,  # type: ignore[arg-type]
+                storage=storage,  # type: ignore[arg-type]
+            )
+
+            self.assertEqual(len(repository.chunk_metadata_by_batch), 2)  # 35개 -> 배치 32+3
+            expected = {"source": "https://health.kdca.go.kr/big-page", "source_tier": 2}
+            self.assertTrue(all(m == expected for m in repository.chunk_metadata_by_batch))
+
+        asyncio.run(scenario())
+
 
 class FakeArtifactStorage:
     def __init__(self, chunks: list[str]) -> None:
@@ -92,11 +136,14 @@ class FakeStagedRepository:
         start_index,
         chunks,
         embeddings_by_provider,
+        chunk_metadata=None,
     ):
         self.assert_document_id = document_id
         self.start_indices.append(start_index)
         self.saved_chunks.extend(chunks)
         self.embeddings_by_provider = embeddings_by_provider
+        self.chunk_metadata_by_batch = getattr(self, "chunk_metadata_by_batch", [])
+        self.chunk_metadata_by_batch.append(chunk_metadata)
 
     def finish_staged_save(self, document_id, chunk_count):
         self.finished = True

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { AuthCard } from '../components/AuthCard';
+import { OAuthButtons } from '../components/OAuthButtons';
 
 const REMEMBERED_EMAIL_KEY = 'thegpt_remembered_email';
 
@@ -56,6 +57,7 @@ export function LoginPage() {
         {error && <p className="form-error">{error}</p>}
         <button className="auth-button" disabled={isSubmitting}>{isSubmitting ? '로그인 중...' : '로그인'}</button>
       </form>
+      <OAuthButtons />
       <p className="auth-links">계정이 없나요? <Link to="/signup">회원가입</Link></p>
     </AuthCard>
   );

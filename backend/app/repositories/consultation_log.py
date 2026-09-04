@@ -37,6 +37,7 @@ class ConsultationLogRepository:
             total_tokens=result.total_tokens,
             response_time_ms=result.response_time_ms,
             error_type=result.error_type,
+            finish_reason=result.finish_reason,
         )
         self.db.add(log)
         self.db.commit()

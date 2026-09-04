@@ -174,6 +174,13 @@ export function MessageInput({ onSend, disabled, placeholder = '메시지를 입
           </div>
         </div>
       </div>
+
+      {/* 답변 말풍선 위 안내 배너와 별개로, 입력창 바로 아래에도 항상 보이는 짧은 문구를
+          둔다 — 배너는 답변이 온 뒤에만 보이니, 메시지를 보내기 전부터 계속 보이는
+          자리도 필요하다는 피드백 반영. */}
+      <p className="mt-2 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+        MediSense는 실수를 할 수 있어요. 답변은 참고용이며, 진단은 반드시 전문가와 상담하세요.
+      </p>
     </form>
   );
 }
