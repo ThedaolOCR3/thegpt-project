@@ -144,14 +144,14 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
             response = await save_ocr_result_with_embeddings(
                 OcrVectorSaveRequest(jobId="completed-job"),
-                Mock(spec=Session),
+                Mock(spec=Session, **{"scalars.return_value": []}),
                 job_manager=job_manager,
                 embedder=embedder,  # type: ignore[arg-type]
                 repository=repository,
             )
 
-            self.assertEqual(embedder.received_chunks, ["첫 Chunk", "둘째 Chunk"])
-            self.assertEqual(repository.saved["chunks"], ["첫 Chunk", "둘째 Chunk"])
+            self.assertEqual(embedder.received_chunks, [_FIRST_CHUNK, _SECOND_CHUNK])
+            self.assertEqual(repository.saved["chunks"], [_FIRST_CHUNK, _SECOND_CHUNK])
             self.assertEqual(response.document_id, document_id)
             self.assertEqual(response.chunk_count, 2)
             self.assertEqual(response.embedding_provider, "remote-dual")
@@ -172,7 +172,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
             with self.assertRaises(EmbeddingValidationError) as raised:
                 await save_ocr_result_with_embeddings(
                     OcrVectorSaveRequest(jobId="completed-job"),
-                    Mock(spec=Session),
+                    Mock(spec=Session, **{"scalars.return_value": []}),
                     job_manager=job_manager,
                     embedder=embedder,  # type: ignore[arg-type]
                     repository=repository,
@@ -196,7 +196,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
             with self.assertRaises(EmbeddingValidationError) as raised:
                 await save_ocr_result_with_embeddings(
                     OcrVectorSaveRequest(jobId="completed-job"),
-                    Mock(spec=Session),
+                    Mock(spec=Session, **{"scalars.return_value": []}),
                     job_manager=job_manager,
                     embedder=embedder,  # type: ignore[arg-type]
                     repository=repository,
@@ -221,7 +221,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
             with self.assertRaises(EmbeddingGenerationError):
                 await save_ocr_result_with_embeddings(
                     OcrVectorSaveRequest(jobId="completed-job"),
-                    Mock(spec=Session),
+                    Mock(spec=Session, **{"scalars.return_value": []}),
                     job_manager=job_manager,
                     embedder=embedder,  # type: ignore[arg-type]
                     repository=repository,
@@ -237,7 +237,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
             asyncio.run(
                 save_ocr_result_with_embeddings(
                     OcrVectorSaveRequest(jobId="processing-job"),
-                    Mock(spec=Session),
+                    Mock(spec=Session, **{"scalars.return_value": []}),
                     job_manager=job_manager,
                 )
             )
@@ -264,13 +264,13 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
             await save_ocr_result_with_embeddings(
                 OcrVectorSaveRequest(jobId="url-job"),
-                Mock(spec=Session),
+                Mock(spec=Session, **{"scalars.return_value": []}),
                 job_manager=job_manager,
                 embedder=embedder,  # type: ignore[arg-type]
                 repository=repository,
             )
 
-            self.assertEqual(embedder.received_chunks, ["첫 Chunk", "둘째 Chunk"])
+            self.assertEqual(embedder.received_chunks, [_FIRST_CHUNK, _SECOND_CHUNK])
             self.assertEqual(
                 repository.saved["original_file_url"],
                 "https://example.com/final",
@@ -278,11 +278,14 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
         asyncio.run(scenario())
 
-    def test_url_job_chunk_metadata_carries_source_and_tier_for_rag_boost(self) -> None:
-        # 2026-09-03: 관리자 업로드 청크도 RAG 검색 소프트 부스트/출처 표시를 받을 수
-        # 있어야 한다(document_chunk.py의 search_by_provider 필터를 dataset_import와
+    def test_url_job_chunk_metadata_carries_source_without_tier(self) -> None:
+        # 2026-09-03: 관리자 업로드 청크도 RAG 검색 출처 표시를 받을 수 있어야
+        # 한다(document_chunk.py의 search_by_provider 필터를 dataset_import와
         # 합치면서, chunk_metadata가 아예 안 채워지던 관리자 업로드 경로가 그대로면
-        # 신뢰도 부스트/출처 표시를 영영 못 받는 문제를 같이 고쳤다).
+        # 출처 표시를 영영 못 받는 문제를 같이 고쳤다).
+        # 2026-09-04: source_tier(신뢰도 부스트)는 일부러 안 채운다 - "관리자가
+        # URL을 직접 골랐다"는 사실이 "품질이 검증됐다"는 뜻은 아니다(admin_ocr.py
+        # _build_chunk_metadata 참고).
         async def scenario() -> None:
             job_manager = Mock()
             url_result = _ocr_result().model_copy(
@@ -293,7 +296,7 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
             await save_ocr_result_with_embeddings(
                 OcrVectorSaveRequest(jobId="url-job"),
-                Mock(spec=Session),
+                Mock(spec=Session, **{"scalars.return_value": []}),
                 job_manager=job_manager,
                 embedder=FakeEmbedder(),  # type: ignore[arg-type]
                 repository=repository,
@@ -301,14 +304,15 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 repository.saved["chunk_metadata"],
-                {"source": "https://health.kdca.go.kr/x", "source_tier": 2},
+                {"source": "https://health.kdca.go.kr/x", "needs_review": False},
             )
 
         asyncio.run(scenario())
 
-    def test_file_job_chunk_metadata_is_none_neutral_not_error(self) -> None:
-        # 파일 업로드는 출처를 알 수 없으니 metadata 없이 중립으로 저장돼야 한다(부스트도
-        # 페널티도 없음, rag_search_service._boost_multiplier가 None을 안전하게 처리).
+    def test_file_job_chunk_metadata_carries_filename_as_source(self) -> None:
+        # 2026-09-04: 파일 업로드도 URL과 같은 이유로 원본 파일명을 source로
+        # 남긴다(출처 추적용, 신뢰도 판단 아님) - document_name은 OcrDocumentResponse가
+        # 항상 채우는 필드라 URL만큼 안정적으로 얻을 수 있다.
         async def scenario() -> None:
             job_manager = Mock()
             job_manager.get_job.return_value = SimpleNamespace(status="completed", result=_ocr_result())
@@ -316,13 +320,135 @@ class OcrVectorSaveFlowTest(unittest.TestCase):
 
             await save_ocr_result_with_embeddings(
                 OcrVectorSaveRequest(jobId="completed-job"),
-                Mock(spec=Session),
+                Mock(spec=Session, **{"scalars.return_value": []}),
                 job_manager=job_manager,
                 embedder=FakeEmbedder(),  # type: ignore[arg-type]
                 repository=repository,
             )
 
-            self.assertIsNone(repository.saved["chunk_metadata"])
+            self.assertEqual(
+                repository.saved["chunk_metadata"], {"source": "sample.pdf", "needs_review": False}
+            )
+
+        asyncio.run(scenario())
+
+    def test_risky_keyword_marks_needs_review_true(self) -> None:
+        # 2026-09-07: HF/KDCA와 같은 기준(ai/rag/ingestion/quality.detect_needs_review)으로
+        # 관리자 업로드도 위험 키워드(용량/처방/응급 등)가 있으면 표시해둔다 -
+        # scripts/report_needs_review.py가 그대로 같이 집계할 수 있게.
+        async def scenario() -> None:
+            job_manager = Mock()
+            risky_result = _ocr_result().model_copy(
+                update={"extracted_text": "이 약의 권장 용량은 성인 기준 1일 2회입니다."}
+            )
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=risky_result)
+            repository = FakeRepository()
+
+            await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="completed-job"),
+                Mock(spec=Session, **{"scalars.return_value": []}),
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertTrue(repository.saved["chunk_metadata"]["needs_review"])
+
+        asyncio.run(scenario())
+
+    def test_chunk_already_in_db_is_skipped_and_noted_in_message(self) -> None:
+        # 2026-09-07: 같은 파일을 실수로 두 번 올리거나, 이미 HF/KDCA로 들어가
+        # 있는 내용과 겹치는 파일을 올려도 중복 저장되지 않아야 한다.
+        async def scenario() -> None:
+            job_manager = Mock()
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=_ocr_result())
+            repository = FakeRepository()
+            repository.result = SavedDocument(document_id=uuid4(), chunk_count=1)
+            # _FIRST_CHUNK와 완전히 같은 텍스트가 이미 DB에 있다고 가정한다.
+            db = Mock(spec=Session, **{"scalars.return_value": [_FIRST_CHUNK]})
+
+            response = await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="completed-job"),
+                db,
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(repository.saved["chunks"], [_SECOND_CHUNK])
+            self.assertIn("중복으로 1개 청크는 제외됨", response.message)
+
+        asyncio.run(scenario())
+
+    def test_repeated_chunk_within_same_upload_is_deduped_too(self) -> None:
+        # 2026-09-07: DB에는 없어도 "이번에 올리는 문서 안에서" 같은 텍스트가
+        # 반복되는 경우(페이지마다 반복되는 머리말/꼬리말 등)도 하나만 남겨야 한다 -
+        # find_existing_chunk_texts는 DB에 있는 것만 알려주므로, 배치 내부의
+        # 반복은 별도로 걸러야 한다.
+        async def scenario() -> None:
+            job_manager = Mock()
+            repeated_result = _ocr_result().model_copy(
+                update={"chunks": [_FIRST_CHUNK, _FIRST_CHUNK, _SECOND_CHUNK]}
+            )
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=repeated_result)
+            repository = FakeRepository()
+            db = Mock(spec=Session, **{"scalars.return_value": []})  # DB엔 아직 아무것도 없음
+
+            response = await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="completed-job"),
+                db,
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(repository.saved["chunks"], [_FIRST_CHUNK, _SECOND_CHUNK])
+            self.assertIn("중복으로 1개 청크는 제외됨", response.message)
+
+        asyncio.run(scenario())
+
+    def test_broken_chunk_is_filtered_out_before_embedding_and_noted_in_message(self) -> None:
+        # 2026-09-04: 임베딩 직전에 clean_content()로 깨진/쓰레기 청크를 걸러낸다 -
+        # 나머지 정상 청크는 그대로 저장되고, 걸러진 개수는 응답 메시지에 남는다
+        # (조용히 사라지지 않게).
+        async def scenario() -> None:
+            job_manager = Mock()
+            broken_result = _ocr_result().model_copy(
+                update={
+                    "chunks": [_FIRST_CHUNK, "<div><script>a</script></div>", _SECOND_CHUNK],
+                }
+            )
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=broken_result)
+            repository = FakeRepository()
+            repository.result = SavedDocument(document_id=uuid4(), chunk_count=2)
+
+            response = await save_ocr_result_with_embeddings(
+                OcrVectorSaveRequest(jobId="completed-job"),
+                Mock(spec=Session, **{"scalars.return_value": []}),
+                job_manager=job_manager,
+                embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                repository=repository,
+            )
+
+            self.assertEqual(repository.saved["chunks"], [_FIRST_CHUNK, _SECOND_CHUNK])
+            self.assertIn("1개 청크는 제외됨", response.message)
+
+        asyncio.run(scenario())
+
+    def test_all_chunks_broken_raises_validation_error(self) -> None:
+        async def scenario() -> None:
+            job_manager = Mock()
+            broken_result = _ocr_result().model_copy(update={"chunks": ["<script>x</script>"]})
+            job_manager.get_job.return_value = SimpleNamespace(status="completed", result=broken_result)
+
+            with self.assertRaises(OcrSaveValidationError):
+                await save_ocr_result_with_embeddings(
+                    OcrVectorSaveRequest(jobId="completed-job"),
+                    Mock(spec=Session, **{"scalars.return_value": []}),
+                    job_manager=job_manager,
+                    embedder=FakeEmbedder(),  # type: ignore[arg-type]
+                    repository=FakeRepository(),
+                )
 
         asyncio.run(scenario())
 
@@ -333,11 +459,13 @@ class OcrVectorSaveApiTest(unittest.TestCase):
         from fastapi.testclient import TestClient
 
         from app.api.admin.router import router
+        from app.api.auth.dependencies import require_admin
         from app.core.database import get_db
 
         app = FastAPI()
         app.include_router(router, prefix="/api/admin")
-        app.dependency_overrides[get_db] = lambda: Mock(spec=Session)
+        app.dependency_overrides[get_db] = lambda: Mock(spec=Session, **{"scalars.return_value": []})
+        app.dependency_overrides[require_admin] = lambda: object()
         self.client = TestClient(app)
 
     def test_success_response_uses_camel_case_contract(self) -> None:
@@ -389,6 +517,18 @@ class OcrVectorSaveApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json()["detail"], "Neon 저장 실패")
+
+    def test_vector_save_requires_admin_authentication(self) -> None:
+        # 2026-09-07: /ocr/vector-save는 RAG 코퍼스에 직접 쓰는 엔드포인트인데
+        # 서버 쪽 인증 검사가 전혀 없었다 - 이 회귀테스트로 다시 뚫리면 바로 걸린다.
+        from app.api.auth.dependencies import require_admin
+
+        self.client.app.dependency_overrides.pop(require_admin, None)
+        response = self.client.post(
+            "/api/admin/ocr/vector-save",
+            json={"jobId": "completed-job"},
+        )
+        self.assertEqual(response.status_code, 401)
 
 
 class FakeSession:
@@ -487,6 +627,10 @@ def _embedding_settings() -> Settings:
     )
 
 
+_FIRST_CHUNK = "이것은 첫 번째 청크 예시 문장입니다"
+_SECOND_CHUNK = "이것은 두 번째 청크 예시 문장입니다"
+
+
 def _ocr_result() -> OcrDocumentResponse:
     return OcrDocumentResponse(
         documentName="sample.pdf",
@@ -494,8 +638,8 @@ def _ocr_result() -> OcrDocumentResponse:
         characterCount=16,
         estimatedChunks=2,
         confidence=99.0,
-        extractedText="첫 Chunk\n둘째 Chunk",
-        chunks=["첫 Chunk", "둘째 Chunk"],
+        extractedText=f"{_FIRST_CHUNK}\n{_SECOND_CHUNK}",
+        chunks=[_FIRST_CHUNK, _SECOND_CHUNK],
         readiness="ready",
         notes=[],
     )

@@ -5,13 +5,53 @@ from types import SimpleNamespace
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from app.schemas.admin import OcrMultipartCompletedPart
-from app.services.large_document_service import LargeDocumentService, iter_chunk_artifact
+from app.services.large_document_service import (
+    LargeDocumentService,
+    _StreamingChunker,
+    iter_chunk_artifact,
+)
 from app.services.large_upload_service import (
     MIB,
     UPLOAD_PART_SIZE_BYTES,
     LargeUploadService,
     LargeUploadValidationError,
 )
+
+
+class StreamingChunkerTest(unittest.TestCase):
+    # 2026-09-07: 원래는 chunk_size 글자 수로 문장 중간이든 어디든 뚝 잘랐다 -
+    # 관리자 업로드 소용량 경로(ocr_chunk_service.create_chunks)가 이미 하던
+    # 자연 경계 탐색을 8GB 스트리밍 경로에도 재사용했는지 확인한다.
+    def test_character_chunking_moves_forward_and_keeps_limit(self) -> None:
+        # ocr_chunk_service.create_chunks의 기존 테스트와 같은 스타일 - 8GB
+        # 스트리밍 청커도 같은 find_natural_boundary()를 쓰므로 같은 성질을 만족해야 한다.
+        text = "문서 처리 흐름을 확인하기 위한 문장입니다. " * 20
+        chunker = _StreamingChunker(chunk_size=120, overlap=20)
+
+        chunks = list(chunker.feed(text)) + list(chunker.finish())
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(chunks))
+        self.assertTrue(all(len(chunk) <= 120 for chunk in chunks))
+
+    def test_cuts_at_space_instead_of_mid_word(self) -> None:
+        # 자연 경계 탐색 전(그냥 chunk_size 글자 수로 뚝 자르던 시절)에는 이 예시가
+        # "둘입니다"의 "둘"만 딸려 들어가고 "입니다"는 다음 청크로 잘렸다.
+        text = "문장 하나입니다. 문장 둘입니다. 문장 셋입니다. 문장 넷입니다."
+        chunker = _StreamingChunker(chunk_size=15, overlap=0)
+
+        chunks = list(chunker.feed(text)) + list(chunker.finish())
+
+        self.assertNotIn("둘", chunks[0])  # "둘입니다"가 통째로 다음 청크로 넘어가야 한다
+        self.assertTrue(chunks[1].startswith("둘입니다"))
+
+    def test_feed_and_finish_reconstruct_all_meaningful_text(self) -> None:
+        text = "첫 문장입니다. 둘째 문장입니다. 셋째 문장입니다."
+        chunker = _StreamingChunker(chunk_size=10, overlap=0)
+
+        chunks = list(chunker.feed(text)) + list(chunker.finish())
+
+        self.assertEqual("".join(chunks).replace(" ", ""), text.replace(" ", ""))
 
 
 class LargeUploadServiceTest(unittest.TestCase):

@@ -127,3 +127,19 @@ class DocumentChunkRepository:
     def get_by_ids(self, chunk_ids: list[UUID]) -> dict[UUID, DocumentChunks]:
         stmt = select(DocumentChunks).where(DocumentChunks.id.in_(chunk_ids))
         return {row.id: row for row in self.db.scalars(stmt)}
+
+    def find_existing_chunk_texts(self, texts: list[str]) -> set[str]:
+        """이미 document_chunks에 완전히 같은 텍스트로 저장된 청크가 있는지
+        확인한다(출처 무관 - HF/KDCA 데이터셋이든 다른 관리자 업로드든 전부
+        대상). ai/rag/ingestion의 Deduplicator(content_hash 기반)와 목적은
+        같지만, 그건 배치 스크립트 실행 하나 안에서만 유효한 파일 기반
+        스냅샷이라 실시간 웹 요청(동시 업로드 가능)에 그대로 쓸 수 없다 -
+        여기서는 매 요청마다 실제 DB에 직접 물어봐서 항상 최신 상태를 반영하고,
+        여러 관리자가 동시에 올려도 (매 요청이 독립적인 SELECT라) 파일 락 같은
+        동시성 문제가 없다. 해시 컬럼을 새로 안 만들고 chunk_text 전체를 그대로
+        비교하는 이유: 한 번에 비교하는 개수가 업로드 문서 하나 분량(수십~수백
+        개)이라 스캔 비용이 크지 않고, 스키마 변경 없이 바로 적용할 수 있다."""
+        if not texts:
+            return set()
+        stmt = select(DocumentChunks.chunk_text).where(DocumentChunks.chunk_text.in_(texts))
+        return set(self.db.scalars(stmt))

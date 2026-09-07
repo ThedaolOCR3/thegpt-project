@@ -12,7 +12,7 @@ def create_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
 
     while start < len(text):
         maximum_end = min(start + chunk_size, len(text))
-        end = _find_natural_boundary(text, start, maximum_end, chunk_size)
+        end = find_natural_boundary(text, start, maximum_end, chunk_size)
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
@@ -25,12 +25,15 @@ def create_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
     return chunks
 
 
-def _find_natural_boundary(
+def find_natural_boundary(
     text: str,
     start: int,
     maximum_end: int,
     chunk_size: int,
 ) -> int:
+    """`large_document_service._StreamingChunker`도 그대로 재사용한다(2026-09-07) -
+    8GB 스트리밍 청커는 문서 전체가 아니라 지금 버퍼만 갖고 있지만, 그 버퍼를
+    하나의 완결된 text처럼(start=0) 넘기면 이 함수는 그대로 동작한다."""
     if maximum_end >= len(text):
         return len(text)
 
