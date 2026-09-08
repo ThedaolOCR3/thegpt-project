@@ -15,6 +15,13 @@ class AdminOcrApiTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.client = TestClient(app)
 
+    def setUp(self) -> None:
+        # 2026-09-07: analyze/jobs 등도 관리자 인증이 필요해졌다 - 인증 자체를
+        # 검증하는 test_*_requires_admin_authentication류를 제외한 나머지는
+        # 전부 관리자로 통과했다고 가정하고 그 뒤의 동작만 검증한다.
+        app.dependency_overrides[require_admin] = lambda: object()
+        self.addCleanup(app.dependency_overrides.pop, require_admin, None)
+
     def test_analyze_keeps_multipart_aliases_and_response_contract(self) -> None:
         with patch(
             "app.api.admin.router.process_document",
@@ -102,6 +109,9 @@ class AdminOcrApiTest(unittest.TestCase):
         self.assertIn("원본 형식: ZIP", payload["notes"])
 
     def test_url_job_requires_admin_authentication(self) -> None:
+        # setUp이 기본으로 관리자 인증을 통과시켜두므로, 이 테스트만 잠깐 되돌려서
+        # 진짜로 인증 없이는 401이 나는지 확인한다.
+        app.dependency_overrides.pop(require_admin, None)
         response = self.client.post(
             "/api/admin/ocr/url-jobs",
             json={"url": "https://example.com", "chunkSize": 300, "overlap": 40},
@@ -109,24 +119,20 @@ class AdminOcrApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_url_job_accepts_camel_case_contract_for_admin(self) -> None:
-        app.dependency_overrides[require_admin] = lambda: object()
-        try:
-            with patch(
-                "app.api.admin.router.ocr_job_manager.create_url_job",
-                new=AsyncMock(
-                    return_value=OcrJobCreatedResponse(jobId="url-job", status="queued")
-                ),
-            ) as creator:
-                response = self.client.post(
-                    "/api/admin/ocr/url-jobs",
-                    json={
-                        "url": "https://example.com/article",
-                        "chunkSize": 300,
-                        "overlap": 40,
-                    },
-                )
-        finally:
-            app.dependency_overrides.pop(require_admin, None)
+        with patch(
+            "app.api.admin.router.ocr_job_manager.create_url_job",
+            new=AsyncMock(
+                return_value=OcrJobCreatedResponse(jobId="url-job", status="queued")
+            ),
+        ) as creator:
+            response = self.client.post(
+                "/api/admin/ocr/url-jobs",
+                json={
+                    "url": "https://example.com/article",
+                    "chunkSize": 300,
+                    "overlap": 40,
+                },
+            )
 
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.json(), {"jobId": "url-job", "status": "queued"})

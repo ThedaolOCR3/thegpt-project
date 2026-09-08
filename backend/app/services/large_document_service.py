@@ -15,6 +15,7 @@ from ai.ocr.errors import DocumentValidationError, OcrError
 from app.core.config import Settings, settings
 from app.schemas.admin import OcrDocumentResponse
 from app.services.large_upload_service import UPLOAD_PREFIX
+from app.services.ocr_chunk_service import find_natural_boundary
 from app.services.ocr_workflow import ocr_workflow_service
 from app.services.r2_storage import R2StorageError, R2StorageService, rag_r2_storage
 
@@ -30,6 +31,18 @@ PREVIEW_CHUNK_LIMIT = 20
 
 
 class _StreamingChunker:
+    """R2에서 조금씩 받은 텍스트를 그때그때 청크로 잘라낸다 - 문서 전체를
+    메모리에 모으지 않으므로(8GB까지 처리해야 함) `ai/rag/chunking.py`의
+    토큰 기반 청커는 못 쓰지만(전체 텍스트가 str로 다 있어야 함), 지금 갖고
+    있는 버퍼 안에서는 자연 경계(문단/문장/공백)를 찾는 게 가능하다.
+
+    2026-09-07: 원래는 그냥 `chunk_size` 글자 수로 뚝 잘랐다(문장 중간이든
+    단어 중간이든 상관없이) - 관리자 업로드 소용량 경로(ocr_chunk_service.
+    create_chunks)는 이미 자연 경계를 찾고 있었는데 여기만 빠져 있었다.
+    같은 `_find_natural_boundary()`를 재사용한다 - 그 함수는 절대 위치를
+    받으므로, "지금 버퍼"를 하나의 완결된 text처럼(start=0) 넘기면 그대로
+    동작한다."""
+
     def __init__(self, chunk_size: int, overlap: int) -> None:
         self.chunk_size = chunk_size
         self.overlap = overlap
@@ -38,10 +51,13 @@ class _StreamingChunker:
     def feed(self, text: str) -> Iterator[str]:
         self.buffer += text
         while len(self.buffer) >= self.chunk_size:
-            chunk = self.buffer[: self.chunk_size].strip()
+            maximum_end = min(self.chunk_size, len(self.buffer))
+            end = find_natural_boundary(self.buffer, 0, maximum_end, self.chunk_size)
+            chunk = self.buffer[:end].strip()
             if chunk:
                 yield chunk
-            self.buffer = self.buffer[self.chunk_size - self.overlap :]
+            # Overlap 뒤에도 버퍼가 반드시 줄어들도록 보장한다(무한루프 방지).
+            self.buffer = self.buffer[max(end - self.overlap, 1) :]
 
     def finish(self) -> Iterator[str]:
         chunk = self.buffer.strip()

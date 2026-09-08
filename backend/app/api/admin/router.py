@@ -51,6 +51,12 @@ from app.services.ocr_workflow import process_document
 from ai.llm import LlmServiceError
 
 router = APIRouter()
+# 2026-09-07: 이 8개 엔드포인트가 원래 서버 쪽 인증 검사가 전혀 없었다(프론트
+# 라우트 가드로만 막혀있어서 토큰 없이 curl로 바로 호출 가능한 상태였음 -
+# admin/dashboard_router.py가 신규 엔드포인트를 만들 때 이 기존 이슈를 이미
+# 지적해뒀었다). 특히 /ocr/vector-save는 RAG 코퍼스에 직접 쓰기 작업이라
+# 위험도가 높았다. 전부 관리자 인증을 요구하도록 통일한다.
+AdminUser = Annotated[Users, Depends(require_admin)]
 
 
 @router.post("/ocr/analyze", response_model=OcrDocumentResponse)
@@ -59,6 +65,7 @@ async def analyze_ocr(
         UploadFile,
         File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT 또는 ZIP 파일"),
     ],
+    _admin: AdminUser,
     chunk_size: Annotated[
         int,
         Form(alias="chunkSize", ge=50, le=4096),
@@ -104,6 +111,7 @@ async def create_ocr_job(
         UploadFile,
         File(description="분석할 PDF, PNG, JPG, DOCX, PPTX, JSON, JSONL, CSV, TXT 또는 ZIP 파일"),
     ],
+    _admin: AdminUser,
     chunk_size: Annotated[
         int,
         Form(alias="chunkSize", ge=50, le=4096),
@@ -156,7 +164,7 @@ async def create_ocr_url_job(
 
 
 @router.get("/ocr/jobs/{job_id}", response_model=OcrJobStatusResponse)
-def get_ocr_job(job_id: str) -> OcrJobStatusResponse:
+def get_ocr_job(job_id: str, _admin: AdminUser) -> OcrJobStatusResponse:
     try:
         return ocr_job_manager.get_job(job_id)
     except OcrJobNotFoundError as exc:
@@ -170,6 +178,7 @@ def get_ocr_job(job_id: str) -> OcrJobStatusResponse:
 async def save_ocr_vector(
     payload: OcrVectorSaveRequest,
     db: Annotated[Session, Depends(get_db)],
+    _admin: AdminUser,
 ) -> OcrVectorSaveResponse:
     """완료된 OCR Job의 기존 Chunk를 Embedding과 함께 저장합니다."""
 
@@ -190,7 +199,7 @@ async def save_ocr_vector(
 
 
 @router.post("/llm/compare", response_model=list[LlmModelResponse])
-async def compare_llm(payload: LlmCompareRequest) -> list[LlmModelResponse]:
+async def compare_llm(payload: LlmCompareRequest, _admin: AdminUser) -> list[LlmModelResponse]:
     """기존 다중 비교 계약을 새 Provider 실행 경계로 유지합니다."""
 
     try:
@@ -200,14 +209,14 @@ async def compare_llm(payload: LlmCompareRequest) -> list[LlmModelResponse]:
 
 
 @router.get("/llm/models", response_model=list[LlmModelDefinitionResponse])
-async def get_llm_models() -> list[LlmModelDefinitionResponse]:
+async def get_llm_models(_admin: AdminUser) -> list[LlmModelDefinitionResponse]:
     """Frontend가 사용할 모델 목록과 현재 Provider 가용성을 반환합니다."""
 
     return await list_models()
 
 
 @router.post("/llm/run", response_model=LlmRunResponse)
-async def run_llm(payload: LlmRunRequest) -> LlmRunResponse:
+async def run_llm(payload: LlmRunRequest, _admin: AdminUser) -> LlmRunResponse:
     """Model Registry가 선택한 실제 또는 Mock Provider를 실행합니다."""
 
     try:
@@ -217,7 +226,7 @@ async def run_llm(payload: LlmRunRequest) -> LlmRunResponse:
 
 
 @router.get("/evaluations/retrieval", response_model=RetrievalEvalResponse)
-async def get_retrieval_evaluation() -> RetrievalEvalResponse:
+async def get_retrieval_evaluation(_admin: AdminUser) -> RetrievalEvalResponse:
     """`scripts/eval_data/*.jsonl` 기준 RAG 검색 정확도(Recall@k, MRR)를 계산합니다.
     호출할 때마다 새로 계산하며(캐시 없음), corpus 규모에 따라 몇십 초 걸릴 수 있습니다."""
 

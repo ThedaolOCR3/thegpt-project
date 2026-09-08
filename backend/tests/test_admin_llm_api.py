@@ -51,6 +51,7 @@ class AdminLlmApiTest(unittest.TestCase):
         from fastapi.testclient import TestClient
 
         from app.api.admin.router import router as admin_router
+        from app.api.auth.dependencies import require_admin
 
         self.providers = (FakeProvider("remote-http", is_mock=False),)
         self.application = LlmApplicationService(
@@ -59,6 +60,7 @@ class AdminLlmApiTest(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(admin_router, prefix="/api/admin")
+        app.dependency_overrides[require_admin] = lambda: object()
         self.client = TestClient(app)
 
     def test_model_catalog_and_run_keep_camel_case_contract(self) -> None:
