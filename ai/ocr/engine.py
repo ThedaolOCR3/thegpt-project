@@ -109,6 +109,7 @@ class PaddleOcrService:
             logger.info("PaddleOCR 초기화 시작: device=%s", self.device)
             return PaddleOCR(device=self.device, **options)
         except Exception as first_error:
+            logger.exception("PaddleOCR 모델 초기화 실패: device=%s", self.device)
             if self.device.lower() == "cpu":
                 raise OcrUnavailableError(
                     "PaddleOCR 모델을 초기화하지 못했습니다."
@@ -118,6 +119,7 @@ class PaddleOcrService:
             try:
                 return PaddleOCR(device="cpu", **options)
             except Exception as cpu_error:
+                logger.exception("PaddleOCR CPU 대체 초기화 실패")
                 raise OcrUnavailableError(
                     "PaddleOCR 모델을 GPU와 CPU 모두에서 초기화하지 못했습니다."
                 ) from cpu_error

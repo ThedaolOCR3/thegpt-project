@@ -7,6 +7,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from ai.ocr.engine import PaddleOcrService, parse_predictions
+from ai.ocr.errors import OcrUnavailableError
 
 
 class PaddleResultParsingTest(unittest.TestCase):
@@ -81,6 +82,20 @@ class PaddleResultParsingTest(unittest.TestCase):
         _, kwargs = mock_paddle_ocr.call_args
         self.assertEqual(kwargs["lang"], "en")
         self.assertNotIn("text_detection_model_name", kwargs)
+
+    def test_initialization_failure_is_logged_with_original_cause(self) -> None:
+        cause = RuntimeError("missing OCR dependency")
+        service = PaddleOcrService("cpu", "korean")
+        with (
+            patch("paddleocr.PaddleOCR", side_effect=cause),
+            self.assertLogs("ai.ocr.engine", level="ERROR") as logs,
+            self.assertRaises(OcrUnavailableError) as raised,
+        ):
+            service._create_pipeline()
+
+        self.assertIs(raised.exception.__cause__, cause)
+        self.assertIn("missing OCR dependency", "\n".join(logs.output))
+        self.assertNotIn("missing OCR dependency", str(raised.exception))
 
 
 class _CountingPaddleService(PaddleOcrService):
