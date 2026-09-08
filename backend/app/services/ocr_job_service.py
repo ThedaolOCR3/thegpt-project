@@ -1,4 +1,4 @@
-"""긴 OCR 요청의 진행 상태와 결과를 메모리 Job으로 관리합니다."""
+"""OCR 실행은 현재 프로세스가 담당하고 상태·결과는 공용 저장소에 보관합니다."""
 
 import asyncio
 import logging
@@ -22,6 +22,7 @@ from app.schemas.admin import (
 )
 from app.services.large_document_service import large_document_service
 from app.services.ocr_workflow import process_document
+from app.services.ocr_job_store import SqlOcrJobStore, create_shared_job_store
 from app.services.r2_storage import R2StorageError
 from app.services.web_document_fetcher import normalize_web_url
 from app.services.web_ocr_workflow import process_web_url
@@ -62,7 +63,7 @@ class OcrJobRecord:
 
 
 class OcrJobManager:
-    """단일 FastAPI 프로세스 안에서 OCR Job 생성·조회·만료를 관리합니다."""
+    """로컬 실행 작업과 인스턴스 간 공유되는 조회 상태를 관리합니다."""
 
     def __init__(
         self,
@@ -72,6 +73,7 @@ class OcrJobManager:
         ttl_minutes: int,
         url_processor: UrlOcrProcessor | None = None,
         remote_processor: RemoteOcrProcessor | None = None,
+        store: SqlOcrJobStore | None = None,
     ) -> None:
         self.processor = processor
         self.max_file_bytes = max_file_bytes
@@ -79,6 +81,7 @@ class OcrJobManager:
         self.ttl = timedelta(minutes=ttl_minutes)
         self.url_processor = url_processor
         self.remote_processor = remote_processor
+        self.store = store
         self._jobs: dict[str, OcrJobRecord] = {}
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._lock = RLock()
@@ -170,6 +173,14 @@ class OcrJobManager:
 
     def get_job(self, job_id: str) -> OcrJobStatusResponse:
         """Frontend polling에 사용할 현재 Job 상태의 복사본을 반환합니다."""
+
+        # 메모리 캐시를 읽으면 다른 인스턴스의 업데이트를 놓칠 수 있으므로,
+        # 배포 환경에서는 등록·진행 조회·VectorDB 저장이 같은 저장소를 사용한다.
+        if self.store is not None:
+            status = self.store.get(job_id)
+            if status is None:
+                raise OcrJobNotFoundError("OCR 작업을 찾을 수 없거나 만료되었습니다.")
+            return status
 
         now = datetime.now(UTC)
         with self._lock:
@@ -303,6 +314,8 @@ class OcrJobManager:
     def _reserve_job(self) -> str:
         now = datetime.now(UTC)
         job_id = uuid4().hex
+        if self.store is not None:
+            self.store.remove_expired()
         with self._lock:
             self._remove_expired_jobs(now)
             active_job_count = sum(
@@ -322,6 +335,12 @@ class OcrJobManager:
                 created_at=now,
                 updated_at=now,
             )
+            try:
+                # 202를 반환하기 전에 다른 인스턴스도 읽을 수 있어야 한다.
+                self._persist_job(self._jobs[job_id])
+            except Exception:
+                self._jobs.pop(job_id, None)
+                raise
         return job_id
 
     def _update_progress(
@@ -340,6 +359,7 @@ class OcrJobManager:
             job.progress = max(job.progress, min(progress, 99))
             job.message = message
             job.updated_at = datetime.now(UTC)
+            self._persist_job(job)
 
     def _complete_job(self, job_id: str, result: OcrDocumentResponse) -> None:
         with self._lock:
@@ -352,6 +372,7 @@ class OcrJobManager:
             job.message = "문서 분석이 완료되었습니다."
             job.result = result
             job.updated_at = datetime.now(UTC)
+            self._persist_job(job)
 
     def _fail_job(self, job_id: str, error: str) -> None:
         with self._lock:
@@ -363,10 +384,29 @@ class OcrJobManager:
             job.message = "문서 분석에 실패했습니다."
             job.error = error
             job.updated_at = datetime.now(UTC)
+            self._persist_job(job)
+
+    def _persist_job(self, job: OcrJobRecord) -> None:
+        if self.store is None:
+            return
+        # 정상 완료 후에는 기존 TTL을 적용한다. 실행 인스턴스가 강제 종료된
+        # 작업도 영구 잔류하지 않도록 진행 중 상태에는 최소 24시간 TTL을 둔다.
+        ttl = self.ttl if job.status in {"completed", "failed"} else max(self.ttl, timedelta(hours=24))
+        self.store.put(_build_status_response(job), (job.updated_at + ttl).timestamp())
 
     def _discard_task(self, job_id: str) -> None:
         with self._lock:
-            self._tasks.pop(job_id, None)
+            task = self._tasks.pop(job_id, None)
+        if task is None:
+            return
+        try:
+            if task.cancelled():
+                self._fail_job(job_id, "서버 종료로 OCR 작업이 중단되었습니다. 파일을 다시 분석해 주세요.")
+            elif task.exception() is not None:
+                logger.error("OCR 작업 상태 저장 실패: job_id=%s", job_id, exc_info=task.exception())
+                self._fail_job(job_id, "OCR 작업 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+        except Exception:
+            logger.exception("OCR 종료 상태를 저장하지 못했습니다: job_id=%s", job_id)
 
     def _remove_expired_jobs(self, now: datetime) -> None:
         expired_job_ids = [
@@ -397,4 +437,5 @@ ocr_job_manager = OcrJobManager(
     ttl_minutes=settings.ocr_job_ttl_minutes,
     url_processor=process_web_url,
     remote_processor=large_document_service.process,
+    store=create_shared_job_store(),
 )
