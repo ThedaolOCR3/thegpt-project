@@ -1,9 +1,9 @@
 paddlepaddle>=3.3,<3.4
 paddleocr>=3.7,<3.8
-# PaddleOCR 3.7의 PaddleX 전이 의존성은 동일 버전의 GUI contrib 패키지를
-# 요구한다. Dockerfile에서 전이 OpenCV wheel을 제거한 뒤 아래 단일
-# headless wheel만 재설치해 libGL 없이 실행한다.
-opencv-contrib-python-headless==4.10.0.84
+# PaddleX 3.7은 cv2 import뿐 아니라 opencv-contrib-python 배포판 이름도
+# 검사한다. headless로 대체하면 OCR 초기화가 거부되므로 이 wheel 하나를
+# 사용하고 Linux 이미지에는 필요한 공유 라이브러리를 설치한다.
+opencv-contrib-python==4.10.0.84
 numpy>=2.0,<2.4
 Pillow>=11.0,<13.0
 PyMuPDF>=1.26,<1.29
