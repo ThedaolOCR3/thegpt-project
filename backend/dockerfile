@@ -40,4 +40,4 @@ COPY ai/rag/ ai/rag/
 # 합성 이미지 추론까지 확인한다. 내려받은 모델은 이미지에 함께 보관된다.
 RUN python -m ai.ocr.check_runtime
 
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8080}\""]
+CMD ["sh", "-c", "python -m app.services.ocr_job_store && exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8080}\""]
