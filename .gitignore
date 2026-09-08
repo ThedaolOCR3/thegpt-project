@@ -10,6 +10,16 @@ __pycache__/
 backend/logs/
 *.log
 
+# 로컬 단위테스트 결과서, 실행 증적 및 커버리지 산출물
+/output/
+/outputs/
+/tmp/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.pytest_cache/
+
 # 로컬 전용 AI 파이프라인 실험 (OCR/임베딩/RAG 성능테스트) — 개인 로컬에서만
 backend/local_lab/
 
