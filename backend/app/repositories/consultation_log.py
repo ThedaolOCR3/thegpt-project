@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from ai.consultation import ConsultationResult
@@ -42,3 +43,14 @@ class ConsultationLogRepository:
         self.db.add(log)
         self.db.commit()
         return log
+
+    def reassign_owner(self, *, from_user_id: UUID, to_user_id: UUID) -> int:
+        """게스트 → 로그인 이관 시 관리자 대시보드 집계용 로그도 같이 옮긴다
+        (안 옮기면 대시보드에서 이 대화의 과거 로그가 게스트 계정 명의로 남는다)."""
+        result = self.db.execute(
+            update(ConsultationLogs)
+            .where(ConsultationLogs.user_id == from_user_id)
+            .values(user_id=to_user_id)
+        )
+        self.db.commit()
+        return result.rowcount or 0

@@ -3,8 +3,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from ai.rag import RemoteEmbeddingError
 from app.core.config import settings
 from app.services.rag_search_service import search
 
@@ -73,6 +75,26 @@ class RagSearchServiceTest(unittest.TestCase):
                 )
 
         self.assertEqual(mock_rrf.call_args.kwargs.get("k"), 5)
+
+    def test_remote_embedding_failure_raises_503_not_generic_500(self) -> None:
+        # 2026-09-08: 원격 임베딩 서버(Vast.ai) 연결 실패가 router의 범용
+        # except Exception에 잡혀 500 "검색에 실패했습니다"로 뭉개지던 버그.
+        # 원인이 이미 밝혀진 외부 의존성 장애이므로 503으로 구분돼야 한다.
+        repository = FakeRepository({"jina-v4": []})
+
+        with patch(
+            "app.services.rag_search_service.DocumentChunkRepository",
+            return_value=repository,
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                search(
+                    Mock(spec=Session),
+                    "질문",
+                    top_k=1,
+                    providers=[FailingProvider("jina-v4")],
+                )
+
+        self.assertEqual(ctx.exception.status_code, 503)
 
 
 class RetrievedChunkMetadataForwardingTest(unittest.TestCase):
@@ -212,6 +234,19 @@ class FakeProvider:
     def embed_query(self, text: str) -> list[float]:
         self.query = text
         return [self.value] * 1024
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        raise AssertionError("검색 시에는 문서 Vector를 다시 생성하면 안 됩니다.")
+
+
+class FailingProvider:
+    dimension = 1024
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def embed_query(self, text: str) -> list[float]:
+        raise RemoteEmbeddingError("원격 Embedding 서버에 연결하지 못했습니다.")
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         raise AssertionError("검색 시에는 문서 Vector를 다시 생성하면 안 됩니다.")

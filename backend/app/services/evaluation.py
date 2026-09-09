@@ -153,7 +153,19 @@ def _parse_csv(text: str) -> list[ParsedGroundTruth]:
     reader = csv.DictReader(StringIO(text), dialect=dialect)
     if not reader.fieldnames:
         raise GroundTruthValidationError("CSV Header에 question과 answer가 필요합니다.")
-    return [_case_from_mapping(row, index) for index, row in enumerate(reader, start=1)]
+    # csv 모듈의 기본 field_size_limit(128KB)이 앱이 실제로 허용하는 파일 크기
+    # 한도(MAX_GROUND_TRUTH_BYTES, 2MB)보다 훨씬 작아서, TC-EVAL-004 수정으로
+    # 프레임워크의 1MB 제한을 넘긴 뒤에도 128KB~2MB 사이 필드 하나만으로 여기서
+    # 처리되지 않은 _csv.Error가 나며 그대로 500으로 터졌다. 파일 전체가 이미
+    # MAX_GROUND_TRUTH_BYTES로 제한돼 있으니 필드 하나도 그 이상 클 수 없다 -
+    # 한도를 맞춰서 정상적으로 파싱되게 하고, 전역 상태이므로 파싱 후 원래
+    # 값으로 되돌린다.
+    previous_field_size_limit = csv.field_size_limit()
+    csv.field_size_limit(MAX_GROUND_TRUTH_BYTES)
+    try:
+        return [_case_from_mapping(row, index) for index, row in enumerate(reader, start=1)]
+    finally:
+        csv.field_size_limit(previous_field_size_limit)
 
 
 def _parse_text_input(text: str) -> list[ParsedGroundTruth]:

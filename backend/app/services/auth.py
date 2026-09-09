@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import HTTPException, status
+from jwt import InvalidTokenError
 from pwdlib import PasswordHash
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,8 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.generated import Users
 from app.repositories.auth import AuthRepository
+from app.repositories.consultation_log import ConsultationLogRepository
+from app.repositories.conversation import ConversationRepository
 from app.repositories.guest_throttle import GuestThrottleRepository
 from app.schemas.auth import LoginResponse, UserResponse
 
@@ -44,6 +47,8 @@ class AuthService:
     def __init__(self, db: Session) -> None:
         self.repository = AuthRepository(db)
         self.guest_throttle = GuestThrottleRepository(db)
+        self.conversations = ConversationRepository(db)
+        self.consultation_logs = ConsultationLogRepository(db)
 
     def login(self, email: str, password: str) -> LoginResponse:
         user = self.repository.find_user_by_email(email.lower().strip())
@@ -84,3 +89,45 @@ class AuthService:
         user = self.repository.create_guest_user()
         token = create_access_token(str(user.id), settings.guest_token_expire_minutes)
         return LoginResponse(access_token=token, user=to_user_response(user))
+
+    def link_guest_history(self, current_user: Users, guest_token: str) -> int:
+        """게스트로 대화하다 로그인/회원가입한 사용자를 위해, 게스트 계정 명의의
+        대화 이력을 방금 로그인한 실제 계정으로 옮긴다.
+
+        guest_token은 프론트가 localStorage에 캐싱해둔 값을 그대로 보내는
+        것이라(guestSession.ts) 사용자가 조작 가능한 임의의 문자열일 수 있다 -
+        로그인 자체를 막을 이유가 없는 부가 기능이므로, 유효하지 않거나
+        의심스러운 경우는 예외를 던지지 않고 조용히 0건으로 처리한다.
+        """
+        try:
+            payload = jwt.decode(
+                guest_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+            )
+        except InvalidTokenError:
+            return 0
+
+        guest_user_id = payload.get("sub")
+        if not guest_user_id:
+            return 0
+
+        guest_user = self.repository.find_user_by_id(guest_user_id)
+        # auth_provider가 'guest'가 아니면 이관하지 않는다 - 누군가 임의의(혹은
+        # 훔친) 다른 사용자의 토큰을 guest_token 자리에 넣어 그 사람의 대화를
+        # 가로채는 걸 막기 위한 필수 검증이다.
+        if (
+            not guest_user
+            or guest_user.auth_provider != "guest"
+            or guest_user.id == current_user.id
+        ):
+            return 0
+
+        moved = self.conversations.reassign_owner(
+            from_user_id=guest_user.id, to_user_id=current_user.id
+        )
+        self.consultation_logs.reassign_owner(
+            from_user_id=guest_user.id, to_user_id=current_user.id
+        )
+        # 대화를 다 옮기고 나면 남는 게 없는 임시 계정이라 정리한다(대화/로그
+        # 재배정이 먼저 끝난 뒤라 CASCADE로 방금 옮긴 데이터가 같이 지워질 걱정은 없음).
+        self.repository.delete_user(guest_user)
+        return moved

@@ -46,3 +46,14 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class LinkGuestHistoryRequest(BaseModel):
+    # 로그인 직전까지 쓰던 게스트 토큰. 로그인/회원가입 자체와는 무관한 별도
+    # 호출이라, 유효하지 않거나 이미 만료된 토큰이 와도 로그인 흐름을 막지 않는다
+    # (AuthService.link_guest_history가 조용히 0건 처리).
+    guest_token: str
+
+
+class LinkGuestHistoryResponse(BaseModel):
+    linked_conversation_count: int

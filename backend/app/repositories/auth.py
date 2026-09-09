@@ -67,6 +67,10 @@ class AuthRepository:
         self.db.refresh(user)
         return user
 
+    def delete_user(self, user: Users) -> None:
+        self.db.delete(user)
+        self.db.commit()
+
     def create_guest_user(self) -> Users:
         # 로그인 수단이 없는 임시 계정. email UNIQUE 제약을 만족시키려고 플레이스홀더
         # 도메인 + uuid를 쓴다 (실제로 발송/수신되지 않는 주소).
