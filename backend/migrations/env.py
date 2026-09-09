@@ -17,6 +17,10 @@ managed_schemas = set(settings.model_schemas.split(","))
 
 
 def include_name(name: str | None, type_: str, parent_names: dict[str, str | None]) -> bool:
+    # TTL이 있는 OCR 작업 캐시는 SqlOcrJobStore가 독립적으로 생성·관리한다.
+    # ORM 업무 모델에 없다는 이유로 다음 자동 마이그레이션에서 삭제하지 않는다.
+    if type_ == "table" and name == "ocr_jobs" and parent_names.get("schema_name") == "app_db":
+        return False
     if type_ == "schema":
         return name in managed_schemas
     schema_name = parent_names.get("schema_name")

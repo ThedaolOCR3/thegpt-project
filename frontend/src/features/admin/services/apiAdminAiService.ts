@@ -54,7 +54,7 @@ async function pollJob(
   while (true) {
     const status = await apiClient<OcrJobStatus>(
       `/admin/ocr/jobs/${encodeURIComponent(job.jobId)}`,
-      { signal },
+      { signal, token: authStorage.getToken() },
     );
     onProgress?.({
       stage: status.stage,
@@ -204,17 +204,22 @@ export const apiAdminAiService: AdminAiService = {
   saveDocument(request: SaveDocumentRequest) {
     return apiClient<SaveDocumentResult>('/admin/ocr/vector-save', {
       method: 'POST',
+      token: authStorage.getToken(),
       body: JSON.stringify(request),
     });
   },
 
   listLlmModels(signal?: AbortSignal) {
-    return apiClient<LlmModelDefinition[]>('/admin/llm/models', { signal });
+    return apiClient<LlmModelDefinition[]>('/admin/llm/models', {
+      signal,
+      token: authStorage.getToken(),
+    });
   },
 
   runLlmModel(request: RunLlmModelRequest) {
     return apiClient<LlmModelResult>('/admin/llm/run', {
       method: 'POST',
+      token: authStorage.getToken(),
       body: JSON.stringify({
         prompt: request.prompt,
         modelId: request.modelId,
@@ -234,6 +239,7 @@ async function createFileJob(
   formData.append('overlap', String(request.overlap));
   return apiClient<OcrJobCreated>('/admin/ocr/jobs', {
     method: 'POST',
+    token: authStorage.getToken(),
     body: formData,
     signal: request.signal,
   });

@@ -1,4 +1,5 @@
 import { apiClient } from '../services/apiClient';
+import { authStorage } from '../features/auth/authStorage';
 
 export interface RetrievalEvalResult {
   numQueries: number;
@@ -41,7 +42,10 @@ export interface AnswerEvaluationResponse {
  * 호출하는 쪽에서 반드시 로딩 상태를 보여줘야 한다.
  */
 export function runRetrievalEvaluation(signal?: AbortSignal): Promise<RetrievalEvalResult> {
-  return apiClient<RetrievalEvalResult>('/admin/evaluations/retrieval', { signal });
+  return apiClient<RetrievalEvalResult>('/admin/evaluations/retrieval', {
+    signal,
+    token: authStorage.getToken(),
+  });
 }
 
 export function parseGroundTruth(input: {

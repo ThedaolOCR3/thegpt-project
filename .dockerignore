@@ -12,6 +12,9 @@
 **/local.db
 frontend/node_modules
 frontend/dist
+tmp
+output
+outputs
 
 # Backend Runtime Image에서 사용하지 않는 개발 자료입니다.
 docs
