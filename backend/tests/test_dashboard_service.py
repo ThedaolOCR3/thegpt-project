@@ -1,6 +1,6 @@
 import unittest
 from datetime import date, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.services import dashboard_service
 
@@ -146,6 +146,68 @@ class UserUsageDistributionTest(unittest.TestCase):
 
         field_names = set(vars(buckets[0]).keys())
         self.assertEqual(field_names, {"label", "user_count"})
+
+
+class GetOverviewCacheTest(unittest.TestCase):
+    # 2026-09-09: get_overview()가 실시간성이 필요 없는 집계라 짧은 TTL로 캐싱하기
+    # 시작했다 - Neon(원격 DB) 새 연결 비용이 지배적이라(실측 ~1~7초), 캐시가 있으면
+    # 재방문/새로고침은 DB를 아예 안 타고 즉시 응답한다. 이 캐시는 모듈 전역 상태라
+    # 테스트끼리 서로 오염되지 않게 매번 비운다.
+    def setUp(self) -> None:
+        dashboard_service._overview_cache.clear()
+
+    def tearDown(self) -> None:
+        dashboard_service._overview_cache.clear()
+
+    def test_second_call_within_ttl_reuses_cached_result_without_hitting_db(self) -> None:
+        db = MagicMock()
+        with (
+            patch.object(dashboard_service, "get_kpis", return_value="kpis") as kpis_mock,
+            patch.object(dashboard_service, "_get_daily_consultations_and_emergency_trend", return_value=([], [])) as trend_mock,
+            patch.object(dashboard_service, "get_model_usage", return_value=[]) as model_mock,
+            patch.object(dashboard_service, "get_user_usage_distribution", return_value=[]) as usage_mock,
+        ):
+            first = dashboard_service.get_overview(db, days=14)
+            second = dashboard_service.get_overview(db, days=14)
+
+        self.assertIs(first, second)
+        kpis_mock.assert_called_once()
+        trend_mock.assert_called_once()
+        model_mock.assert_called_once()
+        usage_mock.assert_called_once()
+
+    def test_different_days_are_cached_separately(self) -> None:
+        db = MagicMock()
+        with (
+            patch.object(dashboard_service, "get_kpis", return_value="kpis"),
+            patch.object(dashboard_service, "_get_daily_consultations_and_emergency_trend", return_value=([], [])),
+            patch.object(dashboard_service, "get_model_usage", return_value=[]) as model_mock,
+            patch.object(dashboard_service, "get_user_usage_distribution", return_value=[]),
+        ):
+            dashboard_service.get_overview(db, days=14)
+            dashboard_service.get_overview(db, days=7)
+
+        self.assertEqual(model_mock.call_count, 2)
+
+    def test_expired_cache_entry_is_recomputed(self) -> None:
+        db = MagicMock()
+        with (
+            patch.object(dashboard_service, "get_kpis", return_value="kpis"),
+            patch.object(dashboard_service, "_get_daily_consultations_and_emergency_trend", return_value=([], [])),
+            patch.object(dashboard_service, "get_model_usage", return_value=[]) as model_mock,
+            patch.object(dashboard_service, "get_user_usage_distribution", return_value=[]),
+        ):
+            dashboard_service.get_overview(db, days=14)
+            # 캐시에 기록된 시각을 TTL보다 훨씬 과거로 돌려서 만료를 흉내낸다.
+            with dashboard_service._overview_cache_lock:
+                cached_at, overview = dashboard_service._overview_cache[14]
+                dashboard_service._overview_cache[14] = (
+                    cached_at - dashboard_service._OVERVIEW_CACHE_TTL_SECONDS - 1,
+                    overview,
+                )
+            dashboard_service.get_overview(db, days=14)
+
+        self.assertEqual(model_mock.call_count, 2)
 
 
 if __name__ == "__main__":

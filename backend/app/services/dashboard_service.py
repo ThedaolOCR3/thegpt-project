@@ -10,6 +10,8 @@
 `fallback_rate`(LLM 호출이 실패해서 안전한 대체 응답으로 넘어간 비율)를
 가장 가까운 지표로 쓴다.
 """
+import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -19,6 +21,17 @@ from sqlalchemy.orm import Session
 from app.models.generated import AdminDocuments, ConsultationLogs, DocumentChunks
 
 DEFAULT_TREND_DAYS = 14
+
+# 2026-09-09: 쿼리를 아무리 합쳐도(12회->5회 왕복) Neon(원격 DB)에 새로 연결하는
+# 비용 자체가 지배적이다(실측: 완전히 새 연결은 컴퓨트가 깨어있어도 TLS 핸드셰이크
+# +Postgres 인증만으로 ~2.5초, 컴퓨트까지 절전 상태였으면 ~7초 - 반면 이미 열려있는
+# 연결을 그대로 재사용하면 쿼리 5개 다 합쳐 ~1초). 대시보드는 실시간성이 필요 없는
+# 집계 지표라(오늘 하루 단위 통계), 짧은 TTL로 그대로 재사용해도 무리 없다 - 이렇게
+# 하면 재방문/새로고침은 DB를 아예 안 타서 즉시 응답하고, "연결이 식어서 다시 느려지는"
+# 문제도 캐시가 신선하게 유지되는 동안은 자연히 피하게 된다.
+_OVERVIEW_CACHE_TTL_SECONDS = 30
+_overview_cache: dict[int, tuple[float, "DashboardOverview"]] = {}
+_overview_cache_lock = threading.Lock()
 
 
 @dataclass
@@ -233,12 +246,34 @@ def get_user_usage_distribution(db: Session, days: int = DEFAULT_TREND_DAYS) -> 
     return buckets
 
 
+def _get_cached_overview(days: int) -> DashboardOverview | None:
+    with _overview_cache_lock:
+        entry = _overview_cache.get(days)
+    if entry is None:
+        return None
+    cached_at, overview = entry
+    if time.monotonic() - cached_at > _OVERVIEW_CACHE_TTL_SECONDS:
+        return None
+    return overview
+
+
+def _set_cached_overview(days: int, overview: DashboardOverview) -> None:
+    with _overview_cache_lock:
+        _overview_cache[days] = (time.monotonic(), overview)
+
+
 def get_overview(db: Session, days: int = DEFAULT_TREND_DAYS) -> DashboardOverview:
+    cached = _get_cached_overview(days)
+    if cached is not None:
+        return cached
+
     daily_consultations, emergency_trend = _get_daily_consultations_and_emergency_trend(db, days)
-    return DashboardOverview(
+    overview = DashboardOverview(
         kpis=get_kpis(db),
         daily_consultations=daily_consultations,
         emergency_trend=emergency_trend,
         model_usage=get_model_usage(db, days),
         user_usage_distribution=get_user_usage_distribution(db, days),
     )
+    _set_cached_overview(days, overview)
+    return overview
