@@ -9,9 +9,10 @@
 """
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ai.rag import EmbeddingProvider, RetrievedChunk, hybrid
+from ai.rag import EmbeddingProvider, RemoteEmbeddingError, RetrievedChunk, hybrid
 from ai.rag.reranker import rerank as rerank_candidates
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -93,7 +94,15 @@ def search(
     ranked_lists: list[list[UUID]] = []
 
     for provider in providers:
-        query_vector = provider.embed_query(query)
+        try:
+            query_vector = provider.embed_query(query)
+        except RemoteEmbeddingError as exc:
+            # 원격 임베딩 서버(Vast.ai 등) 연결 실패는 알 수 없는 내부 버그가
+            # 아니라 이미 원인이 밝혀진 외부 의존성 장애다 — router의 범용
+            # except Exception이 500으로 뭉개기 전에 여기서 503으로 구분해서
+            # 클라이언트/모니터링이 "재시도하면 될 수 있는 문제"로 알 수 있게 한다.
+            logger.warning("rag_search: 임베딩 provider=%s 연결 실패: %s", provider.name, exc)
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
         hits = repo.search_by_provider(provider.name, query_vector, candidate_k)
         ranked_lists.append([chunk.id for chunk, _distance in hits])
         for chunk, _distance in hits:

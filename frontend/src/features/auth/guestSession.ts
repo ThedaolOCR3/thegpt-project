@@ -22,6 +22,21 @@ export function getGuestDisplayName(): string {
   return `게스트_${displayId}`;
 }
 
+/**
+ * 로그인 직후(AuthProvider) 게스트 대화 이력 이관에 쓰기 위한, 저장된 게스트
+ * 토큰 조회. 새로 발급받지 않고 캐시된 값만 본다 - 게스트로 대화한 적이 없으면
+ * null.
+ */
+export function getCachedGuestToken(): string | null {
+  return localStorage.getItem(GUEST_TOKEN_KEY);
+}
+
+/** 게스트 이력 이관을 마친 뒤(또는 시도 자체가 필요 없을 때) 게스트 세션 흔적을 지운다. */
+export function clearGuestSession(): void {
+  localStorage.removeItem(GUEST_TOKEN_KEY);
+  localStorage.removeItem(GUEST_DISPLAY_ID_KEY);
+}
+
 function requestGuestToken(): Promise<string> {
   if (!inFlight) {
     inFlight = apiClient<LoginResponse>('/auth/guest', { method: 'POST' })

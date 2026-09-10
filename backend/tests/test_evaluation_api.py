@@ -85,6 +85,41 @@ class EvaluationApiTest(unittest.TestCase):
         self.assertEqual(len(response.json()["cases"]), 1)
         self.assertEqual(response.json()["cases"][0]["question"], "직접 입력 항목")
 
+    def test_file_between_1mb_and_2mb_is_accepted_not_rejected_by_framework(self) -> None:
+        # 2026-09-09 통합테스트에서 실제로 재현된 버그(TC-EVAL-004): FastAPI의
+        # File()/Form() 자동 주입이 Starlette의 기본 max_part_size(1MB)를 그대로
+        # 써서, 앱이 의도한 2MB 한도(GroundTruthTooLargeError, 413)에 도달하기도
+        # 전에 1MB~2MB 사이 파일이 400 "Field exceeded maximum size of 1024KB"로
+        # 거부됐다. 1MB보다 크지만 2MB보다는 작은 실제 파일로 재현/검증한다.
+        # 정답 하나를 거대하게 만들면 20,000자 항목별 상한(app/services/evaluation.py
+        # _validate_cases)에 걸려버리므로, 실제 대용량 CSV처럼 여러 줄로 나눠서
+        # 총합만 1MB~2MB 사이가 되게 만든다(각 줄은 상한보다 훨씬 작음).
+        row_answer = "지속되면 진료를 받으세요. " * 200  # 약 3KB, 20,000자 한도보다 훨씬 작음
+        rows = "\n".join(f"두통이 있을 때 {i}?,{row_answer}" for i in range(150))  # 약 1.2MB, 최대 200개 이하
+        content = f"question,answer\n{rows}\n"
+        self.assertGreater(len(content.encode("utf-8")), 1024 * 1024)
+        self.assertLess(len(content.encode("utf-8")), 2 * 1024 * 1024)
+
+        response = self.client.post(
+            "/api/evaluations/ground-truth/parse",
+            files={"file": ("large.csv", content.encode("utf-8"), "text/csv")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["cases"][0]["question"], "두통이 있을 때 0?")
+
+    def test_file_over_2mb_gets_app_413_not_framework_400(self) -> None:
+        padding = "x" * (2_200_000)  # 앱 한도(2MB)를 실제로 넘김
+        content = f"question,answer\n질문,{padding}\n"
+
+        response = self.client.post(
+            "/api/evaluations/ground-truth/parse",
+            files={"file": ("too_large.csv", content.encode("utf-8"), "text/csv")},
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertIn("2MB", response.json()["detail"])
+
     def test_rejects_text_and_file_at_the_same_time(self) -> None:
         response = self.client.post(
             "/api/evaluations/ground-truth/parse",

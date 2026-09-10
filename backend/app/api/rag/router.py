@@ -30,6 +30,11 @@ def search_documents(
         results = rag_search(
             db, payload.query, top_k=payload.top_k, use_reranker=payload.use_reranker
         )
+    except HTTPException:
+        # rag_search_service가 이미 원인을 구분해서 던진 의도된 오류(예: 원격
+        # 임베딩 서버 연결 실패 → 503)는 그대로 통과시킨다 — 아래 except
+        # Exception이 "알 수 없는 내부 오류"로 뭉개면 원인 정보가 사라진다.
+        raise
     except Exception as exc:
         logger.exception("RAG 검색 중 오류: query=%r", payload.query)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "검색에 실패했습니다.") from exc

@@ -50,10 +50,11 @@ models/
 data/kdca_endpoints.yaml
 bruno/KDCA-OpenAPI/environments/Local.bru
 
-# 테스트/현황 보고서 산출물 (docx/md/pdf/xlsx) - 로컬 작업용, 공유 저장소에는 올리지 않음
+# 테스트/현황 보고서 산출물 (docx/md/pdf/xlsx/pptx) - 로컬 작업용, 공유 저장소에는 올리지 않음
 /MediSense_*.docx
 /MediSense_*.md
 /MediSense_*.pdf
 /MediSense_*.xlsx
+/MediSense_*.pptx
 /통합테스트_*.md
 /통합테스트_*.xlsx

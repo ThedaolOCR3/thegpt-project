@@ -15,3 +15,7 @@ export interface LoginResponse {
   token_type: 'bearer';
   user: User;
 }
+
+export interface LinkGuestHistoryResponse {
+  linked_conversation_count: number;
+}

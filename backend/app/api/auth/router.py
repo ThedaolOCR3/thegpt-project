@@ -8,6 +8,8 @@ from app.core.client_ip import get_client_ip
 from app.core.database import get_db
 from app.models.generated import Users
 from app.schemas.auth import (
+    LinkGuestHistoryRequest,
+    LinkGuestHistoryResponse,
     LoginRequest,
     LoginResponse,
     UserResponse,
@@ -31,3 +33,15 @@ def create_guest_session(request: Request, db: Annotated[Session, Depends(get_db
 @router.get("/me", response_model=UserResponse)
 def me(current_user: Annotated[Users, Depends(get_current_user)]) -> UserResponse:
     return to_user_response(current_user)
+
+
+@router.post("/link-guest-history", response_model=LinkGuestHistoryResponse)
+def link_guest_history(
+    payload: LinkGuestHistoryRequest,
+    current_user: Annotated[Users, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> LinkGuestHistoryResponse:
+    """게스트로 대화하다 로그인/회원가입을 마친 직후 프론트가 호출 - 게스트
+    계정 명의의 대화 이력을 방금 로그인한 계정으로 옮긴다."""
+    moved = AuthService(db).link_guest_history(current_user, payload.guest_token)
+    return LinkGuestHistoryResponse(linked_conversation_count=moved)

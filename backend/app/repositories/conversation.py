@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models.generated import Conversations, Messages
@@ -82,6 +82,17 @@ class ConversationRepository:
             return
         conversation.title = title
         self.db.commit()
+
+    def reassign_owner(self, *, from_user_id: UUID, to_user_id: UUID) -> int:
+        """게스트로 대화하다 로그인한 경우, 게스트 계정 명의의 대화를 실제 계정으로
+        옮긴다. 대화 자체(제목/카테고리/메시지)는 그대로 두고 소유자만 바꾼다."""
+        result = self.db.execute(
+            update(Conversations)
+            .where(Conversations.user_id == from_user_id)
+            .values(user_id=to_user_id)
+        )
+        self.db.commit()
+        return result.rowcount or 0
 
     def set_category_if_unset(self, conversation: Conversations, category: str) -> None:
         """진료과 분류 결과로 카테고리를 채운다. 이미 값이 있으면(사용자가 나중에 직접

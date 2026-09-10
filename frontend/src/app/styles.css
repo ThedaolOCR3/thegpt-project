@@ -42,3 +42,15 @@ main {
 .dark .thin-scrollbar { scrollbar-color: #525252 transparent; }
 .dark .thin-scrollbar::-webkit-scrollbar-thumb { background-color: #525252; }
 .dark .thin-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #6b6b6b; }
+
+/* DocumentPreviewPanel의 Word(.docx) 미리보기 - mammoth가 만들어주는 건 순수
+   <h1>/<p>/<ul>/<table> 마크업뿐이라 Tailwind 리셋 아래에선 목록 기호·표 테두리가
+   다 사라진다. 문서 구조를 알아볼 수 있는 최소한의 스타일만 되살린다. */
+.word-preview-content :is(h1, h2, h3) { font-weight: 700; margin: 0.6em 0 0.3em; }
+.word-preview-content p { margin: 0.4em 0; }
+.word-preview-content :is(ul, ol) { margin: 0.4em 0; padding-left: 1.4em; }
+.word-preview-content ul { list-style: disc; }
+.word-preview-content ol { list-style: decimal; }
+.word-preview-content table { border-collapse: collapse; margin: 0.4em 0; }
+.word-preview-content :is(th, td) { border: 1px solid #d4d4d4; padding: 4px 8px; }
+.dark .word-preview-content :is(th, td) { border-color: #525252; }
