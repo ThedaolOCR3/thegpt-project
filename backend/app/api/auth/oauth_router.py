@@ -4,7 +4,7 @@
 - `oauth_start_router`: "로그인 시작" - 프론트가 부르는 일반 API라
   `/api/auth/oauth/{provider}/authorize`로 다른 auth 엔드포인트와 나란히 둔다.
 - `oauth_callback_router`: Google/GitHub가 리다이렉트로 호출하는 콜백 - Google/GitHub
-  콘솔에 등록한 redirect_uri(Cloudflare Worker가 그대로 프록시)와 경로가 정확히
+  콘솔에 등록한 redirect_uri(프론트 콜백 라우트가 백엔드로 전달)와 경로가 정확히
   같아야 해서, /api 접두사 없이 main.py가 루트에 직접 마운트한다
   (/auth/google/callback, /oauth/github/callback - 두 provider의 경로 규칙이
   다른 건 이미 각 콘솔에 등록해버린 값을 그대로 따른 것).

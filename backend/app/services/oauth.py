@@ -65,7 +65,7 @@ def build_google_authorize_url(state: str) -> str:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Google 로그인이 아직 설정되지 않았습니다.")
     params = {
         "client_id": settings.google_client_id,
-        "redirect_uri": settings.google_oauth_redirect_uri,
+        "redirect_uri": settings.effective_google_oauth_redirect_uri,
         "response_type": "code",
         "scope": "openid email profile",
         "state": state,
@@ -79,7 +79,7 @@ def build_github_authorize_url(state: str) -> str:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "GitHub 로그인이 아직 설정되지 않았습니다.")
     params = {
         "client_id": settings.github_client_id,
-        "redirect_uri": settings.github_oauth_redirect_uri,
+        "redirect_uri": settings.effective_github_oauth_redirect_uri,
         "scope": "read:user user:email",
         "state": state,
     }
@@ -94,7 +94,7 @@ def _fetch_google_profile(code: str) -> OAuthProfile:
                 "code": code,
                 "client_id": settings.google_client_id,
                 "client_secret": settings.google_client_secret,
-                "redirect_uri": settings.google_oauth_redirect_uri,
+                "redirect_uri": settings.effective_google_oauth_redirect_uri,
                 "grant_type": "authorization_code",
             },
         )
@@ -123,7 +123,7 @@ def _fetch_github_profile(code: str) -> OAuthProfile:
                 "code": code,
                 "client_id": settings.github_client_id,
                 "client_secret": settings.github_client_secret,
-                "redirect_uri": settings.github_oauth_redirect_uri,
+                "redirect_uri": settings.effective_github_oauth_redirect_uri,
             },
             headers={"Accept": "application/json"},
         )
