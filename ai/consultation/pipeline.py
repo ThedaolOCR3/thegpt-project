@@ -26,7 +26,7 @@ from ai.llm.contracts import ProviderGenerateRequest
 
 from . import response_validator, risk_detector
 from .classifier import BaseQueryClassifier, DepartmentResult, get_default_classifier
-from .context import build_reference_info_block
+from .context import build_reference_info_block, derive_department_from_chunks
 from .prompt_builder import build_messages
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,40 @@ class ConsultationResult:
     finish_reason: str | None = None
 
 
+def _resolve_department(
+    department_result: DepartmentResult | None,
+    *,
+    classifier: BaseQueryClassifier | None,
+    user_question: str,
+    reference_chunks: list[Any] | None,
+) -> DepartmentResult:
+    """진료과를 어떤 신호로 확정할지의 우선순위.
+
+    1. 이미 "높음" 확신으로 넘어온 분류가 있으면 그대로 유지한다 — 사용자 원문에
+       키워드가 2개 이상 겹쳐서 나온 강한 신호를 RAG 문서 하나로 뒤집을 이유가
+       없다. (실제로 RAG 검색이 증상과 무관한 문서를 끌어오는 사례가 관찰된 적이
+       있어서, 강한 신호를 약한 신호로 덮어쓰지 않도록 보수적으로 둔다.)
+    2. 그 외(분류가 없거나 "중간"/"낮음")에는 RAG로 검색된 참고 문서의 진료과
+       메타데이터를 우선 확인한다 — 실제 검색된 근거 기반이라 사용자 원문 키워드
+       매칭보다 신호가 강할 수 있다.
+    3. RAG 신호도 없으면 기존에 있던 분류 결과(사전 분류 또는 새로 돌린 키워드
+       분류)를 그대로 쓴다. 이후 LLM 호출이 성공하면 `consult()`가 답변에서
+       언급된 진료과로 한 번 더 보완을 시도한다(department가 여전히 None일 때만).
+    """
+    if department_result is not None and department_result.confidence == "높음":
+        return department_result
+
+    rag_department = derive_department_from_chunks(reference_chunks)
+    if rag_department is not None:
+        return rag_department
+
+    if department_result is not None:
+        return department_result
+
+    resolved_classifier = classifier or get_default_classifier()
+    return resolved_classifier.classify(user_question)
+
+
 async def consult(
     llm_application: Any,
     user_question: str,
@@ -85,23 +119,36 @@ async def consult(
     rag_hit_count = len(reference_chunks) if reference_chunks else 0
 
     # LLM 호출 전 하드 필터 — 프롬프트 지시 준수 여부와 무관하게 작동하는 이중 안전장치.
+    # 응급 안전 응답을 내는 것과 진료과를 분류하는 것은 서로 다른 관심사라, 응급이어도
+    # classify()는 그대로 돌린다 - 예전에는 여기서 department=None을 강제해서 응급으로
+    # 잡힌 대화가 전부 관리자 화면에 "기타"로만 쌓이고, 신경과/순환기내과처럼 실제로는
+    # 분류 가능했던 사례까지 통계에서 사라지는 부작용이 있었다(2026-09 실측으로 확인).
     if risk_detector.detect_emergency(user_question):
+        department_result = _resolve_department(
+            department_result,
+            classifier=classifier,
+            user_question=user_question,
+            reference_chunks=reference_chunks,
+        )
         return ConsultationResult(
             answer=risk_detector.EMERGENCY_RESPONSE,
-            department=None,
-            confidence="낮음",
+            department=department_result.department,
+            confidence=department_result.confidence,
             is_emergency=True,
             rag_hit_count=rag_hit_count,
             response_time_ms=round((time.perf_counter() - started_at) * 1000),
         )
 
     # 호출하는 쪽(message.py)이 RAG 검색의 진료과 부스트에도 같은 분류 결과를
-    # 쓰려고 미리 classify()를 해뒀다면 그걸 그대로 받는다 - 키워드 매칭이라
-    # 비용은 작지만, 같은 질문을 두 번 분류해서 이론상 다른 결과가 나올 여지를
-    # 만들 이유가 없다(분류기가 결정론적이라 실제로는 같은 값이 나오지만).
-    if department_result is None:
-        classifier = classifier or get_default_classifier()
-        department_result = classifier.classify(user_question)
+    # 쓰려고 미리 classify()를 해뒀다면 그걸 넘겨받되, RAG 검색 결과가 실제로
+    # 나온 뒤에는 `_resolve_department()`가 그 결과의 진료과 메타데이터로
+    # 보정할 기회를 준다(우선순위는 위 함수 docstring 참고).
+    department_result = _resolve_department(
+        department_result,
+        classifier=classifier,
+        user_question=user_question,
+        reference_chunks=reference_chunks,
+    )
     reference_block = build_reference_info_block(reference_chunks)
     messages = build_messages(
         user_question,
@@ -123,12 +170,21 @@ async def consult(
             ProviderGenerateRequest(messages=messages, max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS),
         )
         answer = response_validator.validate(execution.result.answer.strip(), user_question=user_question)
+        if not answer.strip():
+            # validate()가 빈 문자열을 반환하는 건 "잘라낼 정상 답변조차 없었다"는
+            # 뜻이다(예: 모델이 의료 답변 대신 자기 자신에게 주는 메타 지시문만
+            # 출력한 경우, 2026-09 실측). 이런 답변은 LLM 호출 실패(except 분기)와
+            # 사실상 같은 상황이므로 같은 FALLBACK_ANSWER로 대체한다 — 실제 의료
+            # 정보가 아니므로 면책 문구도 붙이지 않는다.
+            answer = FALLBACK_ANSWER
+            is_fallback = True
+            error_type = "NonAnswerFiltered"
         # 사전 분류(department_result)가 진료과를 못 짚었으면, 이미 나온 최종
         # 답변에서 LLM이 실제로 언급한 진료과로 보완한다 - 사용자 원문보다
         # RAG 참고자료까지 반영한 최종 판단이 더 신뢰도 높은 신호다(response_validator.
         # extract_mentioned_department 참고 - 답변에 진료과가 하나만 명확히
         # 나올 때만 채택하고, 모델이 헷갈려 여러 개를 나열했으면 그대로 None).
-        if department_result.department is None:
+        elif department_result.department is None:
             mentioned_department = response_validator.extract_mentioned_department(answer)
             if mentioned_department:
                 department_result = DepartmentResult(department=mentioned_department, confidence="중간")

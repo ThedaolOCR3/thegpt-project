@@ -235,7 +235,7 @@ def _allowed_chars_pattern(input_language: str) -> re.Pattern:
 # 정상적인 의학 부연설명 괄호까지 벗기면 안 되므로, 답변 맨 끝이 통째로 괄호로
 # 감싸져 있고 그 안에 실제 진료과 이름이 들어있을 때만 괄호를 벗긴다(내용은 보존).
 _DEPARTMENT_NAMES = (
-    "내과", "이비인후과", "피부과", "정형외과", "신경과", "안과",
+    "내과", "순환기내과", "이비인후과", "피부과", "정형외과", "신경과", "안과",
     "산부인과", "비뇨의학과", "정신건강의학과", "소아청소년과",
 )
 # 괄호뿐 아니라 중괄호로 감싸는 변형도 실제로 관찰됨 - "{정형외과에서 ... 있습니다.}"
@@ -457,6 +457,25 @@ def _contains_risky_dosage(text: str) -> bool:
     return any(pattern.search(text) for pattern in _RISKY_DOSAGE_PATTERNS)
 
 
+# 실제 관찰된 사례(2026-09, 라이브 테스트) - 의료 답변 없이 모델 스스로에게 주는 것
+# 같은 메타 지시문만 출력한 경우가 있었다("답변 완료 후에는 새로운 프롬프트와 함께
+# 다시 시작하십시오. 감사합니다! (아무것도 없으므로 그냥 넘어갈게요.) 입니다."). 이
+# 위의 다른 필터들은 전부 "정상 답변 뒤에 붙은 꼬리"만 잘라내는데, 이 경우는 답변
+# 전체가 의료 정보를 전혀 담고 있지 않아서 잘라낼 "정상 앞부분"이 없다. 그래서 이
+# 신호가 발견되면 잘라내지 않고 답변 전체를 빈 문자열로 만들어서, 호출하는 쪽
+# (pipeline.py)이 FALLBACK_ANSWER로 대체하게 한다. 오탐(정상 답변을 통째로 날리는
+# 것)이 다른 어떤 필터보다 위험하므로, 실제 관찰된 정확한 표현으로만 좁게 잡는다 -
+# 새 사례가 나오면 신호를 조심스럽게 추가할 것.
+_NON_ANSWER_SIGNALS = (
+    "새로운 프롬프트와 함께 다시 시작",
+    "그냥 넘어갈게요",
+)
+
+
+def _looks_like_non_answer(text: str) -> bool:
+    return any(signal in text for signal in _NON_ANSWER_SIGNALS)
+
+
 def extract_mentioned_department(answer: str) -> str | None:
     """검증이 끝난 최종 답변에서 LLM이 실제로 언급한 진료과를 찾는다.
 
@@ -469,10 +488,19 @@ def extract_mentioned_department(answer: str) -> str | None:
     답변에 진료과명이 정확히 하나만 등장하면 그걸 반환한다. 하나도 없거나
     (모델이 진료과를 언급 안 함) 서로 다른 이름이 여러 개 섞여 있으면(모델이
     헷갈려서 진료과를 잘못 여러 개 나열한 경우 - 실제 관찰된 사례) 어느 쪽도
-    확신할 근거가 없으므로 None을 반환한다 - 잘못된 확신보다 미분류가 낫다."""
+    확신할 근거가 없으므로 None을 반환한다 - 잘못된 확신보다 미분류가 낫다.
+
+    "순환기내과"처럼 일반 진료과 이름("내과")을 부분 문자열로 포함하는 이름이 있어서,
+    답변에 "순환기내과"만 언급돼도 substring 매칭으로는 "내과"와 "순환기내과"가 둘 다
+    걸려 (실제로는 명확한 언급인데도) 모호한 것으로 오판할 수 있었다 - 더 구체적인
+    (긴) 이름이 함께 걸리면 그 안에 포함된 일반 이름은 제외하고 구체적인 쪽만 남긴다."""
     mentioned = {name for name in _DEPARTMENT_NAMES if name in answer}
-    if len(mentioned) == 1:
-        return next(iter(mentioned))
+    specific = {
+        name for name in mentioned
+        if not any(name != other and name in other for other in mentioned)
+    }
+    if len(specific) == 1:
+        return next(iter(specific))
     return None
 
 
@@ -504,6 +532,8 @@ def validate(answer: str, *, user_question: str = "") -> str:
     answer = _strip_short_orphan_tail(answer)
     answer = _strip_wrapped_department_hint_label(answer)
     answer = _unwrap_trailing_department_parenthetical(answer)
+    if _looks_like_non_answer(answer):
+        return ""
     if _contains_risky_dosage(answer):
         return answer + _DOSAGE_WARNING
     return answer

@@ -242,6 +242,38 @@ class GenMedGptAdapterTest(unittest.TestCase):
         self.assertNotIn("당신이 의사라면", record.content)
         self.assertIn("공황 발작", record.content)
         self.assertIn("심리 치료", record.content)
+        self.assertEqual(record.department, [])
+        self.assertNotIn("generated_metadata", record.metadata)
+
+    def test_department_is_extracted_when_answer_names_one_clearly(self) -> None:
+        row = {
+            "instruction": "당신이 의사라면 환자의 설명을 바탕으로 의학적 질문에 답변해 주세요.",
+            "input": "어깨가 계속 아파서 팔을 들기가 힘듭니다.",
+            "output": "회전근개 손상일 가능성이 있습니다. 정형외과에서 진료를 받아보시는 것이 좋습니다.",
+        }
+        record = GenMedGptAdapter().to_normalized(row, 0)
+        self.assertEqual(record.department, ["정형외과"])
+        self.assertTrue(record.metadata["generated_metadata"])
+
+    def test_department_extraction_is_not_confused_by_substring_overlap(self) -> None:
+        # "순환기내과"가 "내과"를 부분 문자열로 포함해서, 순환기내과만 언급돼도
+        # 둘 다 걸려 모호한 것으로 오판하면 안 된다.
+        row = {
+            "instruction": "당신이 의사라면 환자의 설명을 바탕으로 의학적 질문에 답변해 주세요.",
+            "input": "두근거림이 심하고 가슴이 답답합니다.",
+            "output": "부정맥일 가능성이 있어 순환기내과에서 검사를 받아보시는 것이 좋습니다.",
+        }
+        record = GenMedGptAdapter().to_normalized(row, 0)
+        self.assertEqual(record.department, ["순환기내과"])
+
+    def test_department_stays_empty_when_multiple_departments_are_mentioned(self) -> None:
+        row = {
+            "instruction": "당신이 의사라면 환자의 설명을 바탕으로 의학적 질문에 답변해 주세요.",
+            "input": "증상이 여러 가지라 헷갈립니다.",
+            "output": "신경과 진료도 고려할 수 있고, 정형외과에서도 검사를 받아보실 수 있습니다.",
+        }
+        record = GenMedGptAdapter().to_normalized(row, 0)
+        self.assertEqual(record.department, [])
 
 
 class AiHealthcareQaAdapterTest(unittest.TestCase):
