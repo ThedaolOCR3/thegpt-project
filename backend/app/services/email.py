@@ -1,4 +1,5 @@
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from app.core.email_config import email_settings
@@ -9,17 +10,27 @@ class EmailService:
 
     @property
     def is_configured(self) -> bool:
-        return bool(email_settings.smtp_host and email_settings.smtp_from_email)
+        credentials_complete = bool(email_settings.smtp_username) == bool(
+            email_settings.smtp_password
+        )
+        return bool(
+            email_settings.smtp_host
+            and email_settings.smtp_from_email
+            and credentials_complete
+        )
 
     def send_verification_code(self, recipient: str, code: str) -> bool:
         if not self.is_configured:
             return False
 
         message = EmailMessage()
-        message["Subject"] = "TheGPT 이메일 인증 코드"
+        message["Subject"] = "MediSense 이메일 인증 코드"
         message["From"] = email_settings.smtp_from_email
         message["To"] = recipient
-        message.set_content(f"TheGPT 이메일 인증 코드는 {code}입니다. 10분 안에 입력해주세요.")
+        message.set_content(
+            f"MediSense 이메일 인증 코드는 {code}입니다. "
+            f"{email_settings.email_verification_expire_minutes}분 안에 입력해주세요."
+        )
 
         self._send(message)
         return True
@@ -30,7 +41,7 @@ class EmailService:
             return False
 
         message = EmailMessage()
-        message["Subject"] = "TheGPT 비밀번호 재설정"
+        message["Subject"] = "MediSense 비밀번호 재설정"
         message["From"] = email_settings.smtp_from_email
         message["To"] = recipient
         message.set_content(
@@ -42,9 +53,23 @@ class EmailService:
 
     def _send(self, message: EmailMessage) -> None:
         """SMTP 연결 코드를 한곳에서 관리합니다."""
-        with smtplib.SMTP(email_settings.smtp_host, email_settings.smtp_port) as smtp:
-            if email_settings.smtp_use_tls:
-                smtp.starttls()
+        context = ssl.create_default_context()
+        if email_settings.smtp_use_ssl:
+            connection = smtplib.SMTP_SSL(
+                email_settings.smtp_host,
+                email_settings.smtp_port,
+                timeout=email_settings.smtp_timeout_seconds,
+                context=context,
+            )
+        else:
+            connection = smtplib.SMTP(
+                email_settings.smtp_host,
+                email_settings.smtp_port,
+                timeout=email_settings.smtp_timeout_seconds,
+            )
+        with connection as smtp:
+            if email_settings.smtp_use_tls and not email_settings.smtp_use_ssl:
+                smtp.starttls(context=context)
             if email_settings.smtp_username and email_settings.smtp_password:
                 smtp.login(email_settings.smtp_username, email_settings.smtp_password)
             smtp.send_message(message)
