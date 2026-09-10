@@ -1,6 +1,6 @@
 import unittest
 
-from ai.consultation.response_validator import validate
+from ai.consultation.response_validator import extract_mentioned_department, validate
 
 
 class ValidateTest(unittest.TestCase):
@@ -330,6 +330,26 @@ class ValidateTest(unittest.TestCase):
         # 지우면 안 된다 - 오탐 방지.
         answer = "의사소통이 원활하면 진료에 도움이 됩니다."
         self.assertEqual(validate(answer), answer)
+
+
+class ExtractMentionedDepartmentTest(unittest.TestCase):
+    def test_returns_the_single_department_mentioned(self) -> None:
+        answer = "정형외과에서 진료를 받아보시는 것도 고려해볼 수 있습니다."
+        self.assertEqual(extract_mentioned_department(answer), "정형외과")
+
+    def test_returns_none_when_no_department_is_mentioned(self) -> None:
+        answer = "충분히 휴식을 취하시고 증상이 지속되면 병원을 방문해보세요."
+        self.assertIsNone(extract_mentioned_department(answer))
+
+    def test_returns_none_when_multiple_different_departments_are_mentioned(self) -> None:
+        # 실제 관찰된 사례 - 모델이 헷갈려서 서로 무관한 진료과를 여러 개 나열했다.
+        # 잘못된 확신보다 미분류가 나으므로 None을 반환한다.
+        answer = "신경과 진료센터를 추천드립니다. 비뇨의학과에서도 관련 검사가 필요합니다."
+        self.assertIsNone(extract_mentioned_department(answer))
+
+    def test_repeated_mention_of_the_same_department_still_counts_as_one(self) -> None:
+        answer = "정형외과에서 진료를 받아보세요. 정형외과는 근골격계를 전문적으로 봅니다."
+        self.assertEqual(extract_mentioned_department(answer), "정형외과")
 
 
 if __name__ == "__main__":

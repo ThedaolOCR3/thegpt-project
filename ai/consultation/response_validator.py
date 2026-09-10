@@ -457,6 +457,25 @@ def _contains_risky_dosage(text: str) -> bool:
     return any(pattern.search(text) for pattern in _RISKY_DOSAGE_PATTERNS)
 
 
+def extract_mentioned_department(answer: str) -> str | None:
+    """검증이 끝난 최종 답변에서 LLM이 실제로 언급한 진료과를 찾는다.
+
+    사전 분류(classifier.py)는 사용자의 원문 증상 표현(짧고 표현이 제각각)만
+    보고 LLM 호출 *전에* 미리 추측하는 것이라 한계가 뚜렷하다 - 반면 LLM은
+    RAG 참고자료까지 다 반영해서 최종 판단을 답변에 자연어로 녹여 쓰므로, 이미
+    나온 결과를 그대로 읽는 이 방식이 사전 분류보다 신호가 더 강하다
+    (pipeline.py가 사전 분류 결과가 없을 때만 이걸로 보완한다).
+
+    답변에 진료과명이 정확히 하나만 등장하면 그걸 반환한다. 하나도 없거나
+    (모델이 진료과를 언급 안 함) 서로 다른 이름이 여러 개 섞여 있으면(모델이
+    헷갈려서 진료과를 잘못 여러 개 나열한 경우 - 실제 관찰된 사례) 어느 쪽도
+    확신할 근거가 없으므로 None을 반환한다 - 잘못된 확신보다 미분류가 낫다."""
+    mentioned = {name for name in _DEPARTMENT_NAMES if name in answer}
+    if len(mentioned) == 1:
+        return next(iter(mentioned))
+    return None
+
+
 def validate(answer: str, *, user_question: str = "") -> str:
     """위험한 패턴이 없으면 원문 그대로 반환한다. 면책 문구는 여기서 붙이지 않는다
     (그건 pipeline.py의 책임 — 이 함수는 LLM 원문 자체만 검증한다).

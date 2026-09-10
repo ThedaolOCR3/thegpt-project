@@ -42,6 +42,20 @@ class KeywordDepartmentClassifierTest(unittest.TestCase):
         )
         self.assertEqual(result.department, "안과")
 
+    def test_matches_shoulder_pain_and_neck_stiffness_phrasing(self) -> None:
+        # 실제 오분류 사례 — "어깨 통증"/"목 통증"이 붙어있는 형태로만 키워드에
+        # 있어서 "어깨에 통증이", "고개도 잘 안 돌아가고"처럼 조사가 낀 자연스러운
+        # 문장은 매칭이 안 되고 "기타"로 빠졌다. "어깨"/"고개"를 단독 키워드로 바꿈.
+        result = self.classifier.classify(
+            "아침에 일어나니 어깨에 통증이 있네 고개도 잘안돌아가고 이럴땐 어느 진료과로 진료를 봐야해?"
+        )
+        self.assertEqual(result.department, "정형외과")
+
+    def test_matches_colloquial_muscle_stiffness_wording(self) -> None:
+        # "결리다"/"뻐근하다" 계열도 실제로 자주 쓰이는 표현인데 목록에 없었다.
+        result = self.classifier.classify("어깨가 결려서 병원에 가야할지 고민이에요")
+        self.assertEqual(result.department, "정형외과")
+
     def test_no_match_returns_low_confidence_and_no_department(self) -> None:
         result = self.classifier.classify("안녕하세요")
         self.assertIsNone(result.department)

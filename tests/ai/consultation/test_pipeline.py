@@ -161,6 +161,38 @@ class ConsultTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.department, "정형외과")
         self.assertEqual(result.confidence, "높음")
 
+    async def test_falls_back_to_department_named_in_answer_when_precomputed_missed_it(self) -> None:
+        # 사전 분류가 사용자 원문에서 진료과를 못 찾았어도("이 증상이 계속되네요"에는
+        # 매칭되는 키워드가 없음), LLM이 RAG 참고자료까지 반영해서 답변에 명확히
+        # 진료과를 하나만 언급했다면 그걸 카테고리로 채택한다.
+        app = FakeLlmApplication(answer="정형외과에서 진료를 받아보시는 것도 고려해볼 수 있습니다.")
+        result = await consult(app, "이 증상이 계속되네요")
+
+        self.assertEqual(result.department, "정형외과")
+        self.assertEqual(result.confidence, "중간")
+
+    async def test_ignores_answer_department_when_multiple_are_mentioned(self) -> None:
+        # 실제 관찰된 사례 - 모델이 헷갈려서 서로 무관한 진료과를 여러 개 나열했다
+        # (신경과+비뇨의학과). 어느 쪽도 확신할 근거가 없으므로 None을 유지한다 -
+        # 잘못된 확신으로 엉뚱한 카테고리를 붙이는 것보다 미분류가 낫다.
+        app = FakeLlmApplication(
+            answer="신경과 진료센터를 추천드립니다. 비뇨의학과에서도 관련 검사가 필요합니다."
+        )
+        result = await consult(app, "이 증상이 계속되네요")
+
+        self.assertIsNone(result.department)
+
+    async def test_precomputed_department_takes_precedence_over_answer_mention(self) -> None:
+        # 사전 분류가 이미 확신을 가졌다면(department가 있음), 답변에 다른 진료과
+        # 이름이 우연히 섞여 있어도 사전 분류 결과를 그대로 유지한다 - 프롬프트
+        # 힌트도 이미 그 진료과 기준으로 나갔으므로 일관성을 유지하는 쪽이 안전하다.
+        app = FakeLlmApplication(answer="이비인후과에서 진료를 받아보시는 것도 고려해볼 수 있습니다.")
+        precomputed = DepartmentResult(department="정형외과", confidence="중간")
+
+        result = await consult(app, "어깨가 아파요", department_result=precomputed)
+
+        self.assertEqual(result.department, "정형외과")
+
     async def test_execution_without_provider_or_tokens_leaves_them_none(self) -> None:
         # 테스트 stub(FakeExecution)처럼 provider/토큰 필드가 없는 llm_application도
         # 로깅 메타데이터 때문에 깨지면 안 된다 — 조용히 None으로 빠져야 한다.

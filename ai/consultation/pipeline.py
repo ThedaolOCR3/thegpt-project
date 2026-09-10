@@ -123,6 +123,15 @@ async def consult(
             ProviderGenerateRequest(messages=messages, max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS),
         )
         answer = response_validator.validate(execution.result.answer.strip(), user_question=user_question)
+        # 사전 분류(department_result)가 진료과를 못 짚었으면, 이미 나온 최종
+        # 답변에서 LLM이 실제로 언급한 진료과로 보완한다 - 사용자 원문보다
+        # RAG 참고자료까지 반영한 최종 판단이 더 신뢰도 높은 신호다(response_validator.
+        # extract_mentioned_department 참고 - 답변에 진료과가 하나만 명확히
+        # 나올 때만 채택하고, 모델이 헷갈려 여러 개를 나열했으면 그대로 None).
+        if department_result.department is None:
+            mentioned_department = response_validator.extract_mentioned_department(answer)
+            if mentioned_department:
+                department_result = DepartmentResult(department=mentioned_department, confidence="중간")
         # execution/result는 호출하는 쪽이 넘겨준 llm_application 구현에 달려있어서
         # (테스트에서는 최소 stub을 쓴다), 없는 필드는 조용히 None으로 둔다 —
         # 로깅 메타데이터 때문에 LLM 호출 계약을 더 무겁게 만들지 않기 위함.
