@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize2, X } from 'lucide-react';
-import { extractTextFromImage } from '../../api/documents';
+import { extractDocumentText } from '../../api/documents';
 import type { MessageAttachment } from '../../api/types';
 import { maskPII } from '../../utils/piiMask';
 import { DocumentLightbox } from './DocumentLightbox';
@@ -46,12 +46,22 @@ function isHwp(attachment: MessageAttachment) {
   return /\.hwpx?$/i.test(attachment.name);
 }
 
+// ai/ocr/validation.py의 SUPPORTED_* 상수와 맞춘 목록 — 이미지 외에 백엔드
+// /api/documents/ocr이 실제로 처리할 수 있는 확장자다. HWP는 ai/ocr에 처리
+// 코드가 없어 백엔드도 못 읽으므로 제외한다(원본 미리보기도 미지원 안내만 함).
+const TEXT_EXTRACTABLE_EXTENSIONS = /\.(pdf|docx|pptx|json|jsonl|csv|txt|zip)$/i;
+
+function canExtractText(attachment: MessageAttachment) {
+  return isImage(attachment) || TEXT_EXTRACTABLE_EXTENSIONS.test(attachment.name);
+}
+
 // 원본 문서 vs 파싱된 텍스트를 나란히 보여주는 우측 패널.
 // - 원본: 방금 이 세션에서 첨부한 파일(blob: URL 있음)만 실제로 보여줄 수 있다.
 //   서버는 아직 첨부파일 메타데이터만 저장하고 실제 바이트는 저장하지 않아서
 //   (Object Storage 연동 전), 새로고침/이전 대화에서 불러온 첨부는 안내만 표시한다.
-// - 파싱된 텍스트: blob: URL이 있는 이미지 첨부는 /api/documents/ocr을 호출해 실제
-//   추출 결과를 보여준다. 그 외(PDF, 저장 안 된 첨부)는 안내 문구만 표시.
+// - 파싱된 텍스트: blob: URL이 있고 지원 형식(이미지·PDF·DOCX·PPTX·TXT·CSV·JSON(L)·ZIP)인
+//   첨부는 /api/documents/ocr을 호출해 실제 추출 결과를 보여준다. 그 외(HWP, 저장 안
+//   된 첨부)는 안내 문구만 표시.
 // - 좌측 가장자리를 드래그해 폭을 조절할 수 있고(로컬에 기억), 첨부가 여러 개면
 //   하단 썸네일 스트립 + 이전/다음 버튼으로 넘겨볼 수 있다.
 export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClose }: DocumentPreviewPanelProps) {
@@ -74,9 +84,9 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
       setParsedText(`"${attachment.name}"은 원본이 저장되지 않아 텍스트를 추출할 수 없어요 (스토리지 연동 전).`);
       return;
     }
-    if (!isImage(attachment)) {
+    if (!canExtractText(attachment)) {
       setOcrLoading(false);
-      setParsedText(`"${attachment.name}"은 아직 텍스트 추출을 지원하지 않는 형식이에요 (이미지만 지원).`);
+      setParsedText(`"${attachment.name}"은 아직 텍스트 추출을 지원하지 않는 형식이에요.`);
       return;
     }
 
@@ -95,7 +105,7 @@ export function DocumentPreviewPanel({ attachments, index, onIndexChange, onClos
       try {
         const blob = await fetch(attachment.url!).then((res) => res.blob());
         const file = new File([blob], attachment.name, { type: attachment.type });
-        const result = await extractTextFromImage(file);
+        const result = await extractDocumentText(file);
         // 처방전/검사결과지 등에 주민등록번호·전화번호·주소가 그대로 찍혀 나오는
         // 경우가 있어서, 화면에 보여주기 전에 마스킹한다 — 원문이 아니라 마스킹된
         // 텍스트를 캐싱/표시한다(캐시에도 원문 개인정보를 남기지 않기 위함).
