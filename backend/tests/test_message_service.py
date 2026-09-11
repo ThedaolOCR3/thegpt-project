@@ -1,9 +1,11 @@
 import unittest
+from types import SimpleNamespace
 from uuid import uuid4
 from unittest.mock import MagicMock, patch
 
 from app.services import message as message_module
 from app.services.message import MessageService
+from ai.llm.contracts import LlmMessage
 
 
 def _bare_service(db) -> MessageService:
@@ -43,6 +45,79 @@ class SearchReferenceChunksTest(unittest.TestCase):
 
 
 class GenerateReplyTest(unittest.IsolatedAsyncioTestCase):
+    async def test_follow_up_search_uses_user_history_and_passes_dialogue_to_consult(self):
+        service = _bare_service(MagicMock())
+        history = (
+            LlmMessage("user", "허리가 아파요"),
+            LlmMessage("assistant", "두통도 있나요? 언제부터 아프셨나요?"),
+        )
+        fake_result = message_module.ConsultationResult(answer="답변", department="정형외과", confidence="중간")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result) as mock_consult,
+            patch.object(message_module.rag_search_service, "search", return_value=[]) as mock_search,
+        ):
+            await service._generate_reply("어제부터요", MagicMock(), history=history)
+        self.assertEqual(mock_consult.call_args.args[1], "어제부터요")
+        self.assertEqual(mock_consult.call_args.kwargs["history"], history)
+        mock_search.assert_called_once_with(service.db, "허리가 아파요\n어제부터요", department="정형외과")
+
+    async def test_new_explicit_symptom_takes_priority_over_previous_department(self):
+        service = _bare_service(MagicMock())
+        history = (LlmMessage("user", "허리가 아파요"), LlmMessage("assistant", "언제부터인가요?"))
+        fake_result = message_module.ConsultationResult(answer="답변", department="피부과", confidence="중간")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result),
+            patch.object(message_module.rag_search_service, "search", return_value=[]) as mock_search,
+        ):
+            await service._generate_reply("다른 질문인데 피부가 가려워요", MagicMock(), history=history)
+        mock_search.assert_called_once_with(service.db, "다른 질문인데 피부가 가려워요", department="피부과")
+
+    async def test_send_message_snapshots_owned_conversation_before_saving_current_question(self):
+        service = _bare_service(MagicMock())
+        service.conversations_service = MagicMock()
+        service.messages = MagicMock()
+        conversation = SimpleNamespace(id=uuid4(), is_title_custom=False)
+        service.conversations_service.get_owned.return_value = conversation
+        previous = [LlmMessage("user", "허리가 아파요"), LlmMessage("assistant", "언제부터인가요?")]
+        service.messages.list_by_conversation.return_value = previous
+
+        def create(conversation_id, role, content):
+            previous.append(LlmMessage(role, content))
+            return SimpleNamespace(id=uuid4(), role=role, content=content)
+
+        service.messages.create.side_effect = create
+        user = SimpleNamespace(id=uuid4(), auth_provider="email")
+        fake_result = message_module.ConsultationResult(answer="답변", department=None, confidence="낮음")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result) as mock_consult,
+            patch.object(message_module.rag_search_service, "search", return_value=[]),
+            patch.object(message_module, "to_message_response", side_effect=lambda m: m),
+        ):
+            response = await service.send_message(str(conversation.id), user, "어제부터요")
+        service.conversations_service.get_owned.assert_called_once_with(str(conversation.id), user.id)
+        service.messages.list_by_conversation.assert_called_once_with(conversation.id)
+        self.assertEqual(len(mock_consult.call_args.kwargs["history"]), 2)
+        self.assertEqual(mock_consult.call_args.kwargs["history"][1].content, "언제부터인가요?")
+        self.assertEqual(response.content, "답변")
+
+    async def test_short_reply_after_topic_change_uses_most_recent_symptom(self):
+        service = _bare_service(MagicMock())
+        history = (
+            LlmMessage("user", "허리와 무릎 관절이 아파요"),
+            LlmMessage("assistant", "언제부터인가요?"),
+            LlmMessage("user", "다른 질문인데 피부가 가려워요"),
+            LlmMessage("assistant", "가려움은 언제부터인가요?"),
+        )
+        fake_result = message_module.ConsultationResult(answer="답변", department="피부과", confidence="중간")
+        with (
+            patch.object(message_module, "consult", return_value=fake_result),
+            patch.object(message_module.rag_search_service, "search", return_value=[]) as mock_search,
+        ):
+            await service._generate_reply("어제부터요", MagicMock(), history=history)
+        mock_search.assert_called_once_with(
+            service.db, "다른 질문인데 피부가 가려워요\n어제부터요", department="피부과"
+        )
+
     async def test_empty_content_returns_canned_text_without_touching_rag_or_llm(self) -> None:
         service = _bare_service(MagicMock())
         with (

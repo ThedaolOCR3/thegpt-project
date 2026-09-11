@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from ai.llm.contracts import ProviderGenerateRequest
+from ai.llm.contracts import LlmMessage, ProviderGenerateRequest
 
 from . import response_validator, risk_detector
 from .classifier import BaseQueryClassifier, DepartmentResult, get_default_classifier
@@ -110,6 +110,7 @@ async def consult(
     llm_application: Any,
     user_question: str,
     *,
+    history: tuple[LlmMessage, ...] = (),
     model_id: str = DEFAULT_MODEL_ID,
     reference_chunks: list[Any] | None = None,
     classifier: BaseQueryClassifier | None = None,
@@ -152,6 +153,7 @@ async def consult(
     reference_block = build_reference_info_block(reference_chunks)
     messages = build_messages(
         user_question,
+        history=history,
         department_result=department_result,
         reference_info_block=reference_block,
     )

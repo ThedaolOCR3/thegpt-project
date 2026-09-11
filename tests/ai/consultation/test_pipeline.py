@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from ai.consultation.classifier import DepartmentResult
 from ai.consultation.pipeline import DEFAULT_MAX_OUTPUT_TOKENS, FALLBACK_ANSWER, consult
+from ai.llm.contracts import LlmMessage
 
 
 @dataclass
@@ -48,6 +49,29 @@ class FakeLlmApplication:
 
 
 class ConsultTest(unittest.IsolatedAsyncioTestCase):
+    async def test_follow_up_reaches_provider_with_prior_question_and_answer(self) -> None:
+        app = FakeLlmApplication(answer="어제부터 허리가 아프셨군요. 다친 적도 있으신가요?")
+        history = (
+            LlmMessage("user", "허리가 아파요"),
+            LlmMessage("assistant", "언제부터 아프셨나요?"),
+        )
+        result = await consult(app, "어제부터요", history=history)
+        messages = app.last_request.messages
+        self.assertEqual([m.role for m in messages], ["system", "user", "assistant", "user"])
+        self.assertEqual(messages[1:3], history)
+        self.assertEqual(messages[-1].content, "[사용자 질문]\n어제부터요")
+        self.assertIn("다친 적도 있으신가요?", result.answer)
+
+    async def test_past_emergency_does_not_override_current_question_with_hard_filter(self) -> None:
+        app = FakeLlmApplication(answer="현재 궁금하신 내용을 알려주세요.")
+        history = (
+            LlmMessage("user", "갑자기 숨쉬기 힘들어요"),
+            LlmMessage("assistant", "119에 연락하세요."),
+        )
+        result = await consult(app, "진료받고 회복했어요", history=history)
+        self.assertIsNotNone(app.last_request)
+        self.assertFalse(result.is_emergency)
+
     async def test_normal_answer_has_no_disclaimer_text(self) -> None:
         # 면책 문구는 이제 프론트엔드가 채팅 UI 배너로 보여준다 — 매 답변 텍스트에
         # 반복해서 붙이지 않는다(MessageBubble.tsx 참고).

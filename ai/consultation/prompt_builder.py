@@ -40,11 +40,11 @@ def _department_block(result: DepartmentResult | None) -> str | None:
 def build_messages(
     user_question: str,
     *,
+    history: tuple[LlmMessage, ...] = (),
     department_result: DepartmentResult | None = None,
     reference_info_block: str | None = None,
 ) -> tuple[LlmMessage, ...]:
-    """system_prompt.md가 그대로 system 메시지가 되고, 나머지 입력 정보 3종은
-    프롬프트의 "# 2. 입력 정보" 형식 그대로 하나의 user 메시지에 담긴다."""
+    """이전 대화의 역할과 순서를 보존하고 마지막에 현재 질문을 한 번만 추가한다."""
     sections: list[str] = []
 
     department_block = _department_block(department_result)
@@ -58,5 +58,6 @@ def build_messages(
 
     return (
         LlmMessage(role="system", content=_load_system_prompt()),
+        *history,
         LlmMessage(role="user", content="\n\n".join(sections)),
     )
