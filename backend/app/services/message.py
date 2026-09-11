@@ -5,6 +5,8 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ai.consultation import ConsultationResult, consult, get_default_classifier
+from ai.consultation.history import select_history
+from ai.llm.contracts import LlmMessage
 from ai.rag import RetrievedChunk
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -89,7 +91,13 @@ class MessageService:
         conversation = self.conversations_service.get_owned(conversation_id, current_user.id)
         self._check_guest_limits(current_user, new_attachment_count=len(attachments))
 
-        is_first_message = len(self.messages.list_by_conversation(conversation.id)) == 0
+        previous_messages = self.messages.list_by_conversation(conversation.id)
+        is_first_message = not previous_messages
+        # 현재 질문을 저장하기 전에 스냅샷을 만들어 중복 전달을 막는다.
+        history = select_history(tuple(
+            LlmMessage(role=message.role, content=message.content)
+            for message in previous_messages
+        ))
 
         user_message = self.messages.create(conversation.id, "user", content)
         if attachments:
@@ -100,7 +108,9 @@ class MessageService:
         if is_first_message and not conversation.is_title_custom:
             self.conversations.set_auto_title(conversation, content or attachments[0].name)
 
-        reply_content, result = await self._generate_reply(content, conversation, model_id)
+        reply_content, result = await self._generate_reply(
+            content, conversation, model_id, history=history
+        )
 
         assistant_message = self.messages.create(conversation.id, "assistant", reply_content)
         self.conversations.touch(conversation)
@@ -112,7 +122,8 @@ class MessageService:
         return to_message_response(assistant_message)
 
     async def _generate_reply(
-        self, content: str, conversation: Conversations, model_id: str | None = None
+        self, content: str, conversation: Conversations, model_id: str | None = None,
+        *, history: tuple[LlmMessage, ...] = (),
     ) -> tuple[str, ConsultationResult | None]:
         # 텍스트가 없고 첨부파일만 있는 경우(OCR 미연동 상태라 첨부 내용을 알 수 없음)엔
         # LLM 호출 자체가 의미 없어서 안내 문구만 반환한다 — 실제 상담이 아니므로
@@ -123,19 +134,33 @@ class MessageService:
                 None,
             )
 
-        # 진료과 분류를 여기서 미리 한 번만 한다 - RAG 검색의 진료과 소프트 부스트
-        # (rag_search_service.search의 department=)와 consult()의 프롬프트 힌트가
-        # 같은 분류 결과를 쓰게 하기 위함(키워드 매칭이라 결정론적이지만, 같은 질문을
-        # 두 번 분류해서 굳이 두 경로가 어긋날 여지를 만들 이유가 없다).
-        department_result = get_default_classifier().classify(content)
+        # RAG 검색 부스트와 상담 프롬프트에 같은 진료과 분류 결과를 전달한다.
+        classifier = get_default_classifier()
+        department_result = classifier.classify(content)
+        search_query = content
+        # "어제부터요"처럼 단독 분류가 안 되는 후속 답변은 최근 사용자 발언을
+        # 함께 검색한다. AI의 추측을 사용자 증상으로 분류하지 않는다.
+        if department_result.department is None and history:
+            recent_questions = [m.content for m in history if m.role == "user"][-3:]
+            context_questions: list[str] = []
+            for question in reversed(recent_questions):
+                context_questions.append(question)
+                previous_department = classifier.classify(question)
+                if previous_department.department is not None:
+                    # 주제가 바뀐 뒤에는 더 오래된 진료과의 키워드를 섞지 않는다.
+                    department_result = previous_department
+                    break
+            if context_questions:
+                search_query = "\n".join([*reversed(context_questions), content])
         reference_chunks = await asyncio.to_thread(
-            self._search_reference_chunks, content, department_result.department
+            self._search_reference_chunks, search_query, department_result.department
         )
 
         consult_kwargs = {"model_id": model_id} if model_id else {}
         result: ConsultationResult = await consult(
             llm_application,
             content,
+            history=history,
             reference_chunks=reference_chunks,
             department_result=department_result,
             **consult_kwargs,

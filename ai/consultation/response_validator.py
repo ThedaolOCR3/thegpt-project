@@ -501,10 +501,6 @@ def extract_mentioned_department(answer: str) -> str | None:
     }
     if len(specific) == 1:
         return next(iter(specific))
-    확신할 근거가 없으므로 None을 반환한다 - 잘못된 확신보다 미분류가 낫다."""
-    mentioned = {name for name in _DEPARTMENT_NAMES if name in answer}
-    if len(mentioned) == 1:
-        return next(iter(mentioned))
     return None
 
 
