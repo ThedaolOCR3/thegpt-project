@@ -37,20 +37,24 @@ class Settings(BaseSettings):
     message_max_files_per_request: int = 5
     message_max_file_size_mb: int = 20
 
-    # 소셜 로그인(Google/GitHub) — Authorization Code 플로우, 코드 교환은 항상
-    # 서버(여기)에서만 한다(client_secret을 프론트에 노출하면 안 됨). redirect_uri는
-    # Google/GitHub 콘솔에 등록한 값과 정확히 같아야 한다 — 지금은 Cloudflare
-    # Worker(dev-thegpt-project.thegpt.workers.dev)가 이 경로를 그대로 백엔드로
-    # 전달(proxy)하도록 등록되어 있어서, 로컬/실제 API prefix(/api)와 무관하게
-    # main.py가 루트 경로(/auth/google/callback, /oauth/github/callback)에 별도
-    # 라우터를 마운트한다 — 두 provider의 경로 규칙이 서로 다른 건(auth/ vs oauth/)
-    # 이미 각 콘솔에 등록해버린 값이라 그대로 맞췄다.
+    # 콜백 주소를 생략하면 FRONTEND_URL + provider별 경로를 사용한다.
+    # 프론트 콜백 라우트가 서버로 전달하고, 코드 교환은 서버에서만 처리한다.
+    # Google/GitHub 콘솔에도 같은 프론트 콜백 주소를 등록해야 한다.
+    # 로컬 개발 등 별도 주소가 필요할 때만 provider별 값을 명시한다.
     google_client_id: str | None = None
     google_client_secret: str | None = None
     google_oauth_redirect_uri: str = ""
     github_client_id: str | None = None
     github_client_secret: str | None = None
     github_oauth_redirect_uri: str = ""
+
+    @property
+    def effective_google_oauth_redirect_uri(self) -> str:
+        return self.google_oauth_redirect_uri.strip() or f"{self.frontend_url.rstrip('/')}/auth/google/callback"
+
+    @property
+    def effective_github_oauth_redirect_uri(self) -> str:
+        return self.github_oauth_redirect_uri.strip() or f"{self.frontend_url.rstrip('/')}/oauth/github/callback"
 
     # 관리자 RAG 원본은 8GiB까지 R2 멀티파트로 받되, 메모리에 올리는
     # 기존 multipart OCR 경로는 독립된 20MiB 한도를 유지한다.

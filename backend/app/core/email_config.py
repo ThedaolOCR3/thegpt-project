@@ -13,6 +13,8 @@ class EmailSettings(BaseSettings):
     smtp_password: str | None = None
     smtp_from_email: str | None = None
     smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_timeout_seconds: float = 30
     app_env: str = "local"
 
     model_config = SettingsConfigDict(

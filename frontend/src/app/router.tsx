@@ -1,4 +1,6 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, redirectDocument } from "react-router-dom";
+import { API_URL } from "../services/apiClient";
+import { PROVIDER_CALLBACK_PATHS, providerCallbackUrl } from "../features/auth/oauth-callback/providerRedirect";
 import { MainLayout } from "../components/Layout/MainLayout";
 import { LoginPage } from "../features/auth/login";
 import { OAuthCallbackPage } from "../features/auth/oauth-callback";
@@ -19,6 +21,11 @@ import { SearchPage } from "../features/search";
 import { MyPage } from "../features/my";
 
 export const router = createBrowserRouter([
+  ...PROVIDER_CALLBACK_PATHS.map((path) => ({
+    path,
+    loader: ({ request }: { request: Request }) =>
+      redirectDocument(providerCallbackUrl(request.url, API_URL)),
+  })),
   {
     // 모든 화면을 하나의 사이드바 레이아웃 안에서 보여줍니다.
     element: <MainLayout />,
