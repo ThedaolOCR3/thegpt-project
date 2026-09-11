@@ -18,6 +18,21 @@ class DetectEmergencyTest(unittest.TestCase):
         self.assertFalse(detect_emergency("어제부터 콧물이 나요"))
         self.assertFalse(detect_emergency("무릎이 좀 아파요"))
 
+    def test_still_catches_combined_case_that_motivated_removed_keyword(self) -> None:
+        # "가슴 답답" 키워드가 원래 이 문장을 잡으려고 추가됐었다("가슴"-"통증" 사이
+        # 7자가 당시 6자 갭 허용치를 넘어서 놓쳤음). 그 키워드를 제거한 뒤에도
+        # gap=15로 넓힌 "가슴 통증" 키워드만으로 여전히 잡혀야 재현율 손실이 없다.
+        self.assertTrue(detect_emergency("가슴이 답답하고 통증이 있어요"))
+
+    def test_does_not_flag_common_stress_related_chest_tightness(self) -> None:
+        # 회귀 테스트(2026-09) - "가슴 답답"을 응급 키워드에 넣었더니 스트레스·소화불량
+        # 등 일상적인 비응급 표현까지 걸려서, 실제 상담 다수가 LLM 답변 대신 고정
+        # 응급 문구만 받는 품질 저하가 실제로 보고됐다. 응급 신호 없이 "답답함"만
+        # 있는 경우는 다시는 잡히면 안 된다.
+        self.assertFalse(detect_emergency("요즘 스트레스를 받아서 그런지 가슴이 답답해요"))
+        self.assertFalse(detect_emergency("체한 것 같은데 가슴이 답답하고 소화가 안돼요"))
+        self.assertFalse(detect_emergency("밥을 급하게 먹었더니 가슴이 답답하네요"))
+
     def test_empty_text_is_not_emergency(self) -> None:
         self.assertFalse(detect_emergency(""))
 

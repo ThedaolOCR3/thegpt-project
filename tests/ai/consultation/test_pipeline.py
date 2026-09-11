@@ -193,7 +193,10 @@ class ConsultTest(unittest.IsolatedAsyncioTestCase):
         # (LLM은 호출하지 않으므로 model_id는 여전히 None이어야 함).
         app = FakeLlmApplication()
 
-        result = await consult(app, "가슴이 답답하고 두근거림이 심해요")
+        # "가슴 통증"(risk_detector 응급 키워드) + "두근거림"(classifier 순환기내과
+        # 키워드) 조합 - "가슴이 답답하고"만으로는 더는 응급으로 안 잡힌다(2026-09,
+        # 일상적인 비응급 표현까지 걸리는 오탐이라 제거 - risk_detector.py 참고).
+        result = await consult(app, "가슴 통증이 심하고 두근거림이 있어요")
 
         self.assertTrue(result.is_emergency)
         self.assertIsNone(app.last_model_id)
