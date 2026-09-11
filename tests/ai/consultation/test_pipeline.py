@@ -6,6 +6,12 @@ from ai.consultation.pipeline import DEFAULT_MAX_OUTPUT_TOKENS, FALLBACK_ANSWER,
 
 
 @dataclass
+class FakeChunk:
+    text: str
+    metadata: dict | None = None
+
+
+@dataclass
 class FakeResult:
     answer: str
     finish_reason: str | None = None
@@ -140,6 +146,35 @@ class ConsultTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.finish_reason)
 
+    async def test_emergency_short_circuit_still_uses_precomputed_department(self) -> None:
+        # 예전엔 응급 하드필터가 department_result를 통째로 무시하고 None을 강제해서,
+        # message.py가 이미 분류까지 마쳐 넘겨준 결과가 응급 대화에서만 버려졌다
+        # (관리자 화면에서 응급 대화가 전부 "기타"로만 집계되던 원인, 2026-09 실측).
+        app = FakeLlmApplication()
+        precomputed = DepartmentResult(department="신경과", confidence="중간")
+
+        result = await consult(
+            app,
+            "갑자기 말이 어눌해지고 팔다리에 힘이 안 들어가요",
+            department_result=precomputed,
+        )
+
+        self.assertTrue(result.is_emergency)
+        self.assertIn("119", result.answer)
+        self.assertEqual(result.department, "신경과")
+        self.assertEqual(result.confidence, "중간")
+
+    async def test_emergency_short_circuit_classifies_when_not_precomputed(self) -> None:
+        # department_result를 안 넘긴 경우에도 자체 classifier로 분류를 시도해야 한다
+        # (LLM은 호출하지 않으므로 model_id는 여전히 None이어야 함).
+        app = FakeLlmApplication()
+
+        result = await consult(app, "가슴이 답답하고 두근거림이 심해요")
+
+        self.assertTrue(result.is_emergency)
+        self.assertIsNone(app.last_model_id)
+        self.assertEqual(result.department, "순환기내과")
+
     async def test_precomputed_department_result_is_used_without_reclassifying(self) -> None:
         # message.py가 RAG 검색의 진료과 부스트에도 같은 분류 결과를 쓰려고 미리
         # classify()를 해뒀다면, consult()는 그 결과를 그대로 써야 한다(자체
@@ -190,6 +225,51 @@ class ConsultTest(unittest.IsolatedAsyncioTestCase):
         precomputed = DepartmentResult(department="정형외과", confidence="중간")
 
         result = await consult(app, "어깨가 아파요", department_result=precomputed)
+
+        self.assertEqual(result.department, "정형외과")
+
+    async def test_non_answer_from_llm_is_replaced_with_fallback_answer(self) -> None:
+        # response_validator.validate()가 메타 지시문만 있는 답변을 빈 문자열로
+        # 걸러내면, LLM 호출 자체는 성공했어도 사용자에게는 FALLBACK_ANSWER를 보여야
+        # 한다(실제 의료 답변이 아니므로).
+        app = FakeLlmApplication(
+            answer="답변 완료 후에는 새로운 프롬프트와 함께 다시 시작하십시오. 감사합니다!"
+        )
+        result = await consult(app, "목이 아파요")
+
+        self.assertEqual(result.answer, FALLBACK_ANSWER)
+        self.assertTrue(result.is_fallback)
+        self.assertEqual(result.error_type, "NonAnswerFiltered")
+
+    async def test_rag_chunk_department_is_used_when_precomputed_is_low_confidence(self) -> None:
+        # 사전 분류가 확신이 낮으면(또는 아예 없으면), 실제 검색된 참고 문서의 진료과
+        # 메타데이터를 우선 채택한다 - 사용자 원문 키워드보다 검색된 근거가 더 신뢰도
+        # 높은 신호라고 보기 때문.
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        chunks = [
+            FakeChunk(text="내용1", metadata={"department": ["안과"]}),
+            FakeChunk(text="내용2", metadata={"department": ["안과"]}),
+        ]
+
+        result = await consult(app, "눈이 좀 불편해요", reference_chunks=chunks)
+
+        self.assertEqual(result.department, "안과")
+        self.assertEqual(result.confidence, "높음")
+
+    async def test_high_confidence_precomputed_department_is_not_overridden_by_rag(self) -> None:
+        # 반대로 사전 분류가 이미 "높음"으로 확신했다면, RAG 문서 하나가 다른 진료과를
+        # 가리켜도 뒤집지 않는다 - RAG가 무관한 문서를 끌어온 사례가 실제로 있었기
+        # 때문에(2026-09), 강한 신호를 약한 신호로 덮어쓰지 않게 보수적으로 둔다.
+        app = FakeLlmApplication(answer="충분한 휴식을 취해보세요.")
+        precomputed = DepartmentResult(department="정형외과", confidence="높음")
+        chunks = [FakeChunk(text="내용", metadata={"department": ["피부과"]})]
+
+        result = await consult(
+            app,
+            "어깨가 결려서 병원에 가야할지 고민이에요",
+            department_result=precomputed,
+            reference_chunks=chunks,
+        )
 
         self.assertEqual(result.department, "정형외과")
 

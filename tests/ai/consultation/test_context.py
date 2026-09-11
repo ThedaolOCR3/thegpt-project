@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import dataclass
 
-from ai.consultation.context import build_reference_info_block
+from ai.consultation.context import build_reference_info_block, derive_department_from_chunks
 
 
 @dataclass
@@ -69,6 +69,45 @@ class BuildReferenceInfoBlockTest(unittest.TestCase):
     def test_header_states_user_symptoms_take_priority_over_documents(self) -> None:
         block = build_reference_info_block([FakeChunk(text="내용")])
         self.assertIn("우선", block)
+
+
+class DeriveDepartmentFromChunksTest(unittest.TestCase):
+    def test_none_when_no_chunks(self) -> None:
+        self.assertIsNone(derive_department_from_chunks(None))
+        self.assertIsNone(derive_department_from_chunks([]))
+
+    def test_none_when_no_chunk_has_department_metadata(self) -> None:
+        chunks = [FakeChunk(text="내용", metadata={"reliability_tier": "낮음"})]
+        self.assertIsNone(derive_department_from_chunks(chunks))
+
+    def test_single_chunk_with_department_returns_medium_confidence(self) -> None:
+        chunks = [FakeChunk(text="내용", metadata={"department": ["순환기내과"]})]
+        result = derive_department_from_chunks(chunks)
+        self.assertEqual(result.department, "순환기내과")
+        self.assertEqual(result.confidence, "중간")
+
+    def test_two_agreeing_chunks_return_high_confidence(self) -> None:
+        chunks = [
+            FakeChunk(text="내용1", metadata={"department": ["정형외과"]}),
+            FakeChunk(text="내용2", metadata={"department": ["정형외과"]}),
+        ]
+        result = derive_department_from_chunks(chunks)
+        self.assertEqual(result.department, "정형외과")
+        self.assertEqual(result.confidence, "높음")
+
+    def test_majority_wins_when_chunks_disagree(self) -> None:
+        # 검색 결과에 무관한 문서 하나가 섞여도(예: RAG가 살짝 다른 주제를 끌어옴)
+        # 다수결로 상쇄되어야 한다.
+        chunks = [
+            FakeChunk(text="내용1", metadata={"department": ["신경과"]}),
+            FakeChunk(text="내용2", metadata={"department": ["신경과"]}),
+            FakeChunk(text="내용3", metadata={"department": ["피부과"]}),
+        ]
+        result = derive_department_from_chunks(chunks)
+        self.assertEqual(result.department, "신경과")
+
+    def test_chunks_without_metadata_attribute_do_not_crash(self) -> None:
+        self.assertIsNone(derive_department_from_chunks([object(), object()]))
 
 
 if __name__ == "__main__":

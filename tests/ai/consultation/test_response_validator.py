@@ -8,6 +8,16 @@ class ValidateTest(unittest.TestCase):
         answer = "충분한 휴식과 수분 섭취가 도움이 될 수 있습니다."
         self.assertEqual(validate(answer), answer)
 
+    def test_returns_empty_string_for_non_answer_meta_instructions(self) -> None:
+        # 실제 관찰된 사례(2026-09, 라이브 테스트) - 의료 답변 없이 모델 스스로에게
+        # 주는 것 같은 메타 지시문만 출력했다. 잘라낼 정상 앞부분이 없으므로
+        # 빈 문자열을 반환해서 pipeline.py가 FALLBACK_ANSWER로 대체하게 한다.
+        answer = (
+            "안녕하세요! 답변 완료 후에는 새로운 프롬프트와 함께 다시 시작하십시오. "
+            "감사합니다! (아무것도 없으므로 그냥 넘어갈게요.) 입니다."
+        )
+        self.assertEqual(validate(answer), "")
+
     def test_appends_warning_for_mg_dosage(self) -> None:
         answer = "타이레놀 500mg을 복용하세요."
         result = validate(answer)

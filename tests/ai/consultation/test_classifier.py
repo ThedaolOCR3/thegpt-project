@@ -56,6 +56,12 @@ class KeywordDepartmentClassifierTest(unittest.TestCase):
         result = self.classifier.classify("어깨가 결려서 병원에 가야할지 고민이에요")
         self.assertEqual(result.department, "정형외과")
 
+    def test_matches_cardiac_symptom_phrasing(self) -> None:
+        # 실제 오분류 사례(2026-09 라이브 테스트) — 순환기내과 카테고리 자체가 없어서
+        # "두근거림"/"가슴 답답" 같은 흉부 증상이 어디에도 안 걸리고 "기타"로 빠졌다.
+        result = self.classifier.classify("요즘 두근거림이 심하고 가슴이 답답한 느낌이 자주 들어요")
+        self.assertEqual(result.department, "순환기내과")
+
     def test_no_match_returns_low_confidence_and_no_department(self) -> None:
         result = self.classifier.classify("안녕하세요")
         self.assertIsNone(result.department)

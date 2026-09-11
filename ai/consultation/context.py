@@ -10,11 +10,18 @@
 "참고 의료 정보"인 것처럼 만들어내면 안 된다 — 이 함수가 실제로 받은 chunk 이외의
 내용은 이 블록에 절대 추가하지 않는다.
 """
+from collections import Counter
 from typing import Any, Protocol
+
+from .classifier import ConfidenceLabel, DepartmentResult
 
 # 프롬프트에 실어 보내는 참고 정보 총량 상한 — 토큰 낭비/컨텍스트 과다 방지.
 DEFAULT_MAX_CHUNKS = 5
 DEFAULT_MAX_CHARS_PER_CHUNK = 800
+
+# 검색된 청크 중 몇 개가 같은 진료과를 가리켜야 "높음"으로 볼지. 1개만 있어도 신호로는
+# 쓰되(중간), 서로 다른 문서 여러 개가 같은 진료과로 모이면 우연이 아닐 가능성이 높다.
+_MIN_CHUNKS_FOR_HIGH_CONFIDENCE = 2
 
 
 class _RetrievedLike(Protocol):
@@ -99,3 +106,35 @@ def build_reference_info_block(
     if used == 0:
         return None
     return "\n".join(lines)
+
+
+def derive_department_from_chunks(chunks: list[Any] | None) -> DepartmentResult | None:
+    """RAG로 검색된 참고 문서들의 메타데이터에 이미 진료과가 태그돼 있으면(예: 이 문서
+    소스가 원본에 명시된 전공을 그대로 옮긴 경우) 그걸 분류 신호로 재활용한다. 사용자
+    원문의 키워드만 보는 `classifier.py`보다, 실제로 검색된 근거 문서 기반이라는
+    점에서 원칙적으로는 더 강한 신호다.
+
+    다만 2026-09 기준 코퍼스 대부분의 출처가 아직 department를 못 채워서(빈 리스트)
+    신호가 아예 없는 경우가 훨씬 많다 — 그런 경우 이 함수는 `None`을 반환해서
+    호출하는 쪽(`pipeline.py`)이 기존 키워드 분류/LLM 답변 기반 분류로 그대로
+    넘어가게 한다. 이 함수가 있다고 기존 분류 경로가 사라지지 않는다.
+
+    청크 여러 개가 서로 다른 진료과를 가리키면(모델이 여러 참고 문서를 받았는데
+    문서마다 주제가 다른 경우) 가장 많이 겹치는 진료과를 채택한다 — 관련 없는
+    문서 하나가 우연히 섞여도 다수결로 상쇄되게 하기 위함."""
+    if not chunks:
+        return None
+
+    votes: Counter[str] = Counter()
+    for chunk in chunks:
+        metadata = _chunk_metadata(chunk)
+        for name in metadata.get("department") or []:
+            if isinstance(name, str) and name.strip():
+                votes[name.strip()] += 1
+
+    if not votes:
+        return None
+
+    top_department, hits = votes.most_common(1)[0]
+    confidence: ConfidenceLabel = "높음" if hits >= _MIN_CHUNKS_FOR_HIGH_CONFIDENCE else "중간"
+    return DepartmentResult(department=top_department, confidence=confidence)
